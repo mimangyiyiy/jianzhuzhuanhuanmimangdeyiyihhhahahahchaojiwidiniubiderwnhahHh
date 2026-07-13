@@ -172,10 +172,12 @@ async function init(){
     pyodide=await loadPyodide({indexURL:'https://cdn.jsdelivr.net/pyodide/v0.25.1/full/'});
     loadProgress(70,'Python 引擎就绪，加载模块...');
 
-    pyodide.runPython((await fetch('py/sensitive_filter.py')).text());
+    var sfCode=await(await fetch('py/sensitive_filter.py')).text();
+    pyodide.runPython(sfCode);
     loadProgress(80,'敏感词规则已加载');
 
-    await pyodide.runPythonAsync((await fetch('py/converter.py')).text());
+    var convCode=await(await fetch('py/converter.py')).text();
+    pyodide.runPython(convCode);
     loadProgress(95,'转换引擎已加载');
 
     loadProgress(100,'就绪');
