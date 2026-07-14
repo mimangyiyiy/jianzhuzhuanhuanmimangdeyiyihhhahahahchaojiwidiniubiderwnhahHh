@@ -545,81 +545,13 @@
             var status = document.getElementById('mapStatus');
             status.textContent = '映射表: 加载中...';
 
-            fetch('generator_blocks.json')
-                .then(function(res) {
-                    if (!res.ok) throw new Error('HTTP ' + res.status);
-                    return res.json();
-                })
-                .then(function(data) {
-                    // 支持两种格式: 数组格式 (mappings) 或 对象格式
-                    var mappings = data.mappings || data;
-                    if (!Array.isArray(mappings)) {
-                        // 如果是对象格式，转换为数组
-                        var arr = [];
-                        for (var key in mappings) {
-                            if (mappings.hasOwnProperty(key)) {
-                                arr.push(mappings[key]);
-                            }
-                        }
-                        mappings = arr;
-                    }
+            // 映射表已在 block_map.js 中定义
+var mapLoaded = true;
+var blockMap = BLOCK_MAP || {};
 
-                    for (var i = 0; i < mappings.length; i++) {
-                        var entry = mappings[i];
-                        var javaState = entry.java_state || entry.java;
-                        var bedrockState = entry.bedrock_state || entry.bedrock;
-
-                        if (!javaState || !bedrockState) continue;
-
-                        var javaName = javaState.Name || javaState.name || javaState;
-                        var bedrockId = bedrockState.bedrock_identifier || bedrockState.identifier || bedrockState.id ||
-                            bedrockState;
-
-                        // 生成 key: 如果有 Properties，包含在 key 中
-                        var key = javaName;
-                        if (javaState.Properties) {
-                            var props = javaState.Properties;
-                            var propStr = [];
-                            for (var p in props) {
-                                propStr.push(p + '=' + props[p]);
-                            }
-                            propStr.sort();
-                            key = javaName + '[' + propStr.join(',') + ']';
-                        }
-
-                        // 如果有 state (基岩版状态)，组合成带状态的 ID
-                        var finalId = bedrockId;
-                        if (bedrockState.state) {
-                            var stateStr = [];
-                            for (var s in bedrockState.state) {
-                                stateStr.push(s + '=' + bedrockState.state[s]);
-                            }
-                            stateStr.sort();
-                            finalId = bedrockId + '[' + stateStr.join(',') + ']';
-                        }
-
-                        blockMap[key] = finalId;
-
-                        // 也存一份不带状态的映射作为 fallback
-                        if (!blockMap[javaName]) {
-                            blockMap[javaName] = bedrockId;
-                        }
-                    }
-
-                    mapLoaded = true;
-                    status.textContent = '映射表: 已加载 ' + Object.keys(blockMap).length + ' 条';
-                    log('✅ 映射表加载完成: ' + Object.keys(blockMap).length + ' 条');
-                    setStatus('✅ 就绪 — 映射表已加载', 'status-ok');
-                    document.getElementById('st').textContent = '✅ 就绪 — 映射表已加载，可拖拽文件';
-                })
-                .catch(function(err) {
-                    status.textContent = '映射表: 加载失败，使用内置映射';
-                    status.style.color = '#ff6b6b';
-                    log('⚠️ 映射表加载失败: ' + err.message + '，使用内置映射');
-                    setStatus('⚠️ 映射表加载失败，使用内置映射', 'status-err');
-                    // 使用内置映射作为 fallback
-                    loadFallbackMap();
-                });
+document.getElementById('mapStatus').textContent = '映射表: 已加载 ' + Object.keys(blockMap).length + ' 条 (内置)';
+log('✅ 映射表加载完成: ' + Object.keys(blockMap).length + ' 条');
+setStatus('✅ 就绪 — 映射表已加载', 'status-ok');
         }
 
         // ============================================================
