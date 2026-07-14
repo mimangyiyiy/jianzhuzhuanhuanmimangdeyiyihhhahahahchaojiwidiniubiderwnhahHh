@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="zh">
 <head>
+    <!-- 在 <head> 中添加 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MC建筑转换器 v3.6</title>
@@ -1884,24 +1886,26 @@
         }
 
         // ============================================================
-        // 生成 3D 预览 HTML
+        // 生成 3D 预览 HTML (支持 textures.zip 内纹理)
         // ============================================================
         function generatePreviewHTML(result, fileName) {
             if (!result || !result.blocks || result.blocks.length === 0) {
                 return null;
             }
-
+        
             var blocks = result.blocks;
             var w = result.width || 1;
             var h = result.height || 1;
             var l = result.length || 1;
-
+        
+            // 限制显示数量，防止浏览器卡死
             var maxBlocks = 50000;
             var showBlocks = blocks;
             if (blocks.length > maxBlocks) {
                 showBlocks = blocks.slice(0, maxBlocks);
             }
-
+        
+            // 按方块类型分组
             var groupMap = {};
             for (var i = 0; i < showBlocks.length; i++) {
                 var b = showBlocks[i];
@@ -1909,7 +1913,8 @@
                 if (!groupMap[bid]) groupMap[bid] = [];
                 groupMap[bid].push(b);
             }
-
+        
+            // 构建方块数据
             var blockData = {};
             for (var bid in groupMap) {
                 var list = groupMap[bid];
@@ -1918,6 +1923,7 @@
                     var b = list[j];
                     positions.push([b.x, b.y, b.z]);
                 }
+                // 生成一个颜色作为 fallback
                 var hash = 0;
                 for (var ci = 0; ci < bid.length; ci++) hash = (hash * 31 + bid.charCodeAt(ci)) & 0xFFFFFF;
                 var color = '#' + (0x404040 + (hash & 0x7F7F7F)).toString(16).padStart(6, '0');
@@ -1927,7 +1933,7 @@
                     name: bid
                 };
             }
-
+        
             var html = '<!DOCTYPE html>\n';
             html += '<html>\n<head>\n';
             html += '<meta charset="utf-8">\n';
@@ -1936,125 +1942,426 @@
             html += 'body{margin:0;overflow:hidden;background:#0d0d2b;font-family:sans-serif;}\n';
             html += '#info{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:#aaa;font-size:13px;background:rgba(0,0,0,.6);padding:6px 20px;border-radius:8px;pointer-events:none;z-index:10;}\n';
             html += '#loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#666;font-size:16px;z-index:20;}\n';
+            html += '#progress-bar-wrap{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:300px;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;z-index:25;display:none;}\n';
+            html += '#progress-bar-wrap.active{display:block;}\n';
+            html += '#progress-bar-inner{height:100%;width:0%;background:linear-gradient(90deg,#7c4dff,#448aff,#00c853);border-radius:2px;transition:width 0.3s;}\n';
+            html += '#progress-text{position:absolute;top:calc(50% + 16px);left:50%;transform:translateX(-50%);color:#888;font-size:12px;z-index:25;display:none;}\n';
+            html += '#progress-text.active{display:block;}\n';
             html += '</style>\n';
             html += '</head>\n<body>\n';
             html += '<div id="loading">⏳ 加载 Three.js...</div>\n';
+            html += '<div id="progress-bar-wrap"><div id="progress-bar-inner"></div></div>\n';
+            html += '<div id="progress-text">加载纹理 0%</div>\n';
             html += '<div id="info">' + fileName + ' | 方块: ' + showBlocks.length + ' | 尺寸: ' + w + '×' + h + '×' + l +
                 ' | 拖拽旋转/滚轮缩放</div>\n';
-
+        
+            // 引入 Three.js
             html += '<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>\n';
             html += '<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"><\/script>\n';
-
+            // 引入 JSZip
+            html += '<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"><\/script>\n';
+        
             html += '<script>\n';
             html += 'var blockData = ' + JSON.stringify(blockData) + ';\n';
             html += 'var W = ' + w + ', H = ' + h + ', L = ' + l + ';\n';
             html += 'var cx = W/2, cy = H/2, cz = L/2;\n';
-
+            html += 'var zipData = null;\n';
+            html += 'var textureCache = {};\n';
+            html += 'var scene, camera, renderer, controls;\n';
+            html += 'var modelGroup;\n';
+            html += 'var loadingDone = false;\n';
+            html += 'var totalTextures = 0;\n';
+            html += 'var loadedTextures = 0;\n';
+        
+            // ============================================================
+            // 获取纹理候选文件名 (与 jz.py 一致)
+            // ============================================================
             html += `
-            document.getElementById('loading').style.display='none';
-            var scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x0d0d2b);
-            var camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 5000);
-            var maxDim = Math.max(W,H,L);
-            var dist = maxDim * 1.5 + 10;
-            camera.position.set(dist*0.8, dist*0.6, dist*0.8);
-            var renderer = new THREE.WebGLRenderer({antialias:true});
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
-            document.body.appendChild(renderer.domElement);
-            var controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-            controls.dampingFactor = 0.08;
-            controls.target.set(0,0,0);
-            controls.update();
-            var ambient = new THREE.AmbientLight(0x404070, 0.6);
-            scene.add(ambient);
-            var sun = new THREE.DirectionalLight(0xffeedd, 1.2);
-            sun.position.set(80,150,60);
-            scene.add(sun);
-            var back = new THREE.DirectionalLight(0x8888ff, 0.3);
-            back.position.set(-60,80,-40);
-            scene.add(back);
-            // 网格放在底部 (y = -0.5)
-            var grid = new THREE.GridHelper(Math.max(maxDim*2+10,40), Math.floor(Math.max(maxDim,20)), 0x444488, 0x333366);
-            grid.position.y = -0.5;
-            scene.add(grid);
-
-            var faceVerts = [
-                {n:[1,0,0], u:[0,1,0,1,0,1,0,0], v:[0,0,1,1,1,1,0,0]},
-                {n:[-1,0,0], u:[1,0,1,0,0,1,0,1], v:[0,0,1,1,1,1,0,0]},
-                {n:[0,1,0], u:[0,0,1,1,1,1,0,0], v:[1,0,1,0,0,1,0,1]},
-                {n:[0,-1,0], u:[0,0,1,1,1,1,0,0], v:[0,1,0,1,1,0,1,0]},
-                {n:[0,0,1], u:[0,0,1,1,1,1,0,0], v:[0,0,1,1,1,1,0,0]},
-                {n:[0,0,-1], u:[1,0,1,0,0,1,0,1], v:[0,0,1,1,1,1,0,0]}
-            ];
-            var offsets = [[0,0,0],[1,0,0],[1,0,1],[0,0,1],[0,1,0],[1,1,0],[1,1,1],[0,1,1]];
-            var faceIndices = [[1,5,6,2],[0,3,7,4],[4,7,6,5],[0,1,2,3],[2,6,7,3],[0,4,5,1]];
-
-            for(var bid in blockData){
-                var data = blockData[bid];
-                var positions = [];
-                var uvs = [];
-                var normals = [];
-                for(var bi=0; bi<data.positions.length; bi++){
-                    var p = data.positions[bi];
-                    var bx = p[0] - cx;
-                    var by = p[1] - cy;
-                    var bz = p[2] - cz;
-                    for(var f=0; f<6; f++){
-                        var idxs = faceIndices[f];
-                        var n = faceVerts[f].n;
-                        var uArr = faceVerts[f].u;
-                        var vArr = faceVerts[f].v;
-                        for(var vi=0; vi<4; vi++){
-                            var oi = idxs[vi];
-                            positions.push(bx+offsets[oi][0]);
-                            positions.push(by+offsets[oi][1]);
-                            positions.push(bz+offsets[oi][2]);
-                            uvs.push(uArr[vi]);
-                            uvs.push(vArr[vi]);
-                            normals.push(n[0],n[1],n[2]);
-                        }
+            function getTextureName(bid) {
+                var name = bid.split(':').pop() || bid;
+                name = name.replace(/\\[.*?\\]/, '');
+        
+                var overrides = {
+                    'grass_block': 'grass_block_top',
+                    'farmland': 'farmland_moist',
+                    'redstone_wire': 'redstone_dust_line0',
+                    'furnace': 'furnace_front_off',
+                    'glass_pane': 'glass',
+                    'wooden_door': 'oak_door_bottom',
+                    'tallgrass': 'grass',
+                    'cauldron': 'cauldron_side',
+                    'lever': 'lever',
+                    'torch': 'torch',
+                    'water': 'water_still',
+                    'oak_log': 'oak_log',
+                    'oak_slab': 'oak_planks',
+                    'sandstone_slab': 'sandstone_bottom',
+                    'stone_slab': 'cobblestone',
+                    'wooden_slab': 'oak_planks',
+                    'oak_stairs': 'oak_planks',
+                    'trapdoor': 'oak_trapdoor',
+                    'brown_wool': 'brown_wool',
+                    'green_wool': 'green_wool',
+                    'white_wool': 'white_wool',
+                    'concrete': 'concrete',
+                    'white_concrete': 'concrete',
+                    'orange_concrete': 'concrete',
+                    'magenta_concrete': 'concrete',
+                    'light_blue_concrete': 'concrete',
+                    'yellow_concrete': 'concrete',
+                    'lime_concrete': 'concrete',
+                    'pink_concrete': 'concrete',
+                    'gray_concrete': 'concrete',
+                    'light_gray_concrete': 'concrete',
+                    'cyan_concrete': 'concrete',
+                    'purple_concrete': 'concrete',
+                    'blue_concrete': 'concrete',
+                    'brown_concrete': 'concrete',
+                    'green_concrete': 'concrete',
+                    'red_concrete': 'concrete',
+                    'black_concrete': 'concrete',
+                };
+                name = overrides[name] || name;
+        
+                var candidates = [name + '.png'];
+                var suffixes = ['_top', '_side', '_bottom', '_front', '_sides', '_end', '_planks', '_log'];
+                for (var i = 0; i < suffixes.length; i++) {
+                    candidates.push(name + suffixes[i] + '.png');
+                }
+                if (name.endsWith('_slab')) {
+                    var base = name.replace('_slab', '');
+                    candidates.push(base + '.png');
+                    candidates.push(base + '_top.png');
+                    candidates.push(base + '_planks.png');
+                }
+                if (name.endsWith('_stairs')) {
+                    var base = name.replace('_stairs', '');
+                    candidates.push(base + '.png');
+                    candidates.push(base + '_top.png');
+                    candidates.push(base + '_planks.png');
+                }
+                if (name.includes('concrete')) {
+                    candidates.push('concrete.png');
+                }
+                candidates.push('stone.png');
+                candidates.push('oak_planks.png');
+                candidates.push('dirt.png');
+        
+                return candidates;
+            }
+            `;
+        
+            // ============================================================
+            // 创建 Fallback 纹理 (纯色)
+            // ============================================================
+            html += `
+            function createFallbackTexture(bid) {
+                var hash = 0;
+                for (var i = 0; i < bid.length; i++) hash = (hash * 31 + bid.charCodeAt(i)) & 0xFFFFFF;
+                var hex = 0x404040 + (hash & 0x7F7F7F);
+                var canvas = document.createElement('canvas');
+                canvas.width = 16;
+                canvas.height = 16;
+                var ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#' + hex.toString(16).padStart(6, '0');
+                ctx.fillRect(0, 0, 16, 16);
+                ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+                ctx.lineWidth = 0.5;
+                ctx.strokeRect(0, 0, 16, 16);
+                var tex = new THREE.CanvasTexture(canvas);
+                tex.magFilter = THREE.NearestFilter;
+                tex.minFilter = THREE.NearestFilter;
+                return tex;
+            }
+            `;
+        
+            // ============================================================
+            // 从 ZIP 加载纹理
+            // ============================================================
+            html += `
+            function loadTextureFromZip(bid, callback) {
+                if (!zipData) {
+                    setTimeout(function() { loadTextureFromZip(bid, callback); }, 50);
+                    return;
+                }
+                if (textureCache[bid]) {
+                    callback(textureCache[bid]);
+                    return;
+                }
+                var candidates = getTextureName(bid);
+                var tried = 0;
+        
+                function tryNext() {
+                    if (tried >= candidates.length) {
+                        var tex = createFallbackTexture(bid);
+                        textureCache[bid] = tex;
+                        callback(tex);
+                        return;
+                    }
+                    var path = 'textures/block/' + candidates[tried];
+                    tried++;
+                    var file = zipData.file(path);
+                    if (file) {
+                        file.async('blob').then(function(blob) {
+                            var url = URL.createObjectURL(blob);
+                            var loader = new THREE.TextureLoader();
+                            loader.load(url, function(tex) {
+                                tex.magFilter = THREE.NearestFilter;
+                                tex.minFilter = THREE.NearestFilter;
+                                textureCache[bid] = tex;
+                                callback(tex);
+                                URL.revokeObjectURL(url);
+                                loadedTextures++;
+                                updateProgress();
+                            }, undefined, function() {
+                                // 加载失败，尝试下一个
+                                tryNext();
+                            });
+                        }).catch(function() {
+                            tryNext();
+                        });
+                    } else {
+                        tryNext();
                     }
                 }
-                var geo = new THREE.BufferGeometry();
-                var vertCount = positions.length/3;
-                geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-                geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-                geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-                var indices = [];
-                for(var i=0; i<vertCount/4; i++){
-                    var base = i*4;
-                    indices.push(base, base+1, base+2, base, base+2, base+3);
+                tryNext();
+            }
+            `;
+        
+            // ============================================================
+            // 进度更新
+            // ============================================================
+            html += `
+            function updateProgress() {
+                var pct = Math.min(Math.round(loadedTextures / totalTextures * 100), 100);
+                var bar = document.getElementById('progress-bar-inner');
+                var text = document.getElementById('progress-text');
+                if (bar) bar.style.width = pct + '%';
+                if (text) text.textContent = '加载纹理 ' + pct + '%';
+                if (pct >= 100) {
+                    document.getElementById('progress-bar-wrap').classList.remove('active');
+                    document.getElementById('progress-text').classList.remove('active');
                 }
-                geo.setIndex(indices);
-                // 使用颜色材质 (贴图不好加载，用颜色替代)
-                var mat = new THREE.MeshStandardMaterial({
-                    color: data.color,
-                    roughness: 0.7,
-                    metalness: 0.05,
-                    side: THREE.DoubleSide,
-                    emissive: data.color,
-                    emissiveIntensity: 0.05
-                });
-                var mesh = new THREE.Mesh(geo, mat);
-                scene.add(mesh);
             }
-
-            function animate(){
-                requestAnimationFrame(animate);
-                controls.update();
-                renderer.render(scene, camera);
-            }
-            animate();
-
-            window.addEventListener('resize', function(){
-                camera.aspect = window.innerWidth/window.innerHeight;
-                camera.updateProjectionMatrix();
+            `;
+        
+            // ============================================================
+            // 构建场景
+            // ============================================================
+            html += `
+            function buildScene() {
+                document.getElementById('loading').style.display = 'none';
+        
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x0d0d2b);
+        
+                var maxDim = Math.max(W, H, L);
+                var dist = maxDim * 1.5 + 10;
+        
+                camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 5000);
+                camera.position.set(dist * 0.8, dist * 0.6, dist * 0.8);
+        
+                renderer = new THREE.WebGLRenderer({ antialias: true });
                 renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                document.body.appendChild(renderer.domElement);
+        
+                controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.08;
+                controls.target.set(0, 0, 0);
+                controls.update();
+        
+                var ambient = new THREE.AmbientLight(0x404070, 0.6);
+                scene.add(ambient);
+        
+                var sun = new THREE.DirectionalLight(0xffeedd, 1.2);
+                sun.position.set(80, 150, 60);
+                scene.add(sun);
+        
+                var back = new THREE.DirectionalLight(0x8888ff, 0.3);
+                back.position.set(-60, 80, -40);
+                scene.add(back);
+        
+                // 网格放在底部 (y = -0.5)
+                var grid = new THREE.GridHelper(Math.max(maxDim * 2 + 10, 40), Math.floor(Math.max(maxDim, 20)), 0x444488, 0x333366);
+                grid.position.y = -0.5;
+                scene.add(grid);
+        
+                modelGroup = new THREE.Group();
+                scene.add(modelGroup);
+        
+                // 准备构建方块
+                var bids = Object.keys(blockData);
+                totalTextures = bids.length;
+                loadedTextures = 0;
+        
+                if (totalTextures > 0) {
+                    document.getElementById('progress-bar-wrap').classList.add('active');
+                    document.getElementById('progress-text').classList.add('active');
+                }
+        
+                var faceVerts = [
+                    { n: [1, 0, 0], u: [0, 1, 0, 1, 0, 1, 0, 0], v: [0, 0, 1, 1, 1, 1, 0, 0] },
+                    { n: [-1, 0, 0], u: [1, 0, 1, 0, 0, 1, 0, 1], v: [0, 0, 1, 1, 1, 1, 0, 0] },
+                    { n: [0, 1, 0], u: [0, 0, 1, 1, 1, 1, 0, 0], v: [1, 0, 1, 0, 0, 1, 0, 1] },
+                    { n: [0, -1, 0], u: [0, 0, 1, 1, 1, 1, 0, 0], v: [0, 1, 0, 1, 1, 0, 1, 0] },
+                    { n: [0, 0, 1], u: [0, 0, 1, 1, 1, 1, 0, 0], v: [0, 0, 1, 1, 1, 1, 0, 0] },
+                    { n: [0, 0, -1], u: [1, 0, 1, 0, 0, 1, 0, 1], v: [0, 0, 1, 1, 1, 1, 0, 0] }
+                ];
+                var offsets = [
+                    [0, 0, 0],
+                    [1, 0, 0],
+                    [1, 0, 1],
+                    [0, 0, 1],
+                    [0, 1, 0],
+                    [1, 1, 0],
+                    [1, 1, 1],
+                    [0, 1, 1]
+                ];
+                var faceIndices = [
+                    [1, 5, 6, 2],
+                    [0, 3, 7, 4],
+                    [4, 7, 6, 5],
+                    [0, 1, 2, 3],
+                    [2, 6, 7, 3],
+                    [0, 4, 5, 1]
+                ];
+        
+                var pendingMeshes = 0;
+        
+                for (var bid in blockData) {
+                    var data = blockData[bid];
+                    var positions = [];
+                    var uvs = [];
+                    var normals = [];
+        
+                    for (var bi = 0; bi < data.positions.length; bi++) {
+                        var p = data.positions[bi];
+                        var bx = p[0] - cx;
+                        var by = p[1] - cy;
+                        var bz = p[2] - cz;
+                        for (var f = 0; f < 6; f++) {
+                            var idxs = faceIndices[f];
+                            var n = faceVerts[f].n;
+                            var uArr = faceVerts[f].u;
+                            var vArr = faceVerts[f].v;
+                            for (var vi = 0; vi < 4; vi++) {
+                                var oi = idxs[vi];
+                                positions.push(bx + offsets[oi][0]);
+                                positions.push(by + offsets[oi][1]);
+                                positions.push(bz + offsets[oi][2]);
+                                uvs.push(uArr[vi]);
+                                uvs.push(vArr[vi]);
+                                normals.push(n[0], n[1], n[2]);
+                            }
+                        }
+                    }
+        
+                    var geo = new THREE.BufferGeometry();
+                    var vertCount = positions.length / 3;
+                    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+                    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+                    geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+        
+                    var indices = [];
+                    for (var i = 0; i < vertCount / 4; i++) {
+                        var base = i * 4;
+                        indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+                    }
+                    geo.setIndex(indices);
+        
+                    pendingMeshes++;
+        
+                    // 用闭包捕获 bid 和 geo
+                    (function(bid, geo) {
+                        loadTextureFromZip(bid, function(tex) {
+                            var mat = new THREE.MeshStandardMaterial({
+                                map: tex,
+                                roughness: 0.7,
+                                metalness: 0.05,
+                                side: THREE.DoubleSide,
+                                alphaTest: 0.5,
+                            });
+                            var mesh = new THREE.Mesh(geo, mat);
+                            modelGroup.add(mesh);
+                            pendingMeshes--;
+                            if (pendingMeshes === 0) {
+                                loadingDone = true;
+                                updateProgress();
+                            }
+                        });
+                    })(bid, geo);
+                }
+        
+                // 如果所有纹理都已缓存，立即更新进度
+                if (loadedTextures >= totalTextures) {
+                    updateProgress();
+                }
+        
+                animate();
+            }
+            `;
+        
+            // ============================================================
+            // 动画循环
+            // ============================================================
+            html += `
+            function animate() {
+                requestAnimationFrame(animate);
+                if (controls) controls.update();
+                if (renderer && scene && camera) {
+                    renderer.render(scene, camera);
+                }
+            }
+            `;
+        
+            // ============================================================
+            // 窗口大小自适应
+            // ============================================================
+            html += `
+            window.addEventListener('resize', function() {
+                if (camera) {
+                    camera.aspect = window.innerWidth / window.innerHeight;
+                    camera.updateProjectionMatrix();
+                }
+                if (renderer) {
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                }
             });
+            `;
+        
+            // ============================================================
+            // 启动主流程：加载 textures.zip -> 构建场景
+            // ============================================================
+            html += `
+            document.getElementById('loading').textContent = '⏳ 加载 textures.zip...';
+        
+            // 加载 textures.zip
+            fetch('textures.zip')
+                .then(function(res) {
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    return res.arrayBuffer();
+                })
+                .then(function(buf) {
+                    return JSZip.loadAsync(buf);
+                })
+                .then(function(zip) {
+                    zipData = zip;
+                    console.log('✅ textures.zip 加载完成，文件数:', Object.keys(zipData.files).length);
+                    document.getElementById('loading').textContent = '⏳ 加载纹理...';
+                    buildScene();
+                })
+                .catch(function(err) {
+                    console.warn('⚠️ textures.zip 加载失败:', err.message);
+                    console.warn('💡 将使用颜色 fallback');
+                    document.getElementById('loading').textContent = '⚠️ 纹理包加载失败，使用颜色替代';
+                    setTimeout(function() {
+                        buildScene();
+                    }, 500);
+                });
             <\/script>\n`;
-
+        
             html += '</body>\n</html>';
             return html;
         }
