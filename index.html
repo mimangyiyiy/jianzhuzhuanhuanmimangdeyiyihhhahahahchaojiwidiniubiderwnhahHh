@@ -2055,50 +2055,24 @@ function legacyDataToState(name, data) {
         // ============================================================
         // 预览和转换
         // ============================================================
-        async function preview() {
-            if (!currentFileData) {
-                setStatus('请先选择文件', 'status-err');
-                showToast('请先选择一个文件', 'error');
-                return;
+        async function parseBuilding(data, name) {
+            var ext = name.split('.').pop().toLowerCase();
+            if (ext === 'litematic') {
+                return parseLitematic(data);
             }
-            showLoading('解析建筑文件...');
-            setStatus('解析中...', 'status-info');
-            log('开始生成3D预览: ' + currentFileName);
-
+            // schematic: 先尝试新格式，再尝试旧格式
             try {
-                var result = await parseBuilding(currentFileData, currentFileName);
-                currentPreviewResult = result;
-                var blockCount = result.blocks ? result.blocks.length : 0;
-
-                var html = generatePreviewHTML(result, currentFileName.replace(/\.[^.]+$/, ''));
-                if (html) {
-                    currentPreviewHTML = html;
-                    previewDownloadBtn.style.display = 'inline-block';
-                    previewDownloadBtn.disabled = false;
-                    previewInfo.textContent = '✅ 预览已生成 (' + blockCount + ' 个方块)';
-                    previewStatus.textContent = '点击下载按钮保存HTML';
-                    prInfo.style.display = 'block';
-                    prInfo.textContent = '方块: ' + blockCount + ' | 尺寸: ' + result.width + '×' + result.height + '×' +
-                        result.length;
-                    preview3d.innerHTML =
-                        '<div style="text-align:center;color:#69db7c;font-size:18px;">✅ 预览已生成</div><div style="color:#888;font-size:13px;margin-top:8px;">' +
-                        blockCount + ' 个方块, ' + result.width + '×' + result.height + '×' + result.length +
-                        '<br><span style="color:#555;">点击「下载预览HTML」保存后用浏览器打开</span></div><div class="preview-info-overlay" id="prInfo" style="display:block;position:absolute;bottom:12px;left:12px;background:rgba(0,0,0,.7);padding:6px 14px;border-radius:6px;font-size:12px;color:#aaa;pointer-events:none;z-index:10;">方块: ' +
-                        blockCount + ' | 尺寸: ' + result.width + '×' + result.height + '×' + result.length + '</div>';
-                    showToast('✅ 3D预览HTML已生成，点击下载', 'success');
-                } else {
-                    showToast('❌ 预览生成失败', 'error');
-                }
-
-                setStatus('✅ 预览生成完成: ' + blockCount + ' 个方块', 'status-ok');
-                log('预览完成: 方块 ' + blockCount + ', 尺寸 ' + result.width + 'x' + result.height + 'x' + result.length);
-                switchTab('pr');
+                return await parseSchematic(data);
             } catch (e) {
-                setStatus('❌ 预览失败: ' + e.message, 'status-err');
-                log('预览失败: ' + e.message);
-                showToast('❌ 预览失败: ' + e.message, 'error');
+                log('schematic 解析失败: ' + e.message);
+                // 如果解析失败，再尝试作为 litematic
+                try {
+                    return await parseLitematic(data);
+                } catch (e2) {
+                    log('litematic 解析也失败: ' + e2.message);
+                }
+                throw new Error('不支持的文件格式或文件已损坏');
             }
-            hideLoading();
         }
 
         function downloadPreviewHTML() {
