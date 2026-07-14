@@ -1368,66 +1368,214 @@
         // ============================================================
         // 解析 .schematic
         // ============================================================
-        async function parseSchematic(data) {
-            if (data[0] === 80 && data[1] === 75) throw new Error('ZIP 格式的 schematic 暂不支持');
-            var raw = (data[0] === 0x1f || data[0] === 0x78) ? await decompress(data) : data;
-            var root = parseNBT(raw);
-            var w = root.Width || 0,
-                h = root.Height || 0,
-                l = root.Length || 0;
-            if (!w || !h || !l) throw new Error('无效的 schematic 文件');
+        // ============================================================
+// 解析 .schematic (支持新旧两种格式)
+// ============================================================
+async function parseSchematic(data) {
+    if (data[0] === 80 && data[1] === 75) throw new Error('ZIP 格式的 schematic 暂不支持');
+    var raw = (data[0] === 0x1f || data[0] === 0x78) ? await decompress(data) : data;
+    var root = parseNBT(raw);
+    var w = root.Width || 0,
+        h = root.Height || 0,
+        l = root.Length || 0;
+    if (!w || !h || !l) throw new Error('无效的 schematic 文件');
 
-            var pal = root.Palette || {};
-            var bd = root.BlockData || root.block_states || root.Blocks;
+    var blocks = [];
 
-            if (typeof bd === 'string') {
-                var a = new Uint8Array(bd.length);
-                for (var i = 0; i < bd.length; i++) a[i] = bd.charCodeAt(i) & 0xFF;
-                bd = a;
+    // ============================================================
+    // 方式1: 新格式 (Palette + BlockData)
+    // ============================================================
+    var pal = root.Palette || {};
+    var bd = root.BlockData || root.block_states || null;
+    var pkeys = Object.keys(pal);
+
+    if (pkeys.length > 0 && bd) {
+        log('📦 使用新格式解析 (Palette + BlockData)');
+        var paletteList = [];
+        for (var k in pal) {
+            paletteList[pal[k]] = k;
+        }
+        var bits = Math.max(2, Math.ceil(Math.log2(pkeys.length)));
+        var mask = (1 << bits) - 1;
+        var total = w * h * l;
+
+        var blockDataBytes = bd;
+        if (typeof blockDataBytes === 'string') {
+            var a = new Uint8Array(blockDataBytes.length);
+            for (var i = 0; i < blockDataBytes.length; i++) a[i] = blockDataBytes.charCodeAt(i) & 0xFF;
+            blockDataBytes = a;
+        }
+
+        var idx = 0;
+        for (var y = 0; y < h; y++) {
+            for (var z = 0; z < l; z++) {
+                for (var x = 0; x < w; x++) {
+                    if (idx >= total) break;
+                    var bitIdx = idx * bits;
+                    var byteIdx = bitIdx >>> 3;
+                    var bitOff = bitIdx & 7;
+                    var val = 0;
+                    if (byteIdx + 4 < blockDataBytes.length) {
+                        val = ((blockDataBytes[byteIdx] || 0) |
+                            ((blockDataBytes[byteIdx + 1] || 0) << 8) |
+                            ((blockDataBytes[byteIdx + 2] || 0) << 16) |
+                            ((blockDataBytes[byteIdx + 3] || 0) << 24)) >>> bitOff;
+                        val &= mask;
+                    }
+                    idx++;
+                    var name = paletteList[val] || 'minecraft:air';
+                    if (name !== 'minecraft:air' && name !== 'minecraft:cave_air' && name !== 'minecraft:void_air') {
+                        blocks.push({ x: x, y: y, z: z, id: name });
+                    }
+                }
             }
+        }
+    }
 
-            var pkeys = Object.keys(pal);
-            if (!pkeys.length) throw new Error('调色板为空');
-            var bits = Math.max(2, Math.ceil(Math.log2(pkeys.length))),
-                mask = (1 << bits) - 1,
-                arr = [];
-            for (var k in pal) arr[pal[k]] = k;
+    // ============================================================
+    // 方式2: 旧格式 (Blocks + Data + Materials)
+    // ============================================================
+    if (blocks.length === 0) {
+        var blocksRaw = root.Blocks || root.blocks || [];
+        var dataRaw = root.Data || root.data || [];
+        var materials = root.Materials || root.materials || '';
 
-            var blocks = [],
-                idx = 0;
+        if (blocksRaw.length > 0) {
+            log('📦 使用旧格式解析 (Blocks + Data + Materials)');
+            
+            // 解析 Materials 字符串: "minecraft:stone, minecraft:dirt, ..."
+            var matList = materials.split(',').map(function(s) { return s.trim(); });
+            
+            // 如果 Materials 是数字 ID (1.12 之前)
+            var isNumericMaterials = matList.length > 0 && /^\d+$/.test(matList[0]);
+            
+            var total = w * h * l;
+            var idx = 0;
             for (var y = 0; y < h; y++) {
                 for (var z = 0; z < l; z++) {
                     for (var x = 0; x < w; x++) {
-                        var bi = idx * bits,
-                            bj = bi >>> 3,
-                            br = bi & 7,
-                            val = 0;
-                        if (bj + 4 < bd.length) {
-                            val = ((bd[bj] || 0) | ((bd[bj + 1] || 0) << 8) | ((bd[bj + 2] || 0) << 16) | ((bd[bj + 3] ||
-                                0) << 24)) >>> br;
-                            val &= mask;
-                        }
+                        if (idx >= total) break;
+                        var bid = blocksRaw[idx] || 0;
+                        var d = dataRaw[idx] || 0;
                         idx++;
-                        var name = arr[val] || 'minecraft:air';
-                        if (name !== 'minecraft:air' && name !== 'minecraft:cave_air' && name !== 'minecraft:void_air') {
+                        
+                        if (bid === 0) continue;
+                        
+                        var name;
+                        if (isNumericMaterials) {
+                            // 数字 ID 模式 (1.12 之前)
+                            var legacyName = getLegacyBlockName(bid, d);
+                            name = legacyName || 'minecraft:unknown';
+                        } else {
+                            // 字符串 ID 模式
+                            name = matList[bid] || 'minecraft:unknown';
+                            // 如果有 data 值，附加到状态
+                            if (d > 0 && name.indexOf('[') === -1) {
+                                // 尝试将 data 转为方块状态
+                                var stateName = legacyDataToState(name, d);
+                                if (stateName) name = stateName;
+                            }
+                        }
+                        
+                        if (name && name !== 'minecraft:air') {
                             blocks.push({ x: x, y: y, z: z, id: name });
                         }
                     }
                 }
             }
-
-            var collectors = {};
-            var ss = w * l;
-            for (var i = 0; i < blocks.length; i++) {
-                var b = blocks[i];
-                var bid = getBedrockId(b.id);
-                if (!collectors[bid]) collectors[bid] = createCollector();
-                addToCollector(collectors[bid], b.z * w + b.x + b.y * ss + 1);
-            }
-            for (var k in collectors) finishCollector(collectors[k]);
-
-            return { blocks: blocks, width: w, height: h, length: l, collectors: collectors };
         }
+    }
+
+    if (blocks.length === 0) {
+        throw new Error('未找到任何方块数据 (不支持此格式)');
+    }
+
+    // ===== 构建 collectors =====
+    var collectors = {};
+    var ss = w * l;
+    for (var i = 0; i < blocks.length; i++) {
+        var b = blocks[i];
+        var bid = getBedrockId(b.id);
+        if (!collectors[bid]) collectors[bid] = createCollector();
+        addToCollector(collectors[bid], b.z * w + b.x + b.y * ss + 1);
+    }
+    for (var k in collectors) finishCollector(collectors[k]);
+
+    log('✅ 解析完成: ' + blocks.length + ' 个方块, 尺寸 ' + w + 'x' + h + 'x' + l);
+    return { blocks: blocks, width: w, height: h, length: l, collectors: collectors };
+}
+
+    // ============================================================
+    // 旧版方块名解析 (数字 ID + data)
+    // ============================================================
+        function getLegacyBlockName(id, data) {
+            // 常用方块 ID 映射 (1.12.2)
+            var LEGACY_MAP = {
+                1: 'minecraft:stone',
+                2: 'minecraft:grass_block',
+                3: 'minecraft:dirt',
+                4: 'minecraft:cobblestone',
+                5: 'minecraft:oak_planks',
+                7: 'minecraft:bedrock',
+                12: 'minecraft:sand',
+                13: 'minecraft:gravel',
+                14: 'minecraft:gold_ore',
+                15: 'minecraft:iron_ore',
+                16: 'minecraft:coal_ore',
+                17: 'minecraft:oak_log',
+                18: 'minecraft:oak_leaves',
+                20: 'minecraft:glass',
+                21: 'minecraft:lapis_ore',
+                22: 'minecraft:lapis_block',
+                24: 'minecraft:sandstone',
+                35: 'minecraft:white_wool',
+                41: 'minecraft:gold_block',
+                42: 'minecraft:iron_block',
+                45: 'minecraft:bricks',
+                48: 'minecraft:mossy_cobblestone',
+                49: 'minecraft:obsidian',
+                56: 'minecraft:diamond_ore',
+                57: 'minecraft:diamond_block',
+                73: 'minecraft:redstone_ore',
+                79: 'minecraft:ice',
+                80: 'minecraft:snow_block',
+                82: 'minecraft:clay',
+                87: 'minecraft:netherrack',
+                88: 'minecraft:soul_sand',
+                89: 'minecraft:glowstone',
+                98: 'minecraft:stone_bricks',
+                112: 'minecraft:nether_bricks',
+                121: 'minecraft:end_stone',
+                128: 'minecraft:sandstone_stairs',
+                155: 'minecraft:quartz_block',
+            };
+            return LEGACY_MAP[id] || null;
+        }
+
+// ============================================================
+// 旧版 data 值转方块状态
+// ============================================================
+function legacyDataToState(name, data) {
+    // 楼梯方向
+    if (name.indexOf('stairs') !== -1 || name.indexOf('_stairs') !== -1) {
+        var dirs = ['east', 'west', 'south', 'north'];
+        var facing = dirs[data & 3] || 'east';
+        var half = (data & 4) ? 'top' : 'bottom';
+        return name + '[facing=' + facing + ',half=' + half + ']';
+    }
+    // 原木方向
+    if (name.indexOf('_log') !== -1 || name.indexOf('_stem') !== -1) {
+        var axes = ['y', 'x', 'z'];
+        var axis = axes[(data >> 2) & 3] || 'y';
+        return name + '[axis=' + axis + ']';
+    }
+    // 羊毛颜色
+    if (name === 'minecraft:white_wool') {
+        var colors = ['white', 'orange', 'magenta', 'light_blue', 'yellow', 'lime', 'pink', 'gray', 'light_gray', 'cyan', 'purple', 'blue', 'brown', 'green', 'red', 'black'];
+        return 'minecraft:' + colors[data] + '_wool';
+    }
+    return null;
+}
 
         // ============================================================
         // 主解析入口
