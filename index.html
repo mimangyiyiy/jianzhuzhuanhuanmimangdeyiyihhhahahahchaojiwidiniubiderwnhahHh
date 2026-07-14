@@ -1,155 +1,2649 @@
 <!DOCTYPE html>
 <html lang="zh">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>MC 建筑转换器 v3.6</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box; -webkit-tap-highlight-color:transparent}
-body{background:#0a0a1a;font-family:"Segoe UI","Microsoft YaHei",sans-serif;min-height:100vh;color:#e0e0e0;padding:12px}
-::-webkit-scrollbar{width:4px;height:4px}
-::-webkit-scrollbar-track{background:rgba(255,255,255,0.03)}
-::-webkit-scrollbar-thumb{background:rgba(124,77,255,0.3);border-radius:3px}
-.container{max-width:1000px;margin:0 auto}
-.header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;margin-bottom:12px;flex-wrap:wrap;gap:8px}
-.logo{font-size:20px;font-weight:700;background:linear-gradient(135deg,#7c4dff,#448aff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.logo-sub{font-size:11px;color:#666;-webkit-text-fill-color:#666}
-.badge{font-size:10px;padding:2px 10px;border-radius:20px;background:rgba(124,77,255,0.12);color:#7c4dff;border:1px solid rgba(124,77,255,0.15);white-space:nowrap}
-.badge-ready{background:rgba(46,204,113,0.12);color:#2ecc71;border-color:rgba(46,204,113,0.15)}
-.badge-error{background:rgba(231,76,60,0.12);color:#e74c3c;border-color:rgba(231,76,60,0.15)}
-.badge-busy{background:rgba(243,156,18,0.12);color:#f39c12;border-color:rgba(243,156,18,0.15)}
-.status-bar{padding:6px 12px;border-radius:6px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);margin-bottom:12px;font-size:12px;color:#889;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px}
-.status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#2ecc71;margin-right:4px}
-.status-dot.busy{background:#f39c12;animation:pulse .8s ease-in-out infinite}
-.status-dot.error{background:#e74c3c}
-@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
-.file-info{color:#555;font-size:11px}
-.card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:14px;margin-bottom:12px}
-.card-title{font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
-.drop-zone{border:2px dashed rgba(255,255,255,0.08);border-radius:8px;padding:20px 12px;text-align:center;cursor:pointer;transition:all .3s;background:rgba(255,255,255,0.02);touch-action:manipulation}
-.drop-zone:hover,.drop-zone.dragover{border-color:#7c4dff;background:rgba(124,77,255,0.05)}
-.drop-zone .main-text{font-size:13px;color:#888}
-.drop-zone .main-text span{color:#7c4dff;font-weight:600}
-.drop-zone .sub-text{font-size:11px;color:#555;margin-top:3px}
-.drop-zone .file-name{font-size:13px;color:#ccc;margin-top:6px;display:none}
-.drop-zone .file-name.show{display:block}
-.drop-zone input[type=file]{display:none}
-.params{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:8px;align-items:center}
-.param-group{display:flex;align-items:center;gap:3px;background:rgba(255,255,255,0.04);padding:2px 6px 2px 5px;border-radius:4px;border:1px solid rgba(255,255,255,0.05)}
-.param-group label{font-size:10px;color:#888;white-space:nowrap}
-.param-group input{padding:1px 4px;border:none;border-radius:2px;background:rgba(0,0,0,0.3);color:#ccc;font-size:11px;width:40px;text-align:center;outline:none;transition:all .2s}
-.param-group input:focus{background:rgba(124,77,255,0.1);box-shadow:0 0 0 2px rgba(124,77,255,0.15)}
-.param-group input.w40{width:36px}
-.param-group input.w60{width:50px}
-.btn{padding:6px 14px;border:none;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;transition:all .25s;display:inline-flex;align-items:center;gap:3px;color:#fff;touch-action:manipulation;min-height:36px}
-.btn:disabled{opacity:.35;cursor:not-allowed;transform:none!important}
-.btn-primary{background:linear-gradient(135deg,#7c4dff,#5e35e0)}
-.btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 3px 16px rgba(124,77,255,0.25)}
-.btn-success{background:linear-gradient(135deg,#2ecc71,#27ae60)}
-.btn-success:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 3px 16px rgba(46,204,113,0.25)}
-.btn-danger{background:linear-gradient(135deg,#e74c3c,#c0392b)}
-.btn-danger:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 3px 16px rgba(231,76,60,0.25)}
-.btn-outline{background:transparent;border:1px solid rgba(255,255,255,0.12);color:#aaa}
-.btn-outline:hover:not(:disabled){background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.2)}
-.btn-sm{padding:2px 8px;font-size:10px;border-radius:3px;min-height:28px}
-.btn-actions{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
-.btn-actions .btn{flex:1;min-width:80px;justify-content:center}
-.tabs{display:flex;border-bottom:1px solid rgba(255,255,255,0.06);gap:2px;margin-bottom:8px;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch}
-.tab{padding:6px 12px;cursor:pointer;font-size:11px;color:#666;border-bottom:2px solid transparent;transition:all .25s;border-radius:4px 4px 0 0;white-space:nowrap;touch-action:manipulation}
-.tab:hover{color:#aaa;background:rgba(255,255,255,0.03)}
-.tab.active{color:#ccc;border-bottom-color:#7c4dff;background:rgba(124,77,255,0.05)}
-.tab-content{display:none;margin-top:4px}
-.tab-content.active{display:block}
-.output-box{background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.05);border-radius:6px;padding:8px 10px;font-family:Consolas,"Courier New",monospace;font-size:11px;color:#8b8baa;min-height:150px;max-height:280px;overflow:auto;white-space:pre-wrap;word-break:break-all;line-height:1.5}
-.log-box{background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.05);border-radius:6px;padding:6px 10px;font-family:Consolas,"Courier New",monospace;font-size:11px;color:#6a6a8a;min-height:80px;max-height:150px;overflow:auto;white-space:pre-wrap;line-height:1.4}
-.log-time{color:#444;margin-right:4px}
-.log-info{color:#6a6a8a}
-.log-success{color:#2ecc71}
-.log-error{color:#e74c3c}
-.log-warn{color:#f39c12}
-.sensitive-area{margin-top:4px}
-.rules-list{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;max-height:100px;overflow:auto}
-.rule-tag{background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.15);border-radius:3px;padding:1px 6px;font-size:10px;color:#e74c3c;font-family:monospace;display:inline-flex;align-items:center;gap:4px}
-.rule-tag .del{cursor:pointer;opacity:.4;font-size:12px;line-height:1;padding:0 2px}
-.rule-tag .del:hover{opacity:1;color:#fff}
-.add-rule{display:flex;gap:4px;margin-top:4px;flex-wrap:wrap}
-.add-rule input{flex:1;min-width:120px;padding:4px 8px;border:1px solid rgba(255,255,255,0.1);border-radius:4px;background:rgba(0,0,0,0.3);color:#ccc;font-size:11px;font-family:monospace;outline:none}
-.add-rule input:focus{border-color:#7c4dff}
-.rule-count{font-size:11px;color:#666}
-.rule-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px}
-.loader-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(10,10,26,0.92);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:12px}
-.loader-overlay.show{display:flex}
-.loader-spinner{width:36px;height:36px;border:3px solid rgba(124,77,255,0.15);border-top-color:#7c4dff;border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.loader-text{color:#666;font-size:13px}
-.footer{text-align:center;padding:10px 0 2px;font-size:11px;color:#444;border-top:1px solid rgba(255,255,255,0.04);margin-top:4px}
-@media(max-width:768px){body{padding:8px}.header{padding:10px 12px}.logo{font-size:17px}.btn-actions .btn{font-size:10px;padding:5px 10px;min-height:32px}.params{gap:3px 8px}.param-group{padding:1px 4px}.param-group input{width:32px;font-size:10px}.param-group input.w60{width:44px}.drop-zone{padding:14px 8px}.drop-zone .main-text{font-size:12px}.card{padding:10px}.output-box{font-size:10px;min-height:120px}.log-box{font-size:10px;min-height:60px}.tab{font-size:10px;padding:4px 8px}}
-@media(max-width:480px){body{padding:4px}.header{flex-direction:column;align-items:stretch;gap:6px;padding:8px 10px}.header-right{display:flex;flex-wrap:wrap;gap:4px}.params{flex-direction:column;align-items:stretch}.param-group{justify-content:space-between}.param-group input{flex:1;max-width:60px}.btn-actions{flex-direction:column}.btn-actions .btn{min-width:auto;width:100%}.drop-zone{padding:12px 6px}.drop-zone .main-text{font-size:11px}.drop-zone .sub-text{font-size:10px}.tabs{flex-wrap:nowrap;overflow-x:auto}.tab{font-size:10px;padding:4px 8px;white-space:nowrap}.add-rule{flex-direction:column}.add-rule input{min-width:auto}}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MC建筑转换器 v3.6</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: linear-gradient(135deg, #0d0d2b, #1a1a3e, #0f0f2e);
+            min-height: 100vh;
+            font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+            padding: 20px;
+        }
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 24px;
+            color: #fff;
+            margin-bottom: 4px;
+        }
+        h1 span {
+            background: linear-gradient(135deg, #7c4dff, #448aff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .sub {
+            color: #889;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+        .card {
+            background: rgba(255, 255, 255, .04);
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 10px;
+        }
+        .row {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-top: 4px;
+        }
+        label {
+            font-size: 12px;
+            color: #999;
+        }
+        input[type="file"] {
+            font-size: 12px;
+            color: #ccc;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+        }
+        input[type="text"],
+        input[type="number"] {
+            padding: 3px 6px;
+            border: 1px solid rgba(255, 255, 255, .1);
+            border-radius: 4px;
+            background: rgba(0, 0, 0, .3);
+            color: #ccc;
+            font-size: 12px;
+            width: 70px;
+        }
+        .btn {
+            padding: 6px 16px;
+            border: none;
+            border-radius: 5px;
+            font-size: 12px;
+            cursor: pointer;
+            color: #fff;
+            display: inline-block;
+            text-decoration: none;
+            transition: .15s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #7c4dff, #5e35e0);
+        }
+        .btn-primary:hover:not(:disabled) {
+            opacity: .85;
+            transform: scale(1.02);
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #448aff, #2962ff);
+        }
+        .btn-secondary:hover:not(:disabled) {
+            opacity: .85;
+            transform: scale(1.02);
+        }
+        .btn-success {
+            background: linear-gradient(135deg, #00c853, #00a844);
+        }
+        .btn-success:hover:not(:disabled) {
+            opacity: .85;
+            transform: scale(1.02);
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, #ff1744, #d50000);
+        }
+        .btn-danger:hover:not(:disabled) {
+            opacity: .85;
+            transform: scale(1.02);
+        }
+        .btn:disabled {
+            opacity: .35;
+            cursor: not-allowed;
+        }
+        .btn-sm {
+            padding: 3px 10px;
+            font-size: 11px;
+        }
+        #st {
+            font-size: 13px;
+            padding: 10px 16px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, .03);
+            transition: all .3s;
+            border-left: 3px solid transparent;
+            min-height: 38px;
+        }
+        #st.status-ok {
+            border-left-color: #00c853;
+            color: #69db7c;
+        }
+        #st.status-err {
+            border-left-color: #ff1744;
+            color: #ff6b6b;
+        }
+        #st.status-info {
+            border-left-color: #448aff;
+            color: #74c0fc;
+        }
+        #st.status-file {
+            border-left-color: #ffd43b;
+            color: #ffd43b;
+            background: rgba(255, 212, 59, .08);
+        }
+        #ld {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(13, 13, 43, .92);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 16px;
+        }
+        #ld.s {
+            display: flex;
+        }
+        #sp {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(124, 77, 255, .2);
+            border-top-color: #7c4dff;
+            border-radius: 50%;
+            animation: s .8s linear infinite;
+        }
+        @keyframes s {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        #lt {
+            color: #889;
+            font-size: 13px;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid rgba(255, 255, 255, .06);
+            margin-top: 8px;
+        }
+        .tab {
+            padding: 5px 14px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #666;
+            border-bottom: 2px solid transparent;
+            transition: .2s;
+        }
+        .tab:hover {
+            color: #aaa;
+        }
+        .tab.a {
+            color: #ccc;
+            border-bottom-color: #7c4dff;
+        }
+        .tab-c {
+            display: none;
+            margin-top: 6px;
+        }
+        .tab-c.s {
+            display: block;
+        }
+        .box {
+            background: rgba(0, 0, 0, .4);
+            border: 1px solid rgba(255, 255, 255, .06);
+            border-radius: 8px;
+            padding: 10px;
+            font-family: Consolas, monospace;
+            font-size: 11px;
+            color: #8b8baa;
+            height: 300px;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .box-lg {
+            height: 420px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 11px;
+            background: rgba(124, 77, 255, .2);
+            color: #b197fc;
+            margin-left: 6px;
+        }
+        .checkbox-label {
+            font-size: 12px;
+            color: #999;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+        }
+        .checkbox-label input[type="checkbox"] {
+            accent-color: #7c4dff;
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+        }
+        .drop-zone {
+            border: 2px dashed rgba(255, 255, 255, .1);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            color: #555;
+            transition: .3s;
+            cursor: pointer;
+            position: relative;
+        }
+        .drop-zone:hover {
+            border-color: rgba(124, 77, 255, .4);
+            background: rgba(124, 77, 255, .05);
+        }
+        .drop-zone.drag-over {
+            border-color: #7c4dff;
+            background: rgba(124, 77, 255, .12);
+            transform: scale(1.01);
+        }
+        .drop-zone.has-file {
+            border-color: #ffd43b;
+            background: rgba(255, 212, 59, .06);
+        }
+        .drop-zone .icon {
+            font-size: 32px;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .drop-zone .file-name-display {
+            font-size: 14px;
+            color: #ffd43b;
+            font-weight: 500;
+            margin-top: 4px;
+        }
+        .drop-zone .file-size-display {
+            font-size: 11px;
+            color: #666;
+        }
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 28px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 10000;
+            opacity: 0;
+            transition: all .4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            pointer-events: none;
+            background: rgba(0, 0, 0, .85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, .1);
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        .toast.success {
+            border-color: #00c853;
+            color: #69db7c;
+        }
+        .toast.error {
+            border-color: #ff1744;
+            color: #ff6b6b;
+        }
+        .toast.info {
+            border-color: #448aff;
+            color: #74c0fc;
+        }
+        .copy-btn {
+            background: rgba(255, 255, 255, .08);
+            border: 1px solid rgba(255, 255, 255, .1);
+            color: #aaa;
+            padding: 2px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: .2s;
+        }
+        .copy-btn:hover {
+            background: rgba(255, 255, 255, .15);
+            color: #fff;
+        }
+        .flex-right {
+            margin-left: auto;
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .preview-html-btn {
+            background: linear-gradient(135deg, #00b894, #00a381);
+        }
+        .preview-html-btn:hover:not(:disabled) {
+            opacity: .85;
+            transform: scale(1.02);
+        }
+        @media (max-width: 600px) {
+            .row {
+                gap: 4px;
+            }
+            input[type="text"],
+            input[type="number"] {
+                width: 50px;
+            }
+            .btn {
+                padding: 4px 10px;
+                font-size: 11px;
+            }
+            .toast {
+                font-size: 12px;
+                padding: 10px 20px;
+                bottom: 20px;
+                max-width: 90%;
+            }
+        }
+    </style>
 </head>
 <body>
-<div class="loader-overlay" id="loader"><div class="loader-spinner"></div><div class="loader-text" id="loaderText">处理中...</div></div>
-<div class="container">
-<header class="header">
-<div class="header-left"><div><span class="logo">MC 建筑转换器</span><span class="logo-sub">v3.6</span></div></div>
-<div class="header-right"><span class="badge badge-ready" id="statusBadge">就绪</span><span class="badge" id="fileCount">未加载</span></div>
-</header>
-<div class="status-bar"><div class="status-text"><span class="status-dot" id="statusDot"></span><span id="statusText">就绪，等待加载文件...</span></div><div class="file-info" id="fileInfo"></div></div>
-<div class="card">
-<div class="card-title">上传建筑文件</div>
-<div class="drop-zone" id="dropZone"><div class="main-text">拖拽 <span>.schematic</span> 或 <span>.litematic</span> 文件到这里</div><div class="sub-text">或点击选择文件</div><div class="file-name" id="fileName"><span id="fileNameText"></span></div><input type="file" id="fileInput" accept=".schematic,.litematic"></div>
-<div class="params"><div class="param-group"><label>计分板</label><input type="text" id="sb" value="dr" style="width:44px"></div><div class="param-group"><label>速度</label><input type="text" id="spd" value="1" class="w40"></div><div class="param-group"><label>h标签</label><input type="text" id="ht" value="h" class="w40"></div><div class="param-group"><label>b标签</label><input type="text" id="bt" value="b" class="w40"></div><div class="param-group"><label>上限</label><input type="text" id="mc" value="10000" class="w60"></div></div>
-<div class="btn-actions"><button class="btn btn-primary" id="previewBtn" disabled>预览3D</button><button class="btn btn-success" id="convertBtn" disabled>转换指令</button><button class="btn btn-outline" id="clearBtn">清空</button></div>
-</div>
-<div class="card">
-<div class="tabs"><div class="tab active" data-tab="log">日志</div><div class="tab" data-tab="commands">指令</div><div class="tab" data-tab="sensitive">违禁词</div></div>
-<div class="tab-content active" id="tab-log"><div class="log-box" id="logBox">[系统] 就绪，等待加载文件...</div></div>
-<div class="tab-content" id="tab-commands"><div class="output-box" id="cmdBox">等待转换...</div><div style="margin-top:4px;display:none" id="downloadArea"><button class="btn btn-success btn-sm" id="downloadBtn">下载指令文件</button></div></div>
-<div class="tab-content" id="tab-sensitive"><div class="sensitive-area"><div class="rule-header"><span class="rule-count">共 <span id="ruleCount">0</span> 条规则</span><span style="font-size:11px;color:#666;">正则表达式</span></div><div class="rules-list" id="rulesList"></div><div class="add-rule"><input type="text" id="newRuleInput" placeholder="输入正则表达式"><button class="btn btn-primary btn-sm" id="addRuleBtn">添加</button><button class="btn btn-danger btn-sm" id="resetRulesBtn">重置</button></div></div></div>
-</div>
-<div class="footer">作者: 小逸罒不迷茫 | B站: space.bilibili.com/3546638146603426</div>
-</div>
-<script>
-var DEFAULT_RULES=[/3224909018|2265778903|1632249606|1477550673|110101195306153019|976410387|878880263|804305473|762469277|635793980|560802433|534369147|517213791|422427876|375415740|281798694|259256141|183339779|163721419|70363734|40609891|479988|19132/i,/3.{0,3}?7.{0,3}?5.{0,3}?4.{0,3}?1.{0,3}?5/i,/8[^1-8a-z]*?9*?6[^1-46-9a-z]*?4|6[^1-9a-z]*?4[^0-9a-z]*?8[^1-9a-z]*?9/i,/(?<![a-z0-9#])8\s*?9\s*?6\s*?4(?![0-9a-z_])/i,/(?<![a-z0-9])19890?60?4(?![a-z0-9])|(?<![0-9])98753210?(?![0-9])/i,/^(?!.*?([0-9])\1{3,}?).*?(?<![0-9a-z#])(1[12345]|2[123]|3[1234567]|4[123456]|5[012345]|6[12345])[0-9]{4}(19[0-9]{2}|20[012][0-9])(0[1-9]|1[012])(0[1-9]|[123][0-9])[0-9]{3}[0-9x](?![0-9a-z])/i,/(?<![0-9])1[3-9]\d{9}(?![0-9])/i,/(?<![0-9])11[0-9](?![0-9])/i,/(?<![0-9a-z])64(?![0-9a-z])/i,/(?<![0-9a-z])\d*89\d*(?![0-9a-z])/i,/(?<![0-9])(?:19[0-9]{2}|20[0-9]{2})(?![0-9])/i,/(?<![0-9])([0-9])\1{2}(?![0-9])/i,/(?<![0-9])(?:0(?=1(?=2)?)?|1(?=2(?=3)?)?|2(?=3(?=4)?)?|3(?=4(?=5)?)?|4(?=5(?=6)?)?|5(?=6(?=7)?)?|6(?=7(?=8)?)?|7(?=8(?=9)?)?)[0-9]{2,}(?![0-9])/i,/(?<![0-9])[1-9][0-9]{4,9}(?![0-9])/i,/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/i,/(?:https?:\/\/|www\.)\S+/i,/154CB|c[\s_.]*b/i,/(?:江[\s_]*泽[\s_]*民|习[\s_]*近[\s_]*平|维[\s_]*尼)/i,/(?:法[\s_]*轮[\s_]*功|台[\s_]*独|藏[\s_]*独)/i,/(?:天[\s_]*安[\s_]*门|六[\s_]*四|八[\s_]*九)/i,/(?<![0-9])(?:20|40|86)(?![0-9])/i,/(?<![0-9])(?:9(?=8(?=7)?)?|8(?=7(?=6)?)?|7(?=6(?=5)?)?|6(?=5(?=4)?)?|5(?=4(?=3)?)?|4(?=3(?=2)?)?|3(?=2(?=1)?)?|2(?=1(?=0)?)?)[0-9]{2,}(?![0-9])/i,/(?<![0-9])198[0-9](?![0-9])/i,/(?<![0-9])38(?![0-9])/i];
-var _SF_RULES=DEFAULT_RULES.slice();
-var _SF={contains:function(t){if(!t)return false;for(var i=0;i<_SF_RULES.length;i++){if(_SF_RULES[i].test(t))return true}return false},count:function(){return _SF_RULES.length},addRule:function(p){try{_SF_RULES.push(new RegExp(p,'i'));return true}catch(e){return false}},removeRule:function(i){if(i>=0&&i<_SF_RULES.length){_SF_RULES.splice(i,1);return true}return false},reset:function(){_SF_RULES=DEFAULT_RULES.slice()}};
-var $=function(id){return document.getElementById(id)};
-var el={loader:$('loader'),loaderText:$('loaderText'),statusBadge:$('statusBadge'),statusDot:$('statusDot'),statusText:$('statusText'),fileInfo:$('fileInfo'),dropZone:$('dropZone'),fileInput:$('fileInput'),fileName:$('fileName'),fileNameText:$('fileNameText'),sb:$('sb'),spd:$('spd'),ht:$('ht'),bt:$('bt'),mc:$('mc'),previewBtn:$('previewBtn'),convertBtn:$('convertBtn'),clearBtn:$('clearBtn'),logBox:$('logBox'),cmdBox:$('cmdBox'),downloadArea:$('downloadArea'),downloadBtn:$('downloadBtn'),rulesList:$('rulesList'),ruleCount:$('ruleCount'),newRuleInput:$('newRuleInput'),addRuleBtn:$('addRuleBtn'),resetRulesBtn:$('resetRulesBtn'),fileCount:$('fileCount')};
-var worker=null,callbacks={},msgId=0,currentFile=null,currentFileData=null,lastCommands=null;
-var textureCache={};
-function log(msg,type){type=type||'info';var time=new Date().toLocaleTimeString();var cls={info:'log-info',success:'log-success',error:'log-error',warn:'log-warn'}[type]||'log-info';el.logBox.innerHTML+='<span class="log-time">['+time+']</span> <span class="'+cls+'">'+msg+'</span>\n';el.logBox.scrollTop=el.logBox.scrollHeight}
-function setStatus(text,state){state=state||'idle';el.statusText.textContent=text;el.statusDot.className='status-dot';if(state==='busy'){el.statusDot.classList.add('busy');el.statusBadge.textContent='处理中';el.statusBadge.className='badge badge-busy'}else if(state==='error'){el.statusDot.classList.add('error');el.statusBadge.textContent='错误';el.statusBadge.className='badge badge-error'}else{el.statusBadge.textContent='就绪';el.statusBadge.className='badge badge-ready'}}
-function showLoader(t){el.loaderText.textContent=t||'处理中...';el.loader.classList.add('show')}
-function hideLoader(){el.loader.classList.remove('show')}
-function loadFile(file){if(!file)return;currentFile=file;el.fileNameText.textContent=file.name+' ('+(file.size/1024).toFixed(1)+' KB)';el.fileName.classList.add('show');el.fileCount.textContent=file.name;el.previewBtn.disabled=false;el.convertBtn.disabled=false;log('加载文件: '+file.name+' ('+(file.size/1024).toFixed(1)+' KB)','info');setStatus('已加载: '+file.name,'idle');var reader=new FileReader();reader.onload=function(e){currentFileData=e.target.result;log('文件读取完成','success')};reader.onerror=function(){log('文件读取失败','error');setStatus('文件读取失败','error')};reader.readAsArrayBuffer(file)}
-function clearFile(){currentFile=null;currentFileData=null;lastCommands=null;el.fileName.classList.remove('show');el.fileNameText.textContent='';el.fileInput.value='';el.fileCount.textContent='未加载';el.previewBtn.disabled=true;el.convertBtn.disabled=true;el.downloadArea.style.display='none';el.cmdBox.textContent='等待转换...';log('已清空文件','info');setStatus('就绪，等待加载文件...','idle')}
-function getWorker(){if(!worker||worker.readyState!==1){worker=new Worker('worker.js');worker.onmessage=function(e){var data=e.data,cb=callbacks[data._id];if(cb){delete callbacks[data._id];if(data.ok){cb.resolve(data)}else{cb.reject(new Error(data.err||'Worker error'))}}if(data.type==='worker_ready'){log('Worker已就绪','success')}};worker.onerror=function(){for(var k in callbacks){callbacks[k].reject(new Error('Worker error'));delete callbacks[k]}}}return worker}
-function sendToWorker(msg){return new Promise(function(resolve,reject){var id=++msgId;msg._id=id;callbacks[id]={resolve:resolve,reject:reject};getWorker().postMessage(msg)})}
-async function previewAndDownload(){if(!currentFileData){log('请先加载文件','error');return}showLoader('生成3D预览...');setStatus('生成3D预览...','busy');log('开始生成3D预览...','info');try{var r=await sendToWorker({c:'p',d:currentFileData,n:currentFile.name});log('方块: '+r.blk+' 个 | 种类: '+r.typ+' 种 | 尺寸: '+r.w+'x'+r.h+'x'+r.l,'info');var htmlResult=await sendToWorker({c:'preview',d:currentFileData,n:currentFile.name,fn:currentFile.name.replace(/\.[^.]+$/,''),textures:textureCache});if(htmlResult&&htmlResult.html){var blob=new Blob([htmlResult.html],{type:'text/html;charset=utf-8'});var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download=currentFile.name.replace(/\.[^.]+$/,'')+'_3d_preview.html';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);log('3D预览已生成并下载','success');setStatus('预览已下载','idle')}else{log('预览生成失败','warn')}}catch(e){log('预览失败: '+(e.message||e),'error');setStatus('预览失败','error')}hideLoader()}
-async function convertFile(){if(!currentFileData){log('请先加载文件','error');return}showLoader('转换中...');setStatus('转换中...','busy');log('开始转换...','info');try{var r=await sendToWorker({c:'c',d:currentFileData,n:currentFile.name,fn:currentFile.name.replace(/\.[^.]+$/,''),sb:el.sb.value||'dr',sp:parseInt(el.spd.value)||1,ht:el.ht.value||'h',bt:el.bt.value||'b',mc:parseInt(el.mc.value)||10000});lastCommands=r.cmds;var text=r.cmds.join('\n');el.cmdBox.textContent=text;el.downloadArea.style.display='block';el.downloadBtn.onclick=function(){var blob=new Blob([text],{type:'text/plain;charset=utf-8'});var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download=currentFile.name.replace(/\.[^.]+$/,'')+'_commands.txt';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);log('指令文件已下载','success')};log('转换完成! 方块: '+r.blk+' 个 | 指令: '+r.cmds.length+' 条','success');setStatus('完成! '+r.cmds.length+' 条指令','idle');switchTab('commands')}catch(e){log('转换失败: '+(e.message||e),'error');setStatus('转换失败','error')}hideLoader()}
-function switchTab(name){document.querySelectorAll('.tab').forEach(function(t){t.classList.toggle('active',t.dataset.tab===name)});document.querySelectorAll('.tab-content').forEach(function(t){t.classList.toggle('active',t.id==='tab-'+name)})}
-document.querySelectorAll('.tab').forEach(function(t){t.addEventListener('click',function(){switchTab(this.dataset.tab)})});
-function renderRules(){var html='';for(var i=0;i<_SF_RULES.length;i++){html+='<span class="rule-tag">'+_SF_RULES[i].source.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+' <span class="del" data-index="'+i+'">x</span></span>'}el.rulesList.innerHTML=html||'<span style="color:#555;font-size:11px;">暂无规则</span>';el.ruleCount.textContent=_SF_RULES.length;el.rulesList.querySelectorAll('.del').forEach(function(e){e.addEventListener('click',function(){var idx=parseInt(this.dataset.index);if(_SF.removeRule(idx)){renderRules();log('已删除规则 #'+(idx+1),'warn')}})})}
-function addRule(){var p=el.newRuleInput.value.trim();if(!p){log('请输入正则表达式','warn');return}if(_SF.addRule(p)){renderRules();log('已添加规则: '+p,'success');el.newRuleInput.value=''}else{log('无效的正则表达式: '+p,'error')}}
-function resetRules(){_SF.reset();renderRules();log('已重置为默认规则','info')}
-document.addEventListener('DOMContentLoaded',function(){
-el.dropZone.addEventListener('click',function(e){e.stopPropagation();el.fileInput.click()});
-el.fileInput.addEventListener('change',function(e){if(this.files&&this.files[0])loadFile(this.files[0])});
-el.dropZone.addEventListener('dragover',function(e){e.preventDefault();this.classList.add('dragover')});
-el.dropZone.addEventListener('dragleave',function(e){e.preventDefault();this.classList.remove('dragover')});
-el.dropZone.addEventListener('drop',function(e){e.preventDefault();this.classList.remove('dragover');if(e.dataTransfer.files&&e.dataTransfer.files[0])loadFile(e.dataTransfer.files[0])});
-el.previewBtn.addEventListener('click',previewAndDownload);
-el.convertBtn.addEventListener('click',convertFile);
-el.clearBtn.addEventListener('click',clearFile);
-el.addRuleBtn.addEventListener('click',addRule);
-el.newRuleInput.addEventListener('keydown',function(e){if(e.key==='Enter')addRule()});
-el.resetRulesBtn.addEventListener('click',resetRules);
-renderRules();
-log('MC 建筑转换器 v3.6 已启动','success');
-log('支持 .schematic / .litematic 文件','info');
-log('已加载 '+_SF_RULES.length+' 条违禁词规则','info');
-getWorker();
-});
-</script>
+
+    <div id="ld"><div id="sp"></div><div id="lt">处理中...</div></div>
+    <div id="toast" class="toast"></div>
+
+    <div class="container">
+        <h1>MC <span>建筑转换器</span> v3.6</h1>
+        <div class="sub">
+            作者: 小逸罒不迷茫 &nbsp;|&nbsp; B站: space.bilibili.com/3546638146603426
+            <span class="badge">Web版</span>
+        </div>
+        <div id="st">📌 就绪 — 拖拽文件到下方或点击选择</div>
+
+        <div class="card">
+            <div class="drop-zone" id="dropZone">
+                <span class="icon" id="dropIcon">📂</span>
+                <span id="dropText">点击选择文件 或 拖拽 .schematic / .litematic 到此处</span>
+                <input type="file" id="fi" accept=".schematic,.litematic" style="display:none;">
+                <div id="fileInfo" style="margin-top:6px;display:none;">
+                    <div class="file-name-display" id="fileNameDisplay"></div>
+                    <div class="file-size-display" id="fileSizeDisplay"></div>
+                </div>
+            </div>
+
+            <div class="row">
+                <label>计分板:</label>
+                <input type="text" id="sb" value="dr" style="width:60px">
+                <label>速度:</label>
+                <input type="number" id="spd" value="1" style="width:45px" min="1" max="10">
+                <label>h标签:</label>
+                <input type="text" id="ht" value="h" style="width:35px">
+                <label>b标签:</label>
+                <input type="text" id="bt" value="b" style="width:35px">
+                <label>上限:</label>
+                <input type="number" id="mc" value="10000" style="width:60px" min="100" max="99999">
+            </div>
+            <div class="row" style="margin-top:6px;">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="disableSensitive" checked>
+                    启用敏感词过滤
+                </label>
+                <span style="font-size:11px;color:#555;margin-left:4px;" id="sensitiveCount">规则: 6 条</span>
+                <span style="font-size:11px;color:#666;margin-left:8px;">(纯数字不会触发)</span>
+            </div>
+            <div class="row" style="margin-top:8px;">
+                <button class="btn btn-secondary" id="pb" onclick="preview()" disabled>📊 生成3D预览</button>
+                <button class="btn btn-primary" id="cb" onclick="convert()" disabled>⚡ 转换</button>
+                <button class="btn btn-success" id="dlBtn" onclick="downloadCommands()" disabled style="display:none;">📥 下载指令</button>
+                <button class="btn btn-danger btn-sm" onclick="clearAll()">🗑 清空</button>
+                <span style="font-size:11px;color:#555;margin-left:auto;" id="infoText"></span>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <div class="tab a" onclick="switchTab('lg')">📋 日志</div>
+            <div class="tab" onclick="switchTab('cm')">📜 指令</div>
+            <div class="tab" onclick="switchTab('pr')">🎮 3D预览</div>
+        </div>
+
+        <div class="tab-c s" id="lgC">
+            <div class="box" id="lg" style="height:180px;font-size:12px;">就绪，等待操作...</div>
+        </div>
+        <div class="tab-c" id="cmC">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <span style="font-size:11px;color:#666;">共 <span id="cmdCount">0</span> 条指令</span>
+                <div>
+                    <button class="copy-btn" onclick="copyCommands()">📋 复制</button>
+                </div>
+            </div>
+            <div class="box box-lg" id="cm">等待转换...</div>
+        </div>
+        <div class="tab-c" id="prC">
+            <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+                <button class="btn btn-secondary btn-sm" id="previewDownloadBtn" onclick="downloadPreviewHTML()" disabled style="display:none;">📥 下载预览HTML</button>
+                <span style="font-size:11px;color:#666;align-self:center;" id="previewInfo"></span>
+            </div>
+            <div id="preview3d" style="width:100%;height:500px;border-radius:8px;background:#0d0d2b;position:relative;overflow:hidden;">
+                <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#555;font-size:14px;flex-direction:column;gap:8px;">
+                    <span id="prPlaceholder">点击「生成3D预览」生成预览HTML<br><span style="font-size:12px;color:#444;">下载后用浏览器打开查看3D模型</span></span>
+                </div>
+                <div class="preview-info-overlay" id="prInfo" style="display:none;position:absolute;bottom:12px;left:12px;background:rgba(0,0,0,.7);padding:6px 14px;border-radius:6px;font-size:12px;color:#aaa;pointer-events:none;z-index:10;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // Toast 通知
+        // ============================================================
+        var toastTimer = null;
+
+        function showToast(msg, type) {
+            var el = document.getElementById('toast');
+            el.textContent = msg;
+            el.className = 'toast ' + (type || 'info') + ' show';
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(function() {
+                el.classList.remove('show');
+            }, 3000);
+        }
+
+        // ============================================================
+        // 敏感词过滤器 - 严格使用你提供的6条规则
+        // ============================================================
+        var _SF_RULES = [
+            /3224909018|2265778903|1632249606|1477550673|110101195306153019|976410387|878880263|804305473|762469277|635793980|560802433|534369147|517213791|422427876|375415740|281798694|259256141|183339779|163721419|70363734|40609891|479988|19132/i,
+            /3.{0,3}?7.{0,3}?5.{0,3}?4.{0,3}?1.{0,3}?5/i,
+            /8[^1-8a-z]*?9*?6[^1-46-9a-z]*?4|6[^1-9a-z]*?4[^0-9a-z]*?8[^1-9a-z]*?9/i,
+            /(?<![a-z0-9#])8\s*?9\s*?6\s*?4(?![0-9a-z_])/i,
+            /(?<![a-z0-9])19890?60?4(?![a-z0-9])|(?<![0-9])98753210?(?![0-9])/i,
+            /^(?!.*?([0-9])\1{3,}?).*?(?<![0-9a-z#])(1[12345]|2[123]|3[1234567]|4[123456]|5[012345]|6[12345])[0-9]{4}(19[0-9]{2}|20[012][0-9])(0[1-9]|1[012])(0[1-9]|[123][0-9])[0-9]{3}[0-9x](?![0-9a-z])/i,
+        ];
+
+        var _SF = {
+            contains: function(t) {
+                if (!t) return false;
+                if (/^[\d\s\-.]+$/.test(t)) return false;
+                for (var i = 0; i < _SF_RULES.length; i++) {
+                    if (_SF_RULES[i].test(t)) return true;
+                }
+                return false;
+            },
+            count: function() { return _SF_RULES.length; }
+        };
+
+        // ============================================================
+        // 主逻辑
+        // ============================================================
+        var lg = document.getElementById('lg');
+        var fi = document.getElementById('fi');
+        var dropZone = document.getElementById('dropZone');
+        var dropIcon = document.getElementById('dropIcon');
+        var dropText = document.getElementById('dropText');
+        var fileInfo = document.getElementById('fileInfo');
+        var fileNameDisplay = document.getElementById('fileNameDisplay');
+        var fileSizeDisplay = document.getElementById('fileSizeDisplay');
+        var currentFileData = null;
+        var currentFileName = '';
+        var currentCommands = null;
+        var currentPreviewResult = null;
+        var currentPreviewHTML = null;
+
+        var sbEl = document.getElementById('sb');
+        var spdEl = document.getElementById('spd');
+        var htEl = document.getElementById('ht');
+        var btEl = document.getElementById('bt');
+        var mcEl = document.getElementById('mc');
+        var pbBtn = document.getElementById('pb');
+        var cbBtn = document.getElementById('cb');
+        var dlBtn = document.getElementById('dlBtn');
+        var cmBox = document.getElementById('cm');
+        var infoText = document.getElementById('infoText');
+        var cmdCountEl = document.getElementById('cmdCount');
+        var disableSensitiveEl = document.getElementById('disableSensitive');
+        var sensitiveCountEl = document.getElementById('sensitiveCount');
+        var prPlaceholder = document.getElementById('prPlaceholder');
+        var prInfo = document.getElementById('prInfo');
+        var previewDownloadBtn = document.getElementById('previewDownloadBtn');
+        var previewInfo = document.getElementById('previewInfo');
+
+        sensitiveCountEl.textContent = '规则: ' + _SF.count() + ' 条';
+
+        function log(msg) {
+            var line = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+            lg.textContent += line + '\n';
+            lg.scrollTop = lg.scrollHeight;
+        }
+
+        function setStatus(msg, cls) {
+            var el = document.getElementById('st');
+            el.textContent = msg;
+            el.className = cls || '';
+        }
+
+        function showLoading(msg) {
+            document.getElementById('lt').textContent = msg || '处理中...';
+            document.getElementById('ld').className = 's';
+        }
+
+        function hideLoading() {
+            document.getElementById('ld').className = '';
+        }
+
+        function switchTab(name) {
+            document.querySelectorAll('.tab,.tab-c').forEach(function(el) {
+                el.classList.remove('a', 's');
+            });
+            document.getElementById(name + 'C').classList.add('s');
+            document.querySelector('.tab[onclick*="' + name + '"]').classList.add('a');
+        }
+
+        function clearAll() {
+            currentFileData = null;
+            currentFileName = '';
+            currentCommands = null;
+            currentPreviewResult = null;
+            currentPreviewHTML = null;
+            fi.value = '';
+            updateFileUI(null);
+            pbBtn.disabled = true;
+            cbBtn.disabled = true;
+            dlBtn.style.display = 'none';
+            previewDownloadBtn.style.display = 'none';
+            previewInfo.textContent = '';
+            cmBox.textContent = '等待转换...';
+            cmdCountEl.textContent = '0';
+            prPlaceholder.style.display = 'block';
+            prInfo.style.display = 'none';
+            setStatus('已清空');
+            log('已清空所有数据');
+            infoText.textContent = '';
+            showToast('已清空所有数据', 'info');
+        }
+
+        function updateFileUI(file) {
+            if (file) {
+                dropZone.classList.add('has-file');
+                fileInfo.style.display = 'block';
+                fileNameDisplay.textContent = '📄 ' + file.name;
+                var size = file.size;
+                if (size < 1024) fileSizeDisplay.textContent = size + ' B';
+                else if (size < 1024 * 1024) fileSizeDisplay.textContent = (size / 1024).toFixed(1) + ' KB';
+                else fileSizeDisplay.textContent = (size / (1024 * 1024)).toFixed(1) + ' MB';
+                dropText.textContent = '✅ 文件已选择，点击可更换';
+                dropIcon.textContent = '📄';
+                showToast('✅ 已加载: ' + file.name, 'success');
+            } else {
+                dropZone.classList.remove('has-file');
+                fileInfo.style.display = 'none';
+                dropText.textContent = '点击选择文件 或 拖拽 .schematic / .litematic 到此处';
+                dropIcon.textContent = '📂';
+            }
+        }
+
+        function handleFile(file) {
+            if (!file) return;
+            var ext = file.name.split('.').pop().toLowerCase();
+            if (ext !== 'schematic' && ext !== 'litematic') {
+                setStatus('不支持的文件格式: ' + ext, 'status-err');
+                log('不支持的文件格式: ' + ext);
+                showToast('❌ 不支持的文件格式: ' + ext, 'error');
+                return;
+            }
+            currentFileName = file.name;
+            updateFileUI(file);
+            pbBtn.disabled = false;
+            cbBtn.disabled = false;
+            dlBtn.style.display = 'none';
+            previewDownloadBtn.style.display = 'none';
+            setStatus('✅ 已加载: ' + file.name + '  (' + (file.size / 1024).toFixed(1) + ' KB)', 'status-file');
+            log('加载文件: ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)');
+
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                currentFileData = new Uint8Array(e.target.result);
+                log('文件读取完成，大小: ' + currentFileData.length + ' 字节');
+                setStatus('✅ 就绪，可预览或转换: ' + file.name, 'status-file');
+                showToast('📦 文件已就绪', 'success');
+            };
+            reader.onerror = function() {
+                setStatus('读取文件失败', 'status-err');
+                log('读取文件失败');
+                showToast('❌ 读取文件失败', 'error');
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        fi.addEventListener('change', function(e) {
+            if (fi.files.length > 0) handleFile(fi.files[0]);
+        });
+
+        dropZone.addEventListener('click', function() { fi.click(); });
+        dropZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+        dropZone.addEventListener('dragleave', function() {
+            dropZone.classList.remove('drag-over');
+        });
+        dropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            if (e.dataTransfer.files.length > 0) {
+                fi.files = e.dataTransfer.files;
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        function getParams() {
+            return {
+                sb: sbEl.value || 'dr',
+                sp: parseInt(spdEl.value) || 1,
+                ht: htEl.value || 'h',
+                bt: btEl.value || 'b',
+                mc: parseInt(mcEl.value) || 10000,
+                disableSensitive: disableSensitiveEl.checked
+            };
+        }
+
+        function copyCommands() {
+            var text = cmBox.textContent;
+            if (!text || text === '等待转换...') return;
+            navigator.clipboard.writeText(text).then(function() {
+                showToast('📋 已复制到剪贴板', 'success');
+            }).catch(function() {
+                var ta = document.createElement('textarea');
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                showToast('📋 已复制到剪贴板', 'success');
+            });
+        }
+
+        // ============================================================
+        // NBT 解析 (完整版)
+        // ============================================================
+        function parseNBT(buf) {
+            var dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+            var off = 0;
+
+            function check(n) {
+                if (off + n > dv.byteLength) {
+                    throw new Error('Offset is outside the bounds of the DataView');
+                }
+            }
+
+            function rB() { check(1); return dv.getUint8(off++); }
+
+            function rS() { check(2); var v = dv.getInt16(off);
+                off += 2; return v; }
+
+            function rI() { check(4); var v = dv.getInt32(off);
+                off += 4; return v; }
+
+            function rL() { check(8); var v = dv.getBigInt64(off);
+                off += 8; return Number(v); }
+
+            function rF() { check(4); var v = dv.getFloat32(off);
+                off += 4; return v; }
+
+            function rD() { check(8); var v = dv.getFloat64(off);
+                off += 8; return v; }
+
+            function rStr() {
+                var l = rS();
+                if (l < 0) throw new Error('Invalid string length');
+                check(l);
+                var s = '';
+                for (var i = 0; i < l; i++) s += String.fromCharCode(dv.getUint8(off + i));
+                off += l;
+                return s;
+            }
+
+            function rList() {
+                var t = rB(),
+                    l = rI(),
+                    a = [];
+                for (var i = 0; i < l; i++) a.push(rTag(t));
+                return a;
+            }
+
+            function rCompound() {
+                var o = {};
+                while (true) {
+                    var t = rB();
+                    if (t === 0) break;
+                    o[rStr()] = rTag(t);
+                }
+                return o;
+            }
+
+            function rTag(t) {
+                if (t === 1) return rB();
+                if (t === 2) return rS();
+                if (t === 3) return rI();
+                if (t === 4) { var h = rI(),
+                        l = rI(); return { high: h, low: l >>> 0 }; }
+                if (t === 5) return rF();
+                if (t === 6) return rD();
+                if (t === 7) { var l = rI();
+                    check(l); var a = new Uint8Array(buf.buffer, buf.byteOffset + off, l);
+                    off += l; return a; }
+                if (t === 8) return rStr();
+                if (t === 9) return rList();
+                if (t === 10) return rCompound();
+                if (t === 11) { var l = rI(),
+                        a = [];
+                    for (var i = 0; i < l; i++) a.push(rI()); return a; }
+                if (t === 12) { var l = rI(),
+                        a = [];
+                    for (var i = 0; i < l; i++) a.push(rL()); return a; }
+                return null;
+            }
+
+            var rootType = rB();
+            if (rootType !== 10) {
+                off = 0;
+                var rt = rB();
+                if (rt === 10) { rStr(); return rTag(10); }
+                throw new Error('Root tag is not TAG_Compound');
+            }
+            rStr();
+            return rTag(10);
+        }
+
+        // ============================================================
+        // 解压缩
+        // ============================================================
+        async function decompress(data) {
+            if (!data || data.length < 2) return data;
+            if (data[0] === 0x1f && data[1] === 0x8b) {
+                try {
+                    var ds = new DecompressionStream('gzip');
+                    var w = ds.writable.getWriter();
+                    w.write(data);
+                    w.close();
+                    var ch = [],
+                        r = ds.readable.getReader();
+                    while (true) { var v = await r.read(); if (v.done) break;
+                        ch.push(v.value); }
+                    return new Uint8Array(await new Blob(ch).arrayBuffer());
+                } catch (e) { return data; }
+            }
+            if (data[0] === 0x78) {
+                try {
+                    var ds = new DecompressionStream('deflate-raw');
+                    var w = ds.writable.getWriter();
+                    w.write(data);
+                    w.close();
+                    var ch = [],
+                        r = ds.readable.getReader();
+                    while (true) { var v = await r.read(); if (v.done) break;
+                        ch.push(v.value); }
+                    return new Uint8Array(await new Blob(ch).arrayBuffer());
+                } catch (e) { return data; }
+            }
+            return data;
+        }
+
+        // ============================================================
+        // 方块ID映射 (完整版 - 保留常用)
+        // ============================================================
+        var BEDROCK_ID_MAP = {
+            "minecraft:stone": "stone",
+            "minecraft:granite": "granite",
+            "minecraft:polished_granite": "granite 1",
+            "minecraft:diorite": "diorite",
+            "minecraft:polished_diorite": "diorite 1",
+            "minecraft:andesite": "andesite",
+            "minecraft:polished_andesite": "andesite 1",
+            "minecraft:cobblestone": "cobblestone",
+            "minecraft:bedrock": "bedrock",
+            "minecraft:mossy_cobblestone": "mossy_cobblestone",
+            "minecraft:deepslate": "deepslate",
+            "minecraft:cobbled_deepslate": "cobbled_deepslate",
+            "minecraft:tuff": "tuff",
+            "minecraft:calcite": "calcite",
+            "minecraft:dripstone_block": "dripstone_block",
+            "minecraft:dirt": "dirt",
+            "minecraft:grass_block": "grass",
+            "minecraft:coarse_dirt": "dirt 1",
+            "minecraft:podzol": "podzol",
+            "minecraft:mycelium": "mycelium",
+            "minecraft:moss_block": "moss_block",
+            "minecraft:sand": "sand",
+            "minecraft:red_sand": "sand 1",
+            "minecraft:gravel": "gravel",
+            "minecraft:clay": "clay",
+            "minecraft:coal_ore": "coal_ore",
+            "minecraft:deepslate_coal_ore": "deepslate_coal_ore",
+            "minecraft:iron_ore": "iron_ore",
+            "minecraft:deepslate_iron_ore": "deepslate_iron_ore",
+            "minecraft:gold_ore": "gold_ore",
+            "minecraft:deepslate_gold_ore": "deepslate_gold_ore",
+            "minecraft:copper_ore": "copper_ore",
+            "minecraft:deepslate_copper_ore": "deepslate_copper_ore",
+            "minecraft:redstone_ore": "redstone_ore",
+            "minecraft:deepslate_redstone_ore": "deepslate_redstone_ore",
+            "minecraft:emerald_ore": "emerald_ore",
+            "minecraft:deepslate_emerald_ore": "deepslate_emerald_ore",
+            "minecraft:lapis_ore": "lapis_ore",
+            "minecraft:deepslate_lapis_ore": "deepslate_lapis_ore",
+            "minecraft:diamond_ore": "diamond_ore",
+            "minecraft:deepslate_diamond_ore": "deepslate_diamond_ore",
+            "minecraft:nether_quartz_ore": "quartz_ore",
+            "minecraft:nether_gold_ore": "nether_gold_ore",
+            "minecraft:ancient_debris": "ancient_debris",
+            "minecraft:oak_log": "oak_log",
+            "minecraft:spruce_log": "spruce_log",
+            "minecraft:birch_log": "birch_log",
+            "minecraft:jungle_log": "jungle_log",
+            "minecraft:acacia_log": "acacia_log",
+            "minecraft:dark_oak_log": "dark_oak_log",
+            "minecraft:mangrove_log": "mangrove_log",
+            "minecraft:cherry_log": "cherry_log",
+            "minecraft:crimson_stem": "crimson_stem",
+            "minecraft:warped_stem": "warped_stem",
+            "minecraft:stripped_oak_log": "stripped_oak_log",
+            "minecraft:stripped_spruce_log": "stripped_spruce_log",
+            "minecraft:stripped_birch_log": "stripped_birch_log",
+            "minecraft:stripped_jungle_log": "stripped_jungle_log",
+            "minecraft:stripped_acacia_log": "stripped_acacia_log",
+            "minecraft:stripped_dark_oak_log": "stripped_dark_oak_log",
+            "minecraft:stripped_mangrove_log": "stripped_mangrove_log",
+            "minecraft:stripped_cherry_log": "stripped_cherry_log",
+            "minecraft:stripped_crimson_stem": "stripped_crimson_stem",
+            "minecraft:stripped_warped_stem": "stripped_warped_stem",
+            "minecraft:crimson_hyphae": "crimson_hyphae",
+            "minecraft:warped_hyphae": "warped_hyphae",
+            "minecraft:stripped_crimson_hyphae": "stripped_crimson_hyphae",
+            "minecraft:stripped_warped_hyphae": "stripped_warped_hyphae",
+            "minecraft:oak_planks": "planks",
+            "minecraft:spruce_planks": "planks 1",
+            "minecraft:birch_planks": "planks 2",
+            "minecraft:jungle_planks": "planks 3",
+            "minecraft:acacia_planks": "planks 4",
+            "minecraft:dark_oak_planks": "planks 5",
+            "minecraft:mangrove_planks": "planks 6",
+            "minecraft:cherry_planks": "planks 7",
+            "minecraft:crimson_planks": "crimson_planks",
+            "minecraft:warped_planks": "warped_planks",
+            "minecraft:bamboo_planks": "bamboo_planks",
+            "minecraft:oak_leaves": "oak_leaves",
+            "minecraft:spruce_leaves": "spruce_leaves",
+            "minecraft:birch_leaves": "birch_leaves",
+            "minecraft:jungle_leaves": "jungle_leaves",
+            "minecraft:acacia_leaves": "acacia_leaves",
+            "minecraft:dark_oak_leaves": "dark_oak_leaves",
+            "minecraft:mangrove_leaves": "mangrove_leaves",
+            "minecraft:cherry_leaves": "cherry_leaves",
+            "minecraft:azalea_leaves": "azalea_leaves",
+            "minecraft:flowering_azalea_leaves": "flowering_azalea_leaves",
+            "minecraft:stone_bricks": "stone_bricks",
+            "minecraft:mossy_stone_bricks": "mossy_stone_bricks",
+            "minecraft:cracked_stone_bricks": "cracked_stone_bricks",
+            "minecraft:chiseled_stone_bricks": "chiseled_stone_bricks",
+            "minecraft:bricks": "brick_block",
+            "minecraft:nether_bricks": "nether_brick",
+            "minecraft:red_nether_bricks": "red_nether_brick",
+            "minecraft:end_stone_bricks": "end_stone_bricks",
+            "minecraft:deepslate_tiles": "deepslate_tiles",
+            "minecraft:cracked_deepslate_tiles": "cracked_deepslate_tiles",
+            "minecraft:deepslate_bricks": "deepslate_bricks",
+            "minecraft:cracked_deepslate_bricks": "cracked_deepslate_bricks",
+            "minecraft:chiseled_deepslate": "chiseled_deepslate",
+            "minecraft:polished_deepslate": "polished_deepslate",
+            "minecraft:reinforced_deepslate": "reinforced_deepslate",
+            "minecraft:infested_deepslate": "infested_deepslate",
+            "minecraft:glass": "glass",
+            "minecraft:glass_pane": "glass_pane",
+            "minecraft:white_stained_glass": "white_stained_glass",
+            "minecraft:orange_stained_glass": "orange_stained_glass",
+            "minecraft:magenta_stained_glass": "magenta_stained_glass",
+            "minecraft:light_blue_stained_glass": "light_blue_stained_glass",
+            "minecraft:yellow_stained_glass": "yellow_stained_glass",
+            "minecraft:lime_stained_glass": "lime_stained_glass",
+            "minecraft:pink_stained_glass": "pink_stained_glass",
+            "minecraft:gray_stained_glass": "gray_stained_glass",
+            "minecraft:light_gray_stained_glass": "light_gray_stained_glass",
+            "minecraft:cyan_stained_glass": "cyan_stained_glass",
+            "minecraft:purple_stained_glass": "purple_stained_glass",
+            "minecraft:blue_stained_glass": "blue_stained_glass",
+            "minecraft:brown_stained_glass": "brown_stained_glass",
+            "minecraft:green_stained_glass": "green_stained_glass",
+            "minecraft:red_stained_glass": "red_stained_glass",
+            "minecraft:black_stained_glass": "black_stained_glass",
+            "minecraft:tinted_glass": "tinted_glass",
+            "minecraft:white_stained_glass_pane": "white_stained_glass_pane",
+            "minecraft:orange_stained_glass_pane": "orange_stained_glass_pane",
+            "minecraft:magenta_stained_glass_pane": "magenta_stained_glass_pane",
+            "minecraft:light_blue_stained_glass_pane": "light_blue_stained_glass_pane",
+            "minecraft:yellow_stained_glass_pane": "yellow_stained_glass_pane",
+            "minecraft:lime_stained_glass_pane": "lime_stained_glass_pane",
+            "minecraft:pink_stained_glass_pane": "pink_stained_glass_pane",
+            "minecraft:gray_stained_glass_pane": "gray_stained_glass_pane",
+            "minecraft:light_gray_stained_glass_pane": "light_gray_stained_glass_pane",
+            "minecraft:cyan_stained_glass_pane": "cyan_stained_glass_pane",
+            "minecraft:purple_stained_glass_pane": "purple_stained_glass_pane",
+            "minecraft:blue_stained_glass_pane": "blue_stained_glass_pane",
+            "minecraft:brown_stained_glass_pane": "brown_stained_glass_pane",
+            "minecraft:green_stained_glass_pane": "green_stained_glass_pane",
+            "minecraft:red_stained_glass_pane": "red_stained_glass_pane",
+            "minecraft:black_stained_glass_pane": "black_stained_glass_pane",
+            "minecraft:white_wool": "wool",
+            "minecraft:orange_wool": "wool 1",
+            "minecraft:magenta_wool": "wool 2",
+            "minecraft:light_blue_wool": "wool 3",
+            "minecraft:yellow_wool": "wool 4",
+            "minecraft:lime_wool": "wool 5",
+            "minecraft:pink_wool": "wool 6",
+            "minecraft:gray_wool": "wool 7",
+            "minecraft:light_gray_wool": "wool 8",
+            "minecraft:cyan_wool": "wool 9",
+            "minecraft:purple_wool": "wool 10",
+            "minecraft:blue_wool": "wool 11",
+            "minecraft:brown_wool": "wool 12",
+            "minecraft:green_wool": "wool 13",
+            "minecraft:red_wool": "wool 14",
+            "minecraft:black_wool": "wool 15",
+            "minecraft:white_carpet": "white_carpet",
+            "minecraft:orange_carpet": "orange_carpet",
+            "minecraft:magenta_carpet": "magenta_carpet",
+            "minecraft:light_blue_carpet": "light_blue_carpet",
+            "minecraft:yellow_carpet": "yellow_carpet",
+            "minecraft:lime_carpet": "lime_carpet",
+            "minecraft:pink_carpet": "pink_carpet",
+            "minecraft:gray_carpet": "gray_carpet",
+            "minecraft:light_gray_carpet": "light_gray_carpet",
+            "minecraft:cyan_carpet": "cyan_carpet",
+            "minecraft:purple_carpet": "purple_carpet",
+            "minecraft:blue_carpet": "blue_carpet",
+            "minecraft:brown_carpet": "brown_carpet",
+            "minecraft:green_carpet": "green_carpet",
+            "minecraft:red_carpet": "red_carpet",
+            "minecraft:black_carpet": "black_carpet",
+            "minecraft:coal_block": "coal_block",
+            "minecraft:iron_block": "iron_block",
+            "minecraft:gold_block": "gold_block",
+            "minecraft:diamond_block": "diamond_block",
+            "minecraft:emerald_block": "emerald_block",
+            "minecraft:redstone_block": "redstone_block",
+            "minecraft:lapis_block": "lapis_block",
+            "minecraft:copper_block": "copper_block",
+            "minecraft:exposed_copper": "exposed_copper",
+            "minecraft:weathered_copper": "weathered_copper",
+            "minecraft:oxidized_copper": "oxidized_copper",
+            "minecraft:cut_copper": "cut_copper",
+            "minecraft:exposed_cut_copper": "exposed_cut_copper",
+            "minecraft:weathered_cut_copper": "weathered_cut_copper",
+            "minecraft:oxidized_cut_copper": "oxidized_cut_copper",
+            "minecraft:raw_iron_block": "raw_iron_block",
+            "minecraft:raw_copper_block": "raw_copper_block",
+            "minecraft:raw_gold_block": "raw_gold_block",
+            "minecraft:netherite_block": "netherite_block",
+            "minecraft:netherrack": "netherrack",
+            "minecraft:soul_sand": "soul_sand",
+            "minecraft:soul_soil": "soul_soil",
+            "minecraft:basalt": "basalt",
+            "minecraft:polished_basalt": "polished_basalt",
+            "minecraft:smooth_basalt": "smooth_basalt",
+            "minecraft:blackstone": "blackstone",
+            "minecraft:gilded_blackstone": "gilded_blackstone",
+            "minecraft:polished_blackstone": "polished_blackstone",
+            "minecraft:polished_blackstone_bricks": "polished_blackstone_bricks",
+            "minecraft:cracked_polished_blackstone_bricks": "cracked_polished_blackstone_bricks",
+            "minecraft:chiseled_polished_blackstone": "chiseled_polished_blackstone",
+            "minecraft:magma_block": "magma",
+            "minecraft:glowstone": "glowstone",
+            "minecraft:shroomlight": "shroomlight",
+            "minecraft:crimson_nylium": "crimson_nylium",
+            "minecraft:warped_nylium": "warped_nylium",
+            "minecraft:end_stone": "end_stone",
+            "minecraft:purpur_block": "purpur_block",
+            "minecraft:purpur_pillar": "purpur_pillar",
+            "minecraft:purpur_stairs": "purpur_stairs",
+            "minecraft:purpur_slab": "purpur_slab",
+            "minecraft:water": "water",
+            "minecraft:lava": "lava",
+            "minecraft:ice": "ice",
+            "minecraft:packed_ice": "packed_ice",
+            "minecraft:blue_ice": "blue_ice",
+            "minecraft:snow": "snow",
+            "minecraft:snow_block": "snow_layer",
+            "minecraft:obsidian": "obsidian",
+            "minecraft:crying_obsidian": "crying_obsidian",
+            "minecraft:sponge": "sponge",
+            "minecraft:wet_sponge": "sponge 1",
+            "minecraft:slime_block": "slime",
+            "minecraft:honey_block": "honey_block",
+            "minecraft:bone_block": "bone_block",
+            "minecraft:quartz_block": "quartz_block",
+            "minecraft:quartz_pillar": "quartz_pillar",
+            "minecraft:chiseled_quartz": "chiseled_quartz_block",
+            "minecraft:amethyst_block": "amethyst_block",
+            "minecraft:budding_amethyst": "budding_amethyst",
+            "minecraft:amethyst_cluster": "amethyst_cluster",
+            "minecraft:large_amethyst_bud": "large_amethyst_bud",
+            "minecraft:medium_amethyst_bud": "medium_amethyst_bud",
+            "minecraft:small_amethyst_bud": "small_amethyst_bud",
+            "minecraft:terracotta": "terracotta",
+            "minecraft:white_terracotta": "terracotta 0",
+            "minecraft:orange_terracotta": "terracotta 1",
+            "minecraft:magenta_terracotta": "terracotta 2",
+            "minecraft:light_blue_terracotta": "terracotta 3",
+            "minecraft:yellow_terracotta": "terracotta 4",
+            "minecraft:lime_terracotta": "terracotta 5",
+            "minecraft:pink_terracotta": "terracotta 6",
+            "minecraft:gray_terracotta": "terracotta 7",
+            "minecraft:light_gray_terracotta": "terracotta 8",
+            "minecraft:cyan_terracotta": "terracotta 9",
+            "minecraft:purple_terracotta": "terracotta 10",
+            "minecraft:blue_terracotta": "terracotta 11",
+            "minecraft:brown_terracotta": "terracotta 12",
+            "minecraft:green_terracotta": "terracotta 13",
+            "minecraft:red_terracotta": "terracotta 14",
+            "minecraft:black_terracotta": "terracotta 15",
+            "minecraft:white_glazed_terracotta": "white_glazed_terracotta",
+            "minecraft:orange_glazed_terracotta": "orange_glazed_terracotta",
+            "minecraft:magenta_glazed_terracotta": "magenta_glazed_terracotta",
+            "minecraft:light_blue_glazed_terracotta": "light_blue_glazed_terracotta",
+            "minecraft:yellow_glazed_terracotta": "yellow_glazed_terracotta",
+            "minecraft:lime_glazed_terracotta": "lime_glazed_terracotta",
+            "minecraft:pink_glazed_terracotta": "pink_glazed_terracotta",
+            "minecraft:gray_glazed_terracotta": "gray_glazed_terracotta",
+            "minecraft:light_gray_glazed_terracotta": "light_gray_glazed_terracotta",
+            "minecraft:cyan_glazed_terracotta": "cyan_glazed_terracotta",
+            "minecraft:purple_glazed_terracotta": "purple_glazed_terracotta",
+            "minecraft:blue_glazed_terracotta": "blue_glazed_terracotta",
+            "minecraft:brown_glazed_terracotta": "brown_glazed_terracotta",
+            "minecraft:green_glazed_terracotta": "green_glazed_terracotta",
+            "minecraft:red_glazed_terracotta": "red_glazed_terracotta",
+            "minecraft:black_glazed_terracotta": "black_glazed_terracotta",
+            "minecraft:concrete": "concrete",
+            "minecraft:white_concrete": "concrete 0",
+            "minecraft:orange_concrete": "concrete 1",
+            "minecraft:magenta_concrete": "concrete 2",
+            "minecraft:light_blue_concrete": "concrete 3",
+            "minecraft:yellow_concrete": "concrete 4",
+            "minecraft:lime_concrete": "concrete 5",
+            "minecraft:pink_concrete": "concrete 6",
+            "minecraft:gray_concrete": "concrete 7",
+            "minecraft:light_gray_concrete": "concrete 8",
+            "minecraft:cyan_concrete": "concrete 9",
+            "minecraft:purple_concrete": "concrete 10",
+            "minecraft:blue_concrete": "concrete 11",
+            "minecraft:brown_concrete": "concrete 12",
+            "minecraft:green_concrete": "concrete 13",
+            "minecraft:red_concrete": "concrete 14",
+            "minecraft:black_concrete": "concrete 15",
+            "minecraft:white_concrete_powder": "white_concrete_powder",
+            "minecraft:orange_concrete_powder": "orange_concrete_powder",
+            "minecraft:magenta_concrete_powder": "magenta_concrete_powder",
+            "minecraft:light_blue_concrete_powder": "light_blue_concrete_powder",
+            "minecraft:yellow_concrete_powder": "yellow_concrete_powder",
+            "minecraft:lime_concrete_powder": "lime_concrete_powder",
+            "minecraft:pink_concrete_powder": "pink_concrete_powder",
+            "minecraft:gray_concrete_powder": "gray_concrete_powder",
+            "minecraft:light_gray_concrete_powder": "light_gray_concrete_powder",
+            "minecraft:cyan_concrete_powder": "cyan_concrete_powder",
+            "minecraft:purple_concrete_powder": "purple_concrete_powder",
+            "minecraft:blue_concrete_powder": "blue_concrete_powder",
+            "minecraft:brown_concrete_powder": "brown_concrete_powder",
+            "minecraft:green_concrete_powder": "green_concrete_powder",
+            "minecraft:red_concrete_powder": "red_concrete_powder",
+            "minecraft:black_concrete_powder": "black_concrete_powder",
+            "minecraft:oak_stairs": "oak_stairs",
+            "minecraft:spruce_stairs": "spruce_stairs",
+            "minecraft:birch_stairs": "birch_stairs",
+            "minecraft:jungle_stairs": "jungle_stairs",
+            "minecraft:acacia_stairs": "acacia_stairs",
+            "minecraft:dark_oak_stairs": "dark_oak_stairs",
+            "minecraft:mangrove_stairs": "mangrove_stairs",
+            "minecraft:cherry_stairs": "cherry_stairs",
+            "minecraft:bamboo_stairs": "bamboo_stairs",
+            "minecraft:crimson_stairs": "crimson_stairs",
+            "minecraft:warped_stairs": "warped_stairs",
+            "minecraft:stone_stairs": "stone_stairs",
+            "minecraft:cobblestone_stairs": "cobblestone_stairs",
+            "minecraft:mossy_cobblestone_stairs": "mossy_cobblestone_stairs",
+            "minecraft:stone_brick_stairs": "stone_brick_stairs",
+            "minecraft:mossy_stone_brick_stairs": "mossy_stone_brick_stairs",
+            "minecraft:andesite_stairs": "andesite_stairs",
+            "minecraft:polished_andesite_stairs": "polished_andesite_stairs",
+            "minecraft:diorite_stairs": "diorite_stairs",
+            "minecraft:polished_diorite_stairs": "polished_diorite_stairs",
+            "minecraft:granite_stairs": "granite_stairs",
+            "minecraft:polished_granite_stairs": "polished_granite_stairs",
+            "minecraft:sandstone_stairs": "sandstone_stairs",
+            "minecraft:smooth_sandstone_stairs": "smooth_sandstone_stairs",
+            "minecraft:red_sandstone_stairs": "red_sandstone_stairs",
+            "minecraft:smooth_red_sandstone_stairs": "smooth_red_sandstone_stairs",
+            "minecraft:brick_stairs": "brick_stairs",
+            "minecraft:mud_brick_stairs": "mud_brick_stairs",
+            "minecraft:nether_brick_stairs": "nether_brick_stairs",
+            "minecraft:red_nether_brick_stairs": "red_nether_brick_stairs",
+            "minecraft:quartz_stairs": "quartz_stairs",
+            "minecraft:smooth_quartz_stairs": "smooth_quartz_stairs",
+            "minecraft:prismarine_stairs": "prismarine_stairs",
+            "minecraft:prismarine_brick_stairs": "prismarine_brick_stairs",
+            "minecraft:dark_prismarine_stairs": "dark_prismarine_stairs",
+            "minecraft:blackstone_stairs": "blackstone_stairs",
+            "minecraft:polished_blackstone_stairs": "polished_blackstone_stairs",
+            "minecraft:polished_blackstone_brick_stairs": "polished_blackstone_brick_stairs",
+            "minecraft:end_stone_brick_stairs": "end_stone_brick_stairs",
+            "minecraft:deepslate_tile_stairs": "deepslate_tile_stairs",
+            "minecraft:deepslate_brick_stairs": "deepslate_brick_stairs",
+            "minecraft:cobbled_deepslate_stairs": "cobbled_deepslate_stairs",
+            "minecraft:polished_deepslate_stairs": "polished_deepslate_stairs",
+            "minecraft:cut_copper_stairs": "cut_copper_stairs",
+            "minecraft:exposed_cut_copper_stairs": "exposed_cut_copper_stairs",
+            "minecraft:weathered_cut_copper_stairs": "weathered_cut_copper_stairs",
+            "minecraft:oxidized_cut_copper_stairs": "oxidized_cut_copper_stairs",
+            "minecraft:waxed_cut_copper_stairs": "waxed_cut_copper_stairs",
+            "minecraft:waxed_exposed_cut_copper_stairs": "waxed_exposed_cut_copper_stairs",
+            "minecraft:waxed_weathered_cut_copper_stairs": "waxed_weathered_cut_copper_stairs",
+            "minecraft:waxed_oxidized_cut_copper_stairs": "waxed_oxidized_cut_copper_stairs",
+            "minecraft:bamboo_mosaic_stairs": "bamboo_mosaic_stairs",
+            "minecraft:oak_slab": "oak_slab",
+            "minecraft:spruce_slab": "spruce_slab",
+            "minecraft:birch_slab": "birch_slab",
+            "minecraft:jungle_slab": "jungle_slab",
+            "minecraft:acacia_slab": "acacia_slab",
+            "minecraft:dark_oak_slab": "dark_oak_slab",
+            "minecraft:mangrove_slab": "mangrove_slab",
+            "minecraft:cherry_slab": "cherry_slab",
+            "minecraft:bamboo_slab": "bamboo_slab",
+            "minecraft:crimson_slab": "crimson_slab",
+            "minecraft:warped_slab": "warped_slab",
+            "minecraft:stone_slab": "stone_slab",
+            "minecraft:cobblestone_slab": "cobblestone_slab",
+            "minecraft:mossy_cobblestone_slab": "mossy_cobblestone_slab",
+            "minecraft:stone_brick_slab": "stone_brick_slab",
+            "minecraft:mossy_stone_brick_slab": "mossy_stone_brick_slab",
+            "minecraft:andesite_slab": "andesite_slab",
+            "minecraft:polished_andesite_slab": "polished_andesite_slab",
+            "minecraft:diorite_slab": "diorite_slab",
+            "minecraft:polished_diorite_slab": "polished_diorite_slab",
+            "minecraft:granite_slab": "granite_slab",
+            "minecraft:polished_granite_slab": "polished_granite_slab",
+            "minecraft:sandstone_slab": "sandstone_slab",
+            "minecraft:cut_sandstone_slab": "cut_sandstone_slab",
+            "minecraft:smooth_sandstone_slab": "smooth_sandstone_slab",
+            "minecraft:red_sandstone_slab": "red_sandstone_slab",
+            "minecraft:cut_red_sandstone_slab": "cut_red_sandstone_slab",
+            "minecraft:smooth_red_sandstone_slab": "smooth_red_sandstone_slab",
+            "minecraft:brick_slab": "brick_slab",
+            "minecraft:mud_brick_slab": "mud_brick_slab",
+            "minecraft:nether_brick_slab": "nether_brick_slab",
+            "minecraft:red_nether_brick_slab": "red_nether_brick_slab",
+            "minecraft:quartz_slab": "quartz_slab",
+            "minecraft:smooth_quartz_slab": "smooth_quartz_slab",
+            "minecraft:prismarine_slab": "prismarine_slab",
+            "minecraft:prismarine_brick_slab": "prismarine_brick_slab",
+            "minecraft:dark_prismarine_slab": "dark_prismarine_slab",
+            "minecraft:blackstone_slab": "blackstone_slab",
+            "minecraft:polished_blackstone_slab": "polished_blackstone_slab",
+            "minecraft:polished_blackstone_brick_slab": "polished_blackstone_brick_slab",
+            "minecraft:end_stone_brick_slab": "end_stone_brick_slab",
+            "minecraft:deepslate_tile_slab": "deepslate_tile_slab",
+            "minecraft:deepslate_brick_slab": "deepslate_brick_slab",
+            "minecraft:cobbled_deepslate_slab": "cobbled_deepslate_slab",
+            "minecraft:polished_deepslate_slab": "polished_deepslate_slab",
+            "minecraft:cut_copper_slab": "cut_copper_slab",
+            "minecraft:exposed_cut_copper_slab": "exposed_cut_copper_slab",
+            "minecraft:weathered_cut_copper_slab": "weathered_cut_copper_slab",
+            "minecraft:oxidized_cut_copper_slab": "oxidized_cut_copper_slab",
+            "minecraft:waxed_cut_copper_slab": "waxed_cut_copper_slab",
+            "minecraft:waxed_exposed_cut_copper_slab": "waxed_exposed_cut_copper_slab",
+            "minecraft:waxed_weathered_cut_copper_slab": "waxed_weathered_cut_copper_slab",
+            "minecraft:waxed_oxidized_cut_copper_slab": "waxed_oxidized_cut_copper_slab",
+            "minecraft:bamboo_mosaic_slab": "bamboo_mosaic_slab",
+            "minecraft:oak_fence": "oak_fence",
+            "minecraft:spruce_fence": "spruce_fence",
+            "minecraft:birch_fence": "birch_fence",
+            "minecraft:jungle_fence": "jungle_fence",
+            "minecraft:acacia_fence": "acacia_fence",
+            "minecraft:dark_oak_fence": "dark_oak_fence",
+            "minecraft:mangrove_fence": "mangrove_fence",
+            "minecraft:cherry_fence": "cherry_fence",
+            "minecraft:bamboo_fence": "bamboo_fence",
+            "minecraft:crimson_fence": "crimson_fence",
+            "minecraft:warped_fence": "warped_fence",
+            "minecraft:nether_brick_fence": "nether_brick_fence",
+            "minecraft:oak_fence_gate": "oak_fence_gate",
+            "minecraft:spruce_fence_gate": "spruce_fence_gate",
+            "minecraft:birch_fence_gate": "birch_fence_gate",
+            "minecraft:jungle_fence_gate": "jungle_fence_gate",
+            "minecraft:acacia_fence_gate": "acacia_fence_gate",
+            "minecraft:dark_oak_fence_gate": "dark_oak_fence_gate",
+            "minecraft:mangrove_fence_gate": "mangrove_fence_gate",
+            "minecraft:cherry_fence_gate": "cherry_fence_gate",
+            "minecraft:bamboo_fence_gate": "bamboo_fence_gate",
+            "minecraft:crimson_fence_gate": "crimson_fence_gate",
+            "minecraft:warped_fence_gate": "warped_fence_gate",
+            "minecraft:cobblestone_wall": "cobblestone_wall",
+            "minecraft:mossy_cobblestone_wall": "mossy_cobblestone_wall",
+            "minecraft:stone_brick_wall": "stone_brick_wall",
+            "minecraft:mossy_stone_brick_wall": "mossy_stone_brick_wall",
+            "minecraft:andesite_wall": "andesite_wall",
+            "minecraft:diorite_wall": "diorite_wall",
+            "minecraft:granite_wall": "granite_wall",
+            "minecraft:sandstone_wall": "sandstone_wall",
+            "minecraft:red_sandstone_wall": "red_sandstone_wall",
+            "minecraft:brick_wall": "brick_wall",
+            "minecraft:mud_brick_wall": "mud_brick_wall",
+            "minecraft:nether_brick_wall": "nether_brick_wall",
+            "minecraft:red_nether_brick_wall": "red_nether_brick_wall",
+            "minecraft:end_stone_brick_wall": "end_stone_brick_wall",
+            "minecraft:prismarine_wall": "prismarine_wall",
+            "minecraft:blackstone_wall": "blackstone_wall",
+            "minecraft:polished_blackstone_wall": "polished_blackstone_wall",
+            "minecraft:polished_blackstone_brick_wall": "polished_blackstone_brick_wall",
+            "minecraft:deepslate_tile_wall": "deepslate_tile_wall",
+            "minecraft:deepslate_brick_wall": "deepslate_brick_wall",
+            "minecraft:cobbled_deepslate_wall": "cobbled_deepslate_wall",
+            "minecraft:polished_deepslate_wall": "polished_deepslate_wall",
+            "minecraft:oak_door": "oak_door",
+            "minecraft:spruce_door": "spruce_door",
+            "minecraft:birch_door": "birch_door",
+            "minecraft:jungle_door": "jungle_door",
+            "minecraft:acacia_door": "acacia_door",
+            "minecraft:dark_oak_door": "dark_oak_door",
+            "minecraft:mangrove_door": "mangrove_door",
+            "minecraft:cherry_door": "cherry_door",
+            "minecraft:bamboo_door": "bamboo_door",
+            "minecraft:crimson_door": "crimson_door",
+            "minecraft:warped_door": "warped_door",
+            "minecraft:iron_door": "iron_door",
+            "minecraft:oak_trapdoor": "trapdoor",
+            "minecraft:spruce_trapdoor": "trapdoor",
+            "minecraft:birch_trapdoor": "trapdoor",
+            "minecraft:jungle_trapdoor": "trapdoor",
+            "minecraft:acacia_trapdoor": "trapdoor",
+            "minecraft:dark_oak_trapdoor": "trapdoor",
+            "minecraft:mangrove_trapdoor": "trapdoor",
+            "minecraft:cherry_trapdoor": "trapdoor",
+            "minecraft:bamboo_trapdoor": "bamboo_trapdoor",
+            "minecraft:crimson_trapdoor": "trapdoor",
+            "minecraft:warped_trapdoor": "trapdoor",
+            "minecraft:iron_trapdoor": "iron_trapdoor",
+            "minecraft:oak_button": "oak_button",
+            "minecraft:spruce_button": "spruce_button",
+            "minecraft:birch_button": "birch_button",
+            "minecraft:jungle_button": "jungle_button",
+            "minecraft:acacia_button": "acacia_button",
+            "minecraft:dark_oak_button": "dark_oak_button",
+            "minecraft:mangrove_button": "mangrove_button",
+            "minecraft:cherry_button": "cherry_button",
+            "minecraft:bamboo_button": "bamboo_button",
+            "minecraft:crimson_button": "crimson_button",
+            "minecraft:warped_button": "warped_button",
+            "minecraft:stone_button": "stone_button",
+            "minecraft:polished_blackstone_button": "polished_blackstone_button",
+            "minecraft:oak_pressure_plate": "oak_pressure_plate",
+            "minecraft:spruce_pressure_plate": "spruce_pressure_plate",
+            "minecraft:birch_pressure_plate": "birch_pressure_plate",
+            "minecraft:jungle_pressure_plate": "jungle_pressure_plate",
+            "minecraft:acacia_pressure_plate": "acacia_pressure_plate",
+            "minecraft:dark_oak_pressure_plate": "dark_oak_pressure_plate",
+            "minecraft:mangrove_pressure_plate": "mangrove_pressure_plate",
+            "minecraft:cherry_pressure_plate": "cherry_pressure_plate",
+            "minecraft:bamboo_pressure_plate": "bamboo_pressure_plate",
+            "minecraft:crimson_pressure_plate": "crimson_pressure_plate",
+            "minecraft:warped_pressure_plate": "warped_pressure_plate",
+            "minecraft:stone_pressure_plate": "stone_pressure_plate",
+            "minecraft:polished_blackstone_pressure_plate": "polished_blackstone_pressure_plate",
+            "minecraft:light_weighted_pressure_plate": "light_weighted_pressure_plate",
+            "minecraft:heavy_weighted_pressure_plate": "heavy_weighted_pressure_plate",
+            "minecraft:redstone_torch": "redstone_torch",
+            "minecraft:redstone_wall_torch": "redstone_torch",
+            "minecraft:redstone_lamp": "redstone_lamp",
+            "minecraft:piston": "piston",
+            "minecraft:sticky_piston": "sticky_piston",
+            "minecraft:dispenser": "dispenser",
+            "minecraft:dropper": "dropper",
+            "minecraft:observer": "observer",
+            "minecraft:hopper": "hopper",
+            "minecraft:repeater": "repeater",
+            "minecraft:comparator": "comparator",
+            "minecraft:note_block": "noteblock",
+            "minecraft:tnt": "tnt",
+            "minecraft:lever": "lever",
+            "minecraft:daylight_detector": "daylight_detector",
+            "minecraft:tripwire_hook": "tripwire_hook",
+            "minecraft:target": "target",
+            "minecraft:sculk_sensor": "sculk_sensor",
+            "minecraft:calibrated_sculk_sensor": "calibrated_sculk_sensor",
+            "minecraft:torch": "torch",
+            "minecraft:wall_torch": "torch",
+            "minecraft:soul_torch": "soul_torch",
+            "minecraft:soul_wall_torch": "soul_torch",
+            "minecraft:lantern": "lantern",
+            "minecraft:soul_lantern": "soul_lantern",
+            "minecraft:sea_lantern": "sea_lantern",
+            "minecraft:jack_o_lantern": "jack_o_lantern",
+            "minecraft:campfire": "campfire",
+            "minecraft:soul_campfire": "soul_campfire",
+            "minecraft:candle": "candle",
+            "minecraft:white_candle": "white_candle",
+            "minecraft:end_rod": "end_rod",
+            "minecraft:froglight": "verdant_froglight",
+            "minecraft:pearlescent_froglight": "pearlescent_froglight",
+            "minecraft:verdant_froglight": "verdant_froglight",
+            "minecraft:ochre_froglight": "ochre_froglight",
+            "minecraft:grass": "grass",
+            "minecraft:tall_grass": "tallgrass",
+            "minecraft:fern": "fern",
+            "minecraft:large_fern": "large_fern",
+            "minecraft:dead_bush": "deadbush",
+            "minecraft:dandelion": "dandelion",
+            "minecraft:poppy": "poppy",
+            "minecraft:blue_orchid": "blue_orchid",
+            "minecraft:allium": "allium",
+            "minecraft:azure_bluet": "azure_bluet",
+            "minecraft:red_tulip": "red_tulip",
+            "minecraft:orange_tulip": "orange_tulip",
+            "minecraft:white_tulip": "white_tulip",
+            "minecraft:pink_tulip": "pink_tulip",
+            "minecraft:oxeye_daisy": "oxeye_daisy",
+            "minecraft:cornflower": "cornflower",
+            "minecraft:lily_of_the_valley": "lily_of_the_valley",
+            "minecraft:wither_rose": "wither_rose",
+            "minecraft:sunflower": "sunflower",
+            "minecraft:lilac": "lilac",
+            "minecraft:rose_bush": "rose_bush",
+            "minecraft:peony": "peony",
+            "minecraft:lily_pad": "waterlily",
+            "minecraft:vine": "vine",
+            "minecraft:weeping_vines": "weeping_vines",
+            "minecraft:twisting_vines": "twisting_vines",
+            "minecraft:cactus": "cactus",
+            "minecraft:sugar_cane": "reeds",
+            "minecraft:bamboo": "bamboo",
+            "minecraft:bamboo_sapling": "bamboo_sapling",
+            "minecraft:brown_mushroom": "brown_mushroom",
+            "minecraft:red_mushroom": "red_mushroom",
+            "minecraft:brown_mushroom_block": "brown_mushroom_block",
+            "minecraft:red_mushroom_block": "red_mushroom_block",
+            "minecraft:mushroom_stem": "mushroom_stem",
+            "minecraft:crimson_fungus": "crimson_fungus",
+            "minecraft:warped_fungus": "warped_fungus",
+            "minecraft:crimson_roots": "crimson_roots",
+            "minecraft:warped_roots": "warped_roots",
+            "minecraft:nether_sprouts": "nether_sprouts",
+            "minecraft:nether_wart": "nether_wart",
+            "minecraft:nether_wart_block": "nether_wart_block",
+            "minecraft:warped_wart_block": "warped_wart_block",
+            "minecraft:azalea": "azalea",
+            "minecraft:flowering_azalea": "flowering_azalea",
+            "minecraft:moss_carpet": "moss_carpet",
+            "minecraft:big_dripleaf": "big_dripleaf",
+            "minecraft:small_dripleaf": "small_dripleaf",
+            "minecraft:spore_blossom": "spore_blossom",
+            "minecraft:hanging_roots": "hanging_roots",
+            "minecraft:glow_lichen": "glow_lichen",
+            "minecraft:pink_petals": "pink_petals",
+            "minecraft:oak_sapling": "oak_sapling",
+            "minecraft:spruce_sapling": "spruce_sapling",
+            "minecraft:birch_sapling": "birch_sapling",
+            "minecraft:jungle_sapling": "jungle_sapling",
+            "minecraft:acacia_sapling": "acacia_sapling",
+            "minecraft:dark_oak_sapling": "dark_oak_sapling",
+            "minecraft:mangrove_propagule": "mangrove_propagule",
+            "minecraft:cherry_sapling": "cherry_sapling",
+            "minecraft:sandstone": "sandstone",
+            "minecraft:chiseled_sandstone": "chiseled_sandstone",
+            "minecraft:cut_sandstone": "cut_sandstone",
+            "minecraft:smooth_sandstone": "smooth_sandstone",
+            "minecraft:red_sandstone": "red_sandstone",
+            "minecraft:chiseled_red_sandstone": "chiseled_red_sandstone",
+            "minecraft:cut_red_sandstone": "cut_red_sandstone",
+            "minecraft:smooth_red_sandstone": "smooth_red_sandstone",
+            "minecraft:prismarine": "prismarine",
+            "minecraft:prismarine_bricks": "prismarine_bricks",
+            "minecraft:dark_prismarine": "dark_prismarine",
+            "minecraft:coral_block": "coral_block",
+            "minecraft:tube_coral_block": "tube_coral_block",
+            "minecraft:brain_coral_block": "brain_coral_block",
+            "minecraft:bubble_coral_block": "bubble_coral_block",
+            "minecraft:fire_coral_block": "fire_coral_block",
+            "minecraft:horn_coral_block": "horn_coral_block",
+            "minecraft:tube_coral": "tube_coral",
+            "minecraft:brain_coral": "brain_coral",
+            "minecraft:bubble_coral": "bubble_coral",
+            "minecraft:fire_coral": "fire_coral",
+            "minecraft:horn_coral": "horn_coral",
+            "minecraft:tube_coral_fan": "tube_coral_fan",
+            "minecraft:brain_coral_fan": "brain_coral_fan",
+            "minecraft:bubble_coral_fan": "bubble_coral_fan",
+            "minecraft:fire_coral_fan": "fire_coral_fan",
+            "minecraft:horn_coral_fan": "horn_coral_fan",
+            "minecraft:dead_tube_coral_block": "dead_tube_coral_block",
+            "minecraft:dead_brain_coral_block": "dead_brain_coral_block",
+            "minecraft:dead_bubble_coral_block": "dead_bubble_coral_block",
+            "minecraft:dead_fire_coral_block": "dead_fire_coral_block",
+            "minecraft:dead_horn_coral_block": "dead_horn_coral_block",
+            "minecraft:dried_kelp_block": "dried_kelp_block",
+            "minecraft:mud": "mud",
+            "minecraft:mud_bricks": "mud_bricks",
+            "minecraft:packed_mud": "packed_mud",
+            "minecraft:mangrove_roots": "mangrove_roots",
+            "minecraft:muddy_mangrove_roots": "muddy_mangrove_roots",
+            "minecraft:bamboo_block": "bamboo_block",
+            "minecraft:stripped_bamboo_block": "stripped_bamboo_block",
+            "minecraft:bamboo_mosaic": "bamboo_mosaic",
+            "minecraft:bamboo_wall_sign": "bamboo_wall_sign",
+            "minecraft:bookshelf": "bookshelf",
+            "minecraft:brick_block": "brick_block",
+            "minecraft:crafting_table": "crafting_table",
+            "minecraft:furnace": "furnace",
+            "minecraft:blast_furnace": "blast_furnace",
+            "minecraft:smoker": "smoker",
+            "minecraft:barrel": "barrel",
+            "minecraft:chest": "chest",
+            "minecraft:trapped_chest": "trapped_chest",
+            "minecraft:ender_chest": "ender_chest",
+            "minecraft:shulker_box": "shulker_box",
+            "minecraft:white_shulker_box": "white_shulker_box",
+            "minecraft:orange_shulker_box": "orange_shulker_box",
+            "minecraft:magenta_shulker_box": "magenta_shulker_box",
+            "minecraft:light_blue_shulker_box": "light_blue_shulker_box",
+            "minecraft:yellow_shulker_box": "yellow_shulker_box",
+            "minecraft:lime_shulker_box": "lime_shulker_box",
+            "minecraft:pink_shulker_box": "pink_shulker_box",
+            "minecraft:gray_shulker_box": "gray_shulker_box",
+            "minecraft:light_gray_shulker_box": "light_gray_shulker_box",
+            "minecraft:cyan_shulker_box": "cyan_shulker_box",
+            "minecraft:purple_shulker_box": "purple_shulker_box",
+            "minecraft:blue_shulker_box": "blue_shulker_box",
+            "minecraft:brown_shulker_box": "brown_shulker_box",
+            "minecraft:green_shulker_box": "green_shulker_box",
+            "minecraft:red_shulker_box": "red_shulker_box",
+            "minecraft:black_shulker_box": "black_shulker_box",
+            "minecraft:enchanting_table": "enchanting_table",
+            "minecraft:anvil": "anvil",
+            "minecraft:chipped_anvil": "chipped_anvil",
+            "minecraft:damaged_anvil": "damaged_anvil",
+            "minecraft:jukebox": "jukebox",
+            "minecraft:lodestone": "lodestone",
+            "minecraft:respawn_anchor": "respawn_anchor",
+            "minecraft:beacon": "beacon",
+            "minecraft:conduit": "conduit",
+            "minecraft:scaffolding": "scaffolding",
+            "minecraft:ladder": "ladder",
+            "minecraft:pointed_dripstone": "pointed_dripstone",
+            "minecraft:chain": "chain",
+            "minecraft:iron_bars": "iron_bars",
+            "minecraft:lightning_rod": "lightning_rod",
+            "minecraft:bell": "bell",
+            "minecraft:grindstone": "grindstone",
+            "minecraft:stonecutter": "stonecutter",
+            "minecraft:loom": "loom",
+            "minecraft:cartography_table": "cartography_table",
+            "minecraft:fletching_table": "fletching_table",
+            "minecraft:smithing_table": "smithing_table",
+            "minecraft:cauldron": "cauldron",
+            "minecraft:composter": "composter",
+            "minecraft:beehive": "beehive",
+            "minecraft:bee_nest": "bee_nest",
+            "minecraft:hay_block": "hay_block",
+            "minecraft:melon": "melon_block",
+            "minecraft:pumpkin": "pumpkin",
+            "minecraft:carved_pumpkin": "carved_pumpkin",
+            "minecraft:lectern": "lectern",
+            "minecraft:structure_block": "structure_block",
+            "minecraft:structure_void": "structure_void",
+            "minecraft:barrier": "barrier",
+            "minecraft:command_block": "command_block",
+            "minecraft:chain_command_block": "chain_command_block",
+            "minecraft:repeating_command_block": "repeating_command_block",
+            "minecraft:end_portal": "end_portal",
+            "minecraft:end_portal_frame": "end_portal_frame",
+            "minecraft:portal": "portal",
+            "minecraft:spawner": "mob_spawner",
+            "minecraft:brewing_stand": "brewing_stand",
+            "minecraft:flower_pot": "flower_pot",
+            "minecraft:skull": "skull",
+            "minecraft:skeleton_skull": "skeleton_skull",
+            "minecraft:wither_skeleton_skull": "wither_skeleton_skull",
+            "minecraft:player_head": "player_head",
+            "minecraft:zombie_head": "zombie_head",
+            "minecraft:creeper_head": "creeper_head",
+            "minecraft:dragon_head": "dragon_head",
+            "minecraft:skull_wall": "skull_wall"
+        };
+
+        var LEGACY_ALIASES = {
+            "minecraft:wooden_slab": "oak_slab",
+            "minecraft:tallgrass": "tallgrass",
+            "minecraft:reeds": "reeds",
+            "minecraft:snow_layer": "snow_layer",
+            "minecraft:wall_sign": "wall_sign",
+            "minecraft:standing_sign": "standing_sign",
+            "minecraft:bed": "bed",
+            "minecraft:monster_egg": "monster_egg",
+            "minecraft:red_flower": "poppy",
+            "minecraft:activator_rail": "activator_rail",
+            "minecraft:detector_rail": "detector_rail",
+            "minecraft:rail": "rail",
+            "minecraft:waterlily": "waterlily",
+            "minecraft:web": "web",
+            "minecraft:wooden_button": "wooden_button",
+            "minecraft:melon_block": "melon_block",
+            "minecraft:skull": "skull",
+            "minecraft:brewing_stand": "brewing_stand",
+            "minecraft:redstone_wire": "redstone_wire",
+            "minecraft:nether_brick": "nether_brick",
+            "minecraft:red_nether_brick": "red_nether_brick",
+            "minecraft:hardened_clay": "hardened_clay",
+            "minecraft:portal": "portal",
+            "minecraft:double_plant": "double_plant",
+            "minecraft:tripwire": "tripwire",
+            "minecraft:flower_pot": "flower_pot",
+            "minecraft:end_portal_frame": "end_portal_frame",
+            "minecraft:end_portal": "end_portal",
+            "minecraft:structure_block": "structure_block",
+            "minecraft:structure_void": "structure_void",
+            "minecraft:lit_redstone_lamp": "redstone_lamp",
+            "minecraft:barrier": "barrier",
+            "minecraft:powered_repeater": "repeater",
+            "minecraft:unlit_redstone_torch": "redstone_torch",
+            "minecraft:command_block": "command_block",
+            "minecraft:chain_command_block": "chain_command_block",
+            "minecraft:repeating_command_block": "repeating_command_block",
+            "minecraft:weighted_pressure_plate_heavy": "heavy_weighted_pressure_plate",
+            "minecraft:weighted_pressure_plate_light": "light_weighted_pressure_plate",
+            "minecraft:carrot": "carrot",
+            "minecraft:potato": "potato",
+            "minecraft:cake": "cake",
+            "minecraft:grass_path": "grass_path",
+            "minecraft:deadbush": "deadbush",
+            "minecraft:wooden_pressure_plate": "wooden_pressure_plate",
+            "minecraft:stone_pressure_plate": "stone_pressure_plate",
+            "minecraft:wooden_door": "wooden_door",
+            "minecraft:iron_door": "iron_door",
+            "minecraft:oak_door": "oak_door",
+            "minecraft:spruce_door": "spruce_door",
+            "minecraft:birch_door": "birch_door",
+            "minecraft:jungle_door": "jungle_door",
+            "minecraft:acacia_door": "acacia_door",
+            "minecraft:dark_oak_door": "dark_oak_door",
+            "minecraft:mangrove_door": "mangrove_door",
+            "minecraft:cherry_door": "cherry_door",
+            "minecraft:crimson_door": "crimson_door",
+            "minecraft:warped_door": "warped_door",
+            "minecraft:oak_fence": "oak_fence",
+            "minecraft:spruce_fence": "spruce_fence",
+            "minecraft:birch_fence": "birch_fence",
+            "minecraft:jungle_fence": "jungle_fence",
+            "minecraft:acacia_fence": "acacia_fence",
+            "minecraft:dark_oak_fence": "dark_oak_fence",
+            "minecraft:mangrove_fence": "mangrove_fence",
+            "minecraft:cherry_fence": "cherry_fence",
+            "minecraft:nether_brick_fence": "nether_brick_fence",
+            "minecraft:crimson_fence": "crimson_fence",
+            "minecraft:warped_fence": "warped_fence",
+            "minecraft:oak_fence_gate": "oak_fence_gate",
+            "minecraft:spruce_fence_gate": "spruce_fence_gate",
+            "minecraft:birch_fence_gate": "birch_fence_gate",
+            "minecraft:jungle_fence_gate": "jungle_fence_gate",
+            "minecraft:acacia_fence_gate": "acacia_fence_gate",
+            "minecraft:dark_oak_fence_gate": "dark_oak_fence_gate",
+            "minecraft:mangrove_fence_gate": "mangrove_fence_gate",
+            "minecraft:crimson_fence_gate": "crimson_fence_gate",
+            "minecraft:warped_fence_gate": "warped_fence_gate",
+            "minecraft:oak_trapdoor": "trapdoor",
+            "minecraft:spruce_trapdoor": "trapdoor",
+            "minecraft:birch_trapdoor": "trapdoor",
+            "minecraft:jungle_trapdoor": "trapdoor",
+            "minecraft:acacia_trapdoor": "trapdoor",
+            "minecraft:dark_oak_trapdoor": "trapdoor",
+            "minecraft:mangrove_trapdoor": "trapdoor",
+            "minecraft:iron_trapdoor": "iron_trapdoor",
+            "minecraft:crimson_trapdoor": "trapdoor",
+            "minecraft:warped_trapdoor": "trapdoor",
+            "minecraft:birch_button": "birch_button",
+            "minecraft:jungle_button": "jungle_button",
+            "minecraft:acacia_button": "acacia_button",
+            "minecraft:dark_oak_button": "dark_oak_button",
+            "minecraft:mangrove_button": "mangrove_button",
+            "minecraft:cherry_button": "cherry_button",
+            "minecraft:crimson_button": "crimson_button",
+            "minecraft:warped_button": "warped_button",
+            "minecraft:polished_blackstone_button": "polished_blackstone_button",
+            "minecraft:powered_rail": "powered_rail",
+            "minecraft:crafting_table": "crafting_table",
+            "minecraft:enchanting_table": "enchanting_table",
+            "minecraft:furnace": "furnace",
+            "minecraft:lit_furnace": "furnace",
+            "minecraft:blast_furnace": "blast_furnace",
+            "minecraft:smoker": "smoker",
+            "minecraft:anvil": "anvil",
+            "minecraft:chipped_anvil": "anvil",
+            "minecraft:damaged_anvil": "anvil",
+            "minecraft:grindstone": "grindstone",
+            "minecraft:stonecutter": "stonecutter",
+            "minecraft:lectern": "lectern",
+            "minecraft:cartography_table": "cartography_table",
+            "minecraft:fletching_table": "fletching_table",
+            "minecraft:smithing_table": "smithing_table",
+            "minecraft:loom": "loom",
+            "minecraft:composter": "composter",
+            "minecraft:barrel": "barrel",
+            "minecraft:cauldron": "cauldron",
+            "minecraft:brewing_stand": "brewing_stand",
+            "minecraft:beacon": "beacon",
+            "minecraft:conduit": "conduit",
+            "minecraft:ender_chest": "ender_chest",
+            "minecraft:shulker_box": "shulker_box",
+            "minecraft:white_shulker_box": "white_shulker_box",
+            "minecraft:orange_shulker_box": "orange_shulker_box",
+            "minecraft:magenta_shulker_box": "magenta_shulker_box",
+            "minecraft:light_blue_shulker_box": "light_blue_shulker_box",
+            "minecraft:yellow_shulker_box": "yellow_shulker_box",
+            "minecraft:lime_shulker_box": "lime_shulker_box",
+            "minecraft:pink_shulker_box": "pink_shulker_box",
+            "minecraft:gray_shulker_box": "gray_shulker_box",
+            "minecraft:cyan_shulker_box": "cyan_shulker_box",
+            "minecraft:purple_shulker_box": "purple_shulker_box",
+            "minecraft:blue_shulker_box": "blue_shulker_box",
+            "minecraft:brown_shulker_box": "brown_shulker_box",
+            "minecraft:green_shulker_box": "green_shulker_box",
+            "minecraft:red_shulker_box": "red_shulker_box",
+            "minecraft:black_shulker_box": "black_shulker_box",
+            "minecraft:mob_spawner": "mob_spawner",
+            "minecraft:spawner": "mob_spawner"
+        };
+
+        function getBedrockId(javaId) {
+            if (BEDROCK_ID_MAP[javaId] !== undefined) return BEDROCK_ID_MAP[javaId];
+            var sp = javaId.indexOf('[');
+            var base = sp > -1 ? javaId.slice(0, sp) : javaId;
+            if (BEDROCK_ID_MAP[base] !== undefined) return BEDROCK_ID_MAP[base];
+            if (LEGACY_ALIASES[javaId] !== undefined) return LEGACY_ALIASES[javaId];
+            if (LEGACY_ALIASES[base] !== undefined) return LEGACY_ALIASES[base];
+            return base.split(':').pop() || base;
+        }
+
+        // ============================================================
+        // 区间收集器
+        // ============================================================
+        function createCollector() {
+            return { starts: new Int32Array(1024), ends: new Int32Array(1024), ptr: 0, start: -1, end: -1, intervals: null };
+        }
+
+        function addToCollector(col, score) {
+            if (col.start === -1) { col.start = score;
+                col.end = score; } else if (score === col.end + 1) { col.end = score; } else {
+                if (col.ptr >= col.starts.length) {
+                    var ns = new Int32Array(col.starts.length * 2);
+                    ns.set(col.starts);
+                    col.starts = ns;
+                    var ne = new Int32Array(col.ends.length * 2);
+                    ne.set(col.ends);
+                    col.ends = ne;
+                }
+                col.starts[col.ptr] = col.start;
+                col.ends[col.ptr] = col.end;
+                col.ptr++;
+                col.start = score;
+                col.end = score;
+            }
+        }
+
+        function finishCollector(col) {
+            if (col.intervals) return col.intervals;
+            if (col.start !== -1) {
+                if (col.ptr >= col.starts.length) {
+                    var ns = new Int32Array(col.starts.length + 1);
+                    ns.set(col.starts);
+                    col.starts = ns;
+                    var ne = new Int32Array(col.ends.length + 1);
+                    ne.set(col.ends);
+                    col.ends = ne;
+                }
+                col.starts[col.ptr] = col.start;
+                col.ends[col.ptr] = col.end;
+                col.ptr++;
+                col.start = -1;
+                col.end = -1;
+            }
+            col.intervals = { starts: col.starts, ends: col.ends, len: col.ptr };
+            return col.intervals;
+        }
+
+        // ============================================================
+        // BlockStates 位提取
+        // ============================================================
+        function extractBlockIndices(blockStates, totalBlocks, bitsPerIndex) {
+            var indices = new Uint32Array(totalBlocks);
+            if (!blockStates || !blockStates.zeroCopy) return indices;
+            try {
+                var buf = new DataView(blockStates.buffer, blockStates.byteOffset, blockStates.length * 8);
+                var wordLen = blockStates.length * 2,
+                    words = new Uint32Array(wordLen);
+                for (var i = 0; i < wordLen; i++) words[i] = buf.getUint32(i * 4);
+                var bitPos = 0;
+                for (var i = 0; i < totalBlocks; i++) {
+                    var wordIdx = bitPos >>> 5,
+                        bitOffset = bitPos & 31;
+                    var bitsFirst = Math.min(bitsPerIndex, 32 - bitOffset);
+                    var value = (words[wordIdx] >>> bitOffset) & ((1 << bitsFirst) - 1);
+                    var remaining = bitsPerIndex - bitsFirst;
+                    if (remaining > 0) value |= ((words[wordIdx + 1] || 0) & ((1 << remaining) - 1)) << bitsFirst;
+                    indices[i] = value;
+                    bitPos += bitsPerIndex;
+                }
+            } catch (e) {}
+            return indices;
+        }
+
+        // ============================================================
+        // 解析 .litematic
+        // ============================================================
+        async function parseLitematic(data) {
+            var raw = data[0] === 0x1f || data[0] === 0x78 ? await decompress(data) : data;
+            var root = parseNBT(raw);
+
+            var regions = null;
+            if (root.Regions) {
+                regions = root.Regions;
+            } else if (root.Minecraft && root.Minecraft.Regions) {
+                regions = root.Minecraft.Regions;
+            } else if (root.regions) {
+                regions = root.regions;
+            }
+
+            if (Array.isArray(regions)) {
+                var newRegions = {};
+                for (var i = 0; i < regions.length; i++) {
+                    newRegions['region_' + i] = regions[i];
+                }
+                regions = newRegions;
+            }
+
+            if (!regions) {
+                for (var key in root) {
+                    if (typeof root[key] === 'object' && root[key] && root[key].Size && root[key].BlockStatePalette) {
+                        regions = {};
+                        regions[key] = root[key];
+                        break;
+                    }
+                }
+                if (!regions) {
+                    throw new Error('未找到 Regions，根键: ' + Object.keys(root).join(', '));
+                }
+            }
+
+            function getVal(o, k) {
+                if (!o) return 0;
+                if (Array.isArray(o)) {
+                    var m = { x: 0, y: 1, z: 2 };
+                    return o[m[k] || 0] || 0;
+                }
+                if (typeof o === 'object') return o[k] || 0;
+                return o;
+            }
+
+            var allBlocks = [];
+            var minX = Infinity,
+                minY = Infinity,
+                minZ = Infinity;
+
+            for (var rname in regions) {
+                var region = regions[rname];
+                if (!region || typeof region !== 'object') continue;
+
+                var sx = Math.abs(getVal(region.Size, 'x') || 0);
+                var sy = Math.abs(getVal(region.Size, 'y') || 0);
+                var sz = Math.abs(getVal(region.Size, 'z') || 0);
+
+                if (sx === 0 || sy === 0 || sz === 0) continue;
+
+                var rx = getVal(region.Position, 'x') || 0;
+                var ry = getVal(region.Position, 'y') || 0;
+                var rz = getVal(region.Position, 'z') || 0;
+
+                var palette = region.BlockStatePalette || region.Palette || region.blockStatePalette;
+                if (!palette || !palette.length) {
+                    for (var key in region) {
+                        if (Array.isArray(region[key]) && region[key].length > 0) {
+                            var first = region[key][0];
+                            if (first && (first.Name || first.name || typeof first === 'string')) {
+                                palette = region[key];
+                                break;
+                            }
+                        }
+                    }
+                    if (!palette || !palette.length) continue;
+                }
+
+                var blockStates = region.BlockStates || region.blockStates || region.BlockStatesLongArray || [];
+                if (!blockStates || !blockStates.length) {
+                    for (var key in region) {
+                        if (Array.isArray(region[key]) && region[key].length > 0) {
+                            var first = region[key][0];
+                            if (typeof first === 'number' || typeof first === 'bigint') {
+                                blockStates = region[key];
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (!blockStates || !blockStates.length) continue;
+
+                var longArray = [];
+                for (var i = 0; i < blockStates.length; i++) {
+                    var val = blockStates[i];
+                    if (typeof val === 'bigint') {
+                        longArray.push(Number(val));
+                    } else {
+                        longArray.push(Number(val));
+                    }
+                }
+
+                var psize = palette.length;
+                var bits = Math.max(2, Math.ceil(Math.log2(psize)));
+                var mask = (1 << bits) - 1;
+                var totalBlocks = sx * sy * sz;
+
+                var indices = new Uint32Array(totalBlocks);
+                var bitPos = 0;
+                for (var i = 0; i < totalBlocks; i++) {
+                    var bitIndex = i * bits;
+                    var wordIndex = Math.floor(bitIndex / 64);
+                    var bitOffset = bitIndex % 64;
+                    var value = 0;
+                    if (wordIndex < longArray.length) {
+                        var chunk1 = longArray[wordIndex] >>> bitOffset;
+                        value |= chunk1 & ((1 << Math.min(bits, 64 - bitOffset)) - 1);
+                        var remaining = bits - (64 - bitOffset);
+                        if (remaining > 0 && wordIndex + 1 < longArray.length) {
+                            var chunk2 = longArray[wordIndex + 1] & ((1 << remaining) - 1);
+                            value |= chunk2 << (64 - bitOffset);
+                        }
+                    }
+                    indices[i] = value & mask;
+                }
+
+                var palCache = [];
+                for (var pi = 0; pi < psize; pi++) {
+                    var entry = palette[pi];
+                    var name = '';
+                    if (typeof entry === 'string') {
+                        name = entry;
+                    } else if (entry && entry.Name) {
+                        name = entry.Name;
+                    } else if (entry && entry.name) {
+                        name = entry.name;
+                    } else if (entry && entry.id) {
+                        name = entry.id;
+                    }
+                    if (!name || name === 'minecraft:air' || name === 'minecraft:cave_air' || name === 'minecraft:void_air') {
+                        palCache.push(null);
+                        continue;
+                    }
+                    if (entry && entry.Properties) {
+                        var props = entry.Properties;
+                        var stateStr = [];
+                        for (var pk in props) {
+                            stateStr.push(pk + '=' + props[pk]);
+                        }
+                        if (stateStr.length > 0) {
+                            name = name + '[' + stateStr.join(',') + ']';
+                        }
+                    }
+                    palCache.push({ id: getBedrockId(name), javaId: name });
+                }
+
+                var sliceSize = sx * sz;
+                for (var y = 0; y < sy; y++) {
+                    for (var z = 0; z < sz; z++) {
+                        for (var x = 0; x < sx; x++) {
+                            var idx = indices[y * sliceSize + z * sx + x];
+                            if (idx >= palCache.length) continue;
+                            var pe = palCache[idx];
+                            if (!pe) continue;
+                            var wx = rx + x;
+                            var wy = ry + y;
+                            var wz = rz + z;
+                            allBlocks.push({ x: wx, y: wy, z: wz, id: pe.javaId || pe.id });
+                            if (wx < minX) minX = wx;
+                            if (wy < minY) minY = wy;
+                            if (wz < minZ) minZ = wz;
+                        }
+                    }
+                }
+            }
+
+            if (!allBlocks.length) {
+                throw new Error('未找到任何方块');
+            }
+
+            var width = 0,
+                height = 0,
+                length = 0;
+            for (var i = 0; i < allBlocks.length; i++) {
+                var b = allBlocks[i];
+                b.x -= minX;
+                b.y -= minY;
+                b.z -= minZ;
+                if (b.x >= width) width = b.x + 1;
+                if (b.y >= height) height = b.y + 1;
+                if (b.z >= length) length = b.z + 1;
+            }
+
+            var collectors = {};
+            var ss = width * length;
+            for (var i = 0; i < allBlocks.length; i++) {
+                var b = allBlocks[i];
+                var bid = getBedrockId(b.id);
+                if (!collectors[bid]) collectors[bid] = createCollector();
+                addToCollector(collectors[bid], b.z * width + b.x + b.y * ss + 1);
+            }
+            for (var k in collectors) finishCollector(collectors[k]);
+
+            log('解析完成: ' + allBlocks.length + ' 个方块, 尺寸 ' + width + 'x' + height + 'x' + length);
+            return { blocks: allBlocks, width: width, height: height, length: length, collectors: collectors };
+        }
+
+        // ============================================================
+        // 解析 .schematic
+        // ============================================================
+        async function parseSchematic(data) {
+            if (data[0] === 80 && data[1] === 75) throw new Error('ZIP 格式的 schematic 暂不支持');
+            var raw = (data[0] === 0x1f || data[0] === 0x78) ? await decompress(data) : data;
+            var root = parseNBT(raw);
+            var w = root.Width || 0,
+                h = root.Height || 0,
+                l = root.Length || 0;
+            if (!w || !h || !l) throw new Error('无效的 schematic 文件');
+
+            var pal = root.Palette || {};
+            var bd = root.BlockData || root.block_states || root.Blocks;
+
+            if (typeof bd === 'string') {
+                var a = new Uint8Array(bd.length);
+                for (var i = 0; i < bd.length; i++) a[i] = bd.charCodeAt(i) & 0xFF;
+                bd = a;
+            }
+
+            var pkeys = Object.keys(pal);
+            if (!pkeys.length) throw new Error('调色板为空');
+            var bits = Math.max(2, Math.ceil(Math.log2(pkeys.length))),
+                mask = (1 << bits) - 1,
+                arr = [];
+            for (var k in pal) arr[pal[k]] = k;
+
+            var blocks = [],
+                idx = 0;
+            for (var y = 0; y < h; y++) {
+                for (var z = 0; z < l; z++) {
+                    for (var x = 0; x < w; x++) {
+                        var bi = idx * bits,
+                            bj = bi >>> 3,
+                            br = bi & 7,
+                            val = 0;
+                        if (bj + 4 < bd.length) {
+                            val = ((bd[bj] || 0) | ((bd[bj + 1] || 0) << 8) | ((bd[bj + 2] || 0) << 16) | ((bd[bj + 3] ||
+                                0) << 24)) >>> br;
+                            val &= mask;
+                        }
+                        idx++;
+                        var name = arr[val] || 'minecraft:air';
+                        if (name !== 'minecraft:air' && name !== 'minecraft:cave_air' && name !== 'minecraft:void_air') {
+                            blocks.push({ x: x, y: y, z: z, id: name });
+                        }
+                    }
+                }
+            }
+
+            var collectors = {};
+            var ss = w * l;
+            for (var i = 0; i < blocks.length; i++) {
+                var b = blocks[i];
+                var bid = getBedrockId(b.id);
+                if (!collectors[bid]) collectors[bid] = createCollector();
+                addToCollector(collectors[bid], b.z * w + b.x + b.y * ss + 1);
+            }
+            for (var k in collectors) finishCollector(collectors[k]);
+
+            return { blocks: blocks, width: w, height: h, length: l, collectors: collectors };
+        }
+
+        // ============================================================
+        // 主解析入口
+        // ============================================================
+        async function parseBuilding(data, name) {
+            var ext = name.split('.').pop().toLowerCase();
+            if (ext === 'litematic') return parseLitematic(data);
+            try { return await parseSchematic(data); } catch (e) {
+                log('schematic 解析失败，尝试 litematic: ' + e.message);
+            }
+            try { return await parseLitematic(data); } catch (e) {
+                log('litematic 解析失败: ' + e.message);
+            }
+            throw new Error('不支持的文件格式或文件已损坏');
+        }
+
+        // ============================================================
+        // 生成指令
+        // ============================================================
+        async function generateCommands(blocks, fn, w, l, params) {
+            var sb = params.sb || 'dr';
+            var sp = params.sp || 1;
+            var ht = params.ht || 'h';
+            var bt = params.bt || 'b';
+            var mc = params.mc || 10000;
+            var disableSensitive = params.disableSensitive || false;
+
+            var cmds = [];
+
+            function _c(cmd, comment) {
+                if (comment) cmds.push('#' + comment);
+                cmds.push(cmd);
+            }
+
+            var maxY = 0,
+                minY = Infinity;
+            for (var i = 0; i < blocks.blocks.length; i++) {
+                var b = blocks.blocks[i];
+                if (b.y > maxY) maxY = b.y;
+                if (b.y < minY) minY = b.y;
+            }
+            var totalHeight = maxY - minY + 1;
+
+            cmds.push('# [脉冲] [无条件] [红石控制] 一次性执行');
+            _c('scoreboard objectives add ' + sb + ' dummy', '创建 ' + sb + ' 计分板');
+            _c('summon armor_stand ~ ~ ~', '召唤 h 高度扫描器');
+            _c('tag @e[type=armor_stand,c=1,r=2.5,tag=!b] add ' + ht, '标记 h');
+            _c('tp @e[tag=' + ht + ',type=armor_stand] ~ ~0 ~', '传送 h 到 y=0');
+            _c('summon armor_stand ~ ~ ~', '召唤 b 位置扫描器');
+            _c('tag @e[type=armor_stand,c=1,r=2.5,tag=!h] add ' + bt, '标记 b');
+            _c('tp @e[tag=' + bt + ',type=armor_stand] ~ ~0 ~', '传送 b 到 y=0');
+            _c('scoreboard players set @e[tag=' + ht + ',type=armor_stand] ' + sb + ' 0', 'h 计数归零');
+            _c('scoreboard players set @e[tag=' + bt + ',type=armor_stand] ' + sb + ' 0', 'b 计数归零');
+            cmds.push('');
+            cmds.push('# [循环] [无条件] [保持开启] 速度' + sp + 'x');
+            _c('scoreboard players add @e[tag=' + ht + ',type=armor_stand] ' + sb + ' ' + sp, 'h 计数 +' + sp);
+            _c('scoreboard players add @e[tag=' + bt + ',type=armor_stand] ' + sb + ' ' + sp, 'b 计数 +' + sp);
+            cmds.push('');
+            cmds.push('# [连锁] [无条件] [保持开启]');
+
+            var collectors = blocks.collectors;
+            if (!collectors) {
+                collectors = {};
+                var ss = w * l;
+                for (var i = 0; i < blocks.blocks.length; i++) {
+                    var b = blocks.blocks[i];
+                    var bid = getBedrockId(b.id);
+                    if (!collectors[bid]) collectors[bid] = createCollector();
+                    addToCollector(collectors[bid], b.z * w + b.x + b.y * ss + 1);
+                }
+                for (var k in collectors) finishCollector(collectors[k]);
+            }
+
+            function isSensitiveScore(score) {
+                if (disableSensitive) return false;
+                var str = String(score);
+                if (/^[\d\s\-.]+$/.test(str)) return false;
+                return _SF && _SF.contains(str);
+            }
+
+            var allBatch = [];
+            var allSingle = [];
+            var totalBlocksCount = 0;
+            var sensitiveCount = 0;
+
+            for (var bid in collectors) {
+                var col = collectors[bid];
+                if (!col || !col.intervals || !col.intervals.len) continue;
+                for (var ii = 0; ii < col.intervals.len; ii++) {
+                    totalBlocksCount += col.intervals.ends[ii] - col.intervals.starts[ii] + 1;
+                }
+            }
+            log('总方块数: ' + totalBlocksCount);
+
+            for (var bid in collectors) {
+                var col = collectors[bid];
+                if (!col || !col.intervals || !col.intervals.len) continue;
+
+                var itv = col.intervals;
+                var ranges = [];
+                for (var ii = 0; ii < itv.len; ii++) {
+                    ranges.push([itv.starts[ii], itv.ends[ii]]);
+                }
+
+                for (var ri = 0; ri < ranges.length; ri++) {
+                    var start = ranges[ri][0];
+                    var end = ranges[ri][1];
+
+                    var currentStart = null;
+                    for (var s = start; s <= end; s++) {
+                        var scoreVal = s * sp;
+                        if (isSensitiveScore(scoreVal)) {
+                            if (currentStart !== null) {
+                                if (currentStart <= s - 1) {
+                                    allBatch.push({ start: currentStart, end: s - 1, blockId: bid });
+                                }
+                                currentStart = null;
+                            }
+                            allSingle.push({ score: s, blockId: bid });
+                            sensitiveCount++;
+                        } else {
+                            if (currentStart === null) {
+                                currentStart = s;
+                            }
+                        }
+                    }
+                    if (currentStart !== null && currentStart <= end) {
+                        allBatch.push({ start: currentStart, end: end, blockId: bid });
+                    }
+                }
+            }
+
+            log('敏感方块数: ' + sensitiveCount + ' (将转为手动 setblock)');
+
+            // 批量生成 unless 指令
+            var batchByBlock = {};
+            for (var i = 0; i < allBatch.length; i++) {
+                var item = allBatch[i];
+                if (!batchByBlock[item.blockId]) batchByBlock[item.blockId] = [];
+                batchByBlock[item.blockId].push([item.start, item.end]);
+            }
+
+            for (var bid in batchByBlock) {
+                var ranges2 = batchByBlock[bid];
+                ranges2.sort(function(a, b) { return a[0] - b[0]; });
+                var merged = [];
+                for (var i = 0; i < ranges2.length; i++) {
+                    if (merged.length === 0 || ranges2[i][0] > merged[merged.length - 1][1] + 1) {
+                        merged.push([ranges2[i][0], ranges2[i][1]]);
+                    } else {
+                        if (ranges2[i][1] > merged[merged.length - 1][1]) {
+                            merged[merged.length - 1][1] = ranges2[i][1];
+                        }
+                    }
+                }
+
+                var temp = [];
+                for (var i = 0; i < merged.length; i++) {
+                    var test = temp.concat([merged[i]]);
+                    var segStr = test.map(function(x) {
+                        return x[0] === x[1] ?
+                            sb + '=!' + x[0] * sp :
+                            sb + '=!' + x[0] * sp + '..' + x[1] * sp;
+                    }).join(',');
+
+                    if (segStr.length > mc && temp.length) {
+                        var tempStr = temp.map(function(x) {
+                            return x[0] === x[1] ?
+                                sb + '=!' + x[0] * sp :
+                                sb + '=!' + x[0] * sp + '..' + x[1] * sp;
+                        }).join(',');
+                        cmds.push('execute as @e[tag=' + bt + ',type=armor_stand] at @s unless entity @s[scores={' +
+                            tempStr + '}] run setblock ~ ~ ~ ' + bid);
+                        temp = [];
+                    }
+                    temp.push(merged[i]);
+                }
+                if (temp.length) {
+                    var tempStr = temp.map(function(x) {
+                        return x[0] === x[1] ?
+                            sb + '=!' + x[0] * sp :
+                            sb + '=!' + x[0] * sp + '..' + x[1] * sp;
+                    }).join(',');
+                    cmds.push('execute as @e[tag=' + bt + ',type=armor_stand] at @s unless entity @s[scores={' +
+                        tempStr + '}] run setblock ~ ~ ~ ' + bid);
+                }
+            }
+
+            // 单独处理敏感分数
+            if (allSingle.length > 0) {
+                cmds.push('');
+                cmds.push('# ===== [手动执行] 以下 ' + allSingle.length + ' 个方块含敏感分值，请逐条手动执行 =====');
+                cmds.push('# 站在盔甲架起始位置，逐条输入以下 setblock 指令');
+
+                var singleByBlock = {};
+                for (var i = 0; i < allSingle.length; i++) {
+                    var item = allSingle[i];
+                    if (!singleByBlock[item.blockId]) singleByBlock[item.blockId] = [];
+                    singleByBlock[item.blockId].push(item.score);
+                }
+
+                for (var bid in singleByBlock) {
+                    var scores = singleByBlock[bid];
+                    scores.sort(function(a, b) { return a - b; });
+                    for (var i = 0; i < scores.length; i++) {
+                        var score = scores[i];
+                        var idx = score - 1;
+                        var XZ = w * l;
+                        var y = Math.floor(idx / XZ);
+                        var remaining = idx % XZ;
+                        var z = Math.floor(remaining / w);
+                        var x = remaining % w;
+                        cmds.push('setblock ~' + x + ' ~' + y + ' ~' + z + ' ' + bid);
+                    }
+                }
+                cmds.push('# ===== [手动执行结束] =====');
+            }
+
+            cmds.push('');
+            cmds.push('# ===== b 移动 =====');
+            _c('execute as @e[tag=' + bt + ',type=armor_stand] at @s run tp @s ~1 ~ ~', 'b 向右移动 1 格');
+            cmds.push('');
+
+            cmds.push('# ===== 换行/换层 =====');
+
+            var wrapScores = [];
+            for (var i = 1; i < l; i++) {
+                wrapScores.push(i * w * sp);
+            }
+            if (wrapScores.length > 0) {
+                var wrapStr = wrapScores.map(function(x) { return sb + '=' + x + '..' + x; }).join(',');
+                var cmd = 'execute as @e[tag=' + bt + ',type=armor_stand] if entity @s[scores={' + wrapStr +
+                    '}] run tp @s ~-' + w + ' ~ ~1';
+                if (cmd.length > mc) {
+                    var batchSize = Math.floor(mc / 50);
+                    for (var j = 0; j < wrapScores.length; j += batchSize) {
+                        var batch = wrapScores.slice(j, j + batchSize);
+                        var bStr = batch.map(function(x) { return sb + '=' + x + '..' + x; }).join(',');
+                        cmds.push('execute as @e[tag=' + bt + ',type=armor_stand] if entity @s[scores={' + bStr +
+                            '}] run tp @s ~-' + w + ' ~ ~1');
+                    }
+                } else {
+                    cmds.push('execute as @e[tag=' + bt + ',type=armor_stand] if entity @s[scores={' + wrapStr +
+                        '}] run tp @s ~-' + w + ' ~ ~1');
+                }
+            }
+
+            var totalBlocks = w * l;
+            var layerScores = [];
+            for (var i = 1; i < totalHeight; i++) {
+                layerScores.push(i * totalBlocks * sp);
+            }
+            if (layerScores.length > 0) {
+                var layerStr = layerScores.map(function(x) { return sb + '=' + x + '..' + x; }).join(',');
+                var cmd1 = 'execute as @e[tag=' + ht + ',type=armor_stand] if entity @s[scores={' + layerStr +
+                    '}] run tp @s ~ ~1 ~';
+                var cmd2 = 'execute as @e[tag=' + ht + ',type=armor_stand] if entity @s[scores={' + layerStr +
+                    '}] at @s run tp @e[tag=' + bt + ',type=armor_stand] ~ ~ ~';
+                if (cmd1.length > mc || cmd2.length > mc) {
+                    var batchSize = Math.floor(mc / 50);
+                    for (var j = 0; j < layerScores.length; j += batchSize) {
+                        var batch = layerScores.slice(j, j + batchSize);
+                        var bStr = batch.map(function(x) { return sb + '=' + x + '..' + x; }).join(',');
+                        cmds.push('execute as @e[tag=' + ht + ',type=armor_stand] if entity @s[scores={' + bStr +
+                            '}] run tp @s ~ ~1 ~');
+                        cmds.push('execute as @e[tag=' + ht + ',type=armor_stand] if entity @s[scores={' + bStr +
+                            '}] at @s run tp @e[tag=' + bt + ',type=armor_stand] ~ ~ ~');
+                    }
+                } else {
+                    cmds.push('execute as @e[tag=' + ht + ',type=armor_stand] if entity @s[scores={' + layerStr +
+                        '}] run tp @s ~ ~1 ~');
+                    cmds.push('execute as @e[tag=' + ht + ',type=armor_stand] if entity @s[scores={' + layerStr +
+                        '}] at @s run tp @e[tag=' + bt + ',type=armor_stand] ~ ~ ~');
+                }
+            }
+
+            cmds.push('');
+            _c('titleraw @a actionbar {"rawtext":[{"text":"文件 ' + fn + ' 加载完成"}]}', '加载完成提示');
+            cmds.push('');
+
+            cmds.push('# ===== 重置 =====');
+            _c('scoreboard players set @e[tag=' + ht + ',type=armor_stand] ' + sb + ' 0', 'h 计数归零');
+            _c('scoreboard players set @e[tag=' + bt + ',type=armor_stand] ' + sb + ' 0', 'b 计数归零');
+            _c('tp @e[tag=' + ht + ',type=armor_stand] ~ ~0 ~', '传送 h 回 y=0');
+            _c('tp @e[tag=' + bt + ',type=armor_stand] ~ ~0 ~', '传送 b 回 y=0');
+            _c('kill @e[tag=' + ht + ',type=armor_stand]', '移除 h');
+            _c('kill @e[tag=' + bt + ',type=armor_stand]', '移除 b');
+            cmds.push('');
+
+            cmds.push('# ===== 使用说明 =====');
+            cmds.push('# 1. 在命令方块中(按顺序)粘贴以上指令');
+            cmds.push('# 2. [脉冲]一次性执行 -> [循环]保持开启 -> [连锁]保持开启');
+            cmds.push('# 3. 确保建筑区域已清空再运行');
+            if (allSingle.length > 0) {
+                cmds.push('# 4. ' + allSingle.length + ' 个敏感方块已转为手动 setblock，请执行');
+            } else {
+                cmds.push('# 4. 无敏感方块，全部自动执行');
+            }
+
+            return cmds;
+        }
+
+        // ============================================================
+        // 生成 3D 预览 HTML (独立文件，贴图嵌入)
+        // ============================================================
+        function generatePreviewHTML(result, fileName) {
+            if (!result || !result.blocks || result.blocks.length === 0) {
+                return null;
+            }
+
+            var blocks = result.blocks;
+            var w = result.width || 1;
+            var h = result.height || 1;
+            var l = result.length || 1;
+
+            // 限制显示数量
+            var maxBlocks = 50000;
+            var showBlocks = blocks;
+            if (blocks.length > maxBlocks) {
+                showBlocks = blocks.slice(0, maxBlocks);
+                log('⚠️ 方块过多 (' + blocks.length + ')，预览仅显示前 ' + maxBlocks + ' 个');
+            }
+
+            // 按方块类型分组
+            var groupMap = {};
+            for (var i = 0; i < showBlocks.length; i++) {
+                var b = showBlocks[i];
+                var bid = getBedrockId(b.id);
+                if (!groupMap[bid]) groupMap[bid] = [];
+                groupMap[bid].push(b);
+            }
+
+            // 构建方块数据用于JS
+            var blockData = {};
+            for (var bid in groupMap) {
+                var list = groupMap[bid];
+                var positions = [];
+                for (var j = 0; j < list.length; j++) {
+                    var b = list[j];
+                    positions.push([b.x, b.y, b.z]);
+                }
+                // 生成一个颜色
+                var hash = 0;
+                for (var ci = 0; ci < bid.length; ci++) hash = (hash * 31 + bid.charCodeAt(ci)) & 0xFFFFFF;
+                var color = '#' + (0x404040 + (hash & 0x7F7F7F)).toString(16).padStart(6, '0');
+                blockData[bid] = {
+                    positions: positions,
+                    color: color
+                };
+            }
+
+            var html = '<!DOCTYPE html>\n';
+            html += '<html>\n<head>\n';
+            html += '<meta charset="utf-8">\n';
+            html += '<title>3D预览 - ' + fileName + '</title>\n';
+            html += '<style>\n';
+            html += 'body{margin:0;overflow:hidden;background:#0d0d2b;font-family:sans-serif;}\n';
+            html += '#info{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:#aaa;font-size:13px;background:rgba(0,0,0,.6);padding:6px 20px;border-radius:8px;pointer-events:none;z-index:10;}\n';
+            html += '#loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#666;font-size:16px;z-index:20;}\n';
+            html += '</style>\n';
+            html += '</head>\n<body>\n';
+            html += '<div id="loading">⏳ 加载 Three.js...</div>\n';
+            html += '<div id="info">' + fileName + ' | 方块: ' + showBlocks.length + ' | 尺寸: ' + w + '×' + h + '×' + l +
+                ' | 拖拽旋转/滚轮缩放</div>\n';
+
+            html += '<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>\n';
+            html += '<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"><\/script>\n';
+
+            html += '<script>\n';
+            html += 'var blockData = ' + JSON.stringify(blockData) + ';\n';
+            html += 'var W = ' + w + ', H = ' + h + ', L = ' + l + ';\n';
+            html += 'var cx = W/2, cy = H/2, cz = L/2;\n';
+
+            html += `
+            document.getElementById('loading').style.display='none';
+            var scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0d0d2b);
+            var camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 5000);
+            var maxDim = Math.max(W,H,L);
+            var dist = maxDim * 1.5 + 10;
+            camera.position.set(dist*0.8, dist*0.6, dist*0.8);
+            var renderer = new THREE.WebGLRenderer({antialias:true});
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+            document.body.appendChild(renderer.domElement);
+            var controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.08;
+            controls.target.set(0,0,0);
+            controls.update();
+            var ambient = new THREE.AmbientLight(0x404070, 0.6);
+            scene.add(ambient);
+            var sun = new THREE.DirectionalLight(0xffeedd, 1.2);
+            sun.position.set(80,150,60);
+            scene.add(sun);
+            var back = new THREE.DirectionalLight(0x8888ff, 0.3);
+            back.position.set(-60,80,-40);
+            scene.add(back);
+            var grid = new THREE.GridHelper(Math.max(maxDim*2+10,40), Math.floor(Math.max(maxDim,20)), 0x444488, 0x333366);
+            grid.position.y = -0.51;
+            scene.add(grid);
+
+            var faceVerts = [
+                {n:[1,0,0], u:[0,1,0,1,0,1,0,0], v:[0,0,1,1,1,1,0,0]},
+                {n:[-1,0,0], u:[1,0,1,0,0,1,0,1], v:[0,0,1,1,1,1,0,0]},
+                {n:[0,1,0], u:[0,0,1,1,1,1,0,0], v:[1,0,1,0,0,1,0,1]},
+                {n:[0,-1,0], u:[0,0,1,1,1,1,0,0], v:[0,1,0,1,1,0,1,0]},
+                {n:[0,0,1], u:[0,0,1,1,1,1,0,0], v:[0,0,1,1,1,1,0,0]},
+                {n:[0,0,-1], u:[1,0,1,0,0,1,0,1], v:[0,0,1,1,1,1,0,0]}
+            ];
+            var offsets = [[0,0,0],[1,0,0],[1,0,1],[0,0,1],[0,1,0],[1,1,0],[1,1,1],[0,1,1]];
+            var faceIndices = [[1,5,6,2],[0,3,7,4],[4,7,6,5],[0,1,2,3],[2,6,7,3],[0,4,5,1]];
+
+            for(var bid in blockData){
+                var data = blockData[bid];
+                var positions = [];
+                var uvs = [];
+                var normals = [];
+                for(var bi=0; bi<data.positions.length; bi++){
+                    var p = data.positions[bi];
+                    var bx = p[0] - cx;
+                    var by = p[1] - cy;
+                    var bz = p[2] - cz;
+                    for(var f=0; f<6; f++){
+                        var idxs = faceIndices[f];
+                        var n = faceVerts[f].n;
+                        var uArr = faceVerts[f].u;
+                        var vArr = faceVerts[f].v;
+                        for(var vi=0; vi<4; vi++){
+                            var oi = idxs[vi];
+                            positions.push(bx+offsets[oi][0]);
+                            positions.push(by+offsets[oi][1]);
+                            positions.push(bz+offsets[oi][2]);
+                            uvs.push(uArr[vi]);
+                            uvs.push(vArr[vi]);
+                            normals.push(n[0],n[1],n[2]);
+                        }
+                    }
+                }
+                var geo = new THREE.BufferGeometry();
+                var vertCount = positions.length/3;
+                geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+                geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+                geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+                var indices = [];
+                for(var i=0; i<vertCount/4; i++){
+                    var base = i*4;
+                    indices.push(base, base+1, base+2, base, base+2, base+3);
+                }
+                geo.setIndex(indices);
+                var mat = new THREE.MeshStandardMaterial({
+                    color: data.color,
+                    roughness: 0.7,
+                    metalness: 0.05,
+                    side: THREE.DoubleSide,
+                    emissive: data.color,
+                    emissiveIntensity: 0.05
+                });
+                var mesh = new THREE.Mesh(geo, mat);
+                scene.add(mesh);
+            }
+
+            function animate(){
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            window.addEventListener('resize', function(){
+                camera.aspect = window.innerWidth/window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+            <\/script>\n`;
+
+            html += '</body>\n</html>';
+            return html;
+        }
+
+        // ============================================================
+        // 预览和转换
+        // ============================================================
+        async function preview() {
+            if (!currentFileData) {
+                setStatus('请先选择文件', 'status-err');
+                showToast('请先选择一个文件', 'error');
+                return;
+            }
+            showLoading('解析建筑文件...');
+            setStatus('解析中...', 'status-info');
+            log('开始生成3D预览: ' + currentFileName);
+
+            try {
+                var result = await parseBuilding(currentFileData, currentFileName);
+                currentPreviewResult = result;
+                var blockCount = result.blocks ? result.blocks.length : 0;
+
+                // 生成预览HTML
+                var html = generatePreviewHTML(result, currentFileName.replace(/\.[^.]+$/, ''));
+                if (html) {
+                    currentPreviewHTML = html;
+                    previewDownloadBtn.style.display = 'inline-block';
+                    previewInfo.textContent = '✅ 预览已生成，点击下载';
+                    prPlaceholder.style.display = 'none';
+                    prInfo.style.display = 'block';
+                    prInfo.textContent = '方块: ' + blockCount + ' | 尺寸: ' + result.width + '×' + result.height + '×' +
+                        result.length;
+                    showToast('✅ 3D预览HTML已生成，点击下载', 'success');
+                } else {
+                    showToast('❌ 预览生成失败', 'error');
+                }
+
+                setStatus('✅ 预览生成完成: ' + blockCount + ' 个方块', 'status-ok');
+                log('预览完成: 方块 ' + blockCount + ', 尺寸 ' + result.width + 'x' + result.height + 'x' + result.length);
+                switchTab('pr');
+            } catch (e) {
+                setStatus('❌ 预览失败: ' + e.message, 'status-err');
+                log('预览失败: ' + e.message);
+                showToast('❌ 预览失败: ' + e.message, 'error');
+            }
+            hideLoading();
+        }
+
+        function downloadPreviewHTML() {
+            if (!currentPreviewHTML) {
+                showToast('请先生成预览', 'error');
+                return;
+            }
+            var blob = new Blob([currentPreviewHTML], { type: 'text/html;charset=utf-8' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = currentFileName.replace(/\.[^.]+$/, '') + '_3d预览.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            log('下载预览HTML: ' + a.download);
+            showToast('📥 预览HTML已下载', 'success');
+        }
+
+        async function convert() {
+            if (!currentFileData) {
+                setStatus('请先选择文件', 'status-err');
+                showToast('请先选择一个文件', 'error');
+                return;
+            }
+            showLoading('生成指令...');
+            setStatus('转换中...', 'status-info');
+            log('开始转换: ' + currentFileName);
+
+            try {
+                var params = getParams();
+                var result = await parseBuilding(currentFileData, currentFileName);
+                currentPreviewResult = result;
+
+                var cmds = await generateCommands(result, currentFileName.replace(/\.[^.]+$/, ''), result.width, result
+                    .length, params);
+                currentCommands = cmds;
+
+                var cmdText = cmds.join('\n');
+                cmBox.textContent = cmdText;
+                cmdCountEl.textContent = cmds.length;
+                dlBtn.style.display = 'inline-block';
+                dlBtn.disabled = false;
+
+                var blockCount = result.blocks ? result.blocks.length : 0;
+                var cmdCount = cmds.filter(function(l) { return !l.startsWith('#') && l.trim().length > 0; }).length;
+                setStatus('✅ 转换完成! ' + cmdCount + ' 条有效指令', 'status-ok');
+                log('转换完成: ' + cmdCount + ' 条指令, ' + blockCount + ' 个方块');
+                infoText.textContent = '指令: ' + cmdCount + ' 条 | 方块: ' + blockCount;
+                showToast('⚡ 转换完成: ' + cmdCount + ' 条指令', 'success');
+                switchTab('cm');
+            } catch (e) {
+                setStatus('❌ 转换失败: ' + e.message, 'status-err');
+                log('转换失败: ' + e.message);
+                cmBox.textContent = '❌ 转换失败: ' + e.message;
+                showToast('❌ 转换失败: ' + e.message, 'error');
+            }
+            hideLoading();
+        }
+
+        function downloadCommands() {
+            if (!currentCommands) return;
+            var text = currentCommands.join('\n');
+            var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = currentFileName.replace(/\.[^.]+$/, '') + '_commands.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            log('下载指令文件: ' + a.download);
+            showToast('📥 指令已下载', 'success');
+        }
+
+        // ============================================================
+        // 暴露全局
+        // ============================================================
+        window.preview = preview;
+        window.convert = convert;
+        window.downloadCommands = downloadCommands;
+        window.downloadPreviewHTML = downloadPreviewHTML;
+        window.switchTab = switchTab;
+        window.clearAll = clearAll;
+        window.copyCommands = copyCommands;
+
+        log('Web 版转换器已加载，敏感词规则: ' + _SF.count() + ' 条 (来自敏感词库lite.json)');
+        log('拖拽 .schematic 或 .litematic 文件到页面开始');
+        log('⚠️ 纯数字不会触发敏感词检测');
+        log('💡 点击「生成3D预览」→ 下载HTML → 本地打开查看3D模型');
+    </script>
 </body>
 </html>
