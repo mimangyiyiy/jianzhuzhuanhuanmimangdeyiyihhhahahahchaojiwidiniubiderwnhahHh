@@ -1,0 +1,6 @@
+name = "mc-converter"
+compatibility_date = "2024-12-18"
+
+[[kv_namespaces]]
+binding = "PREVIEWS"
+id = "请替换为你的-KV-ID"

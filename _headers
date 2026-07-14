@@ -1,0 +1,16 @@
+/*
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, POST, OPTIONS
+  Access-Control-Allow-Headers: Content-Type
+
+/textures.zip
+  Content-Type: application/zip
+  Cache-Control: public, max-age=86400
+
+/block_map.js
+  Content-Type: application/javascript
+  Cache-Control: public, max-age=86400
+
+/generator_blocks.json
+  Content-Type: application/json
+  Cache-Control: public, max-age=86400
