@@ -5,446 +5,78 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MC建筑转换器 v3.6</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            background: linear-gradient(135deg, #0d0d2b, #1a1a3e, #0f0f2e);
-            min-height: 100vh;
-            font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
-            padding: 20px;
-        }
-        .container {
-            max-width: 960px;
-            margin: 0 auto;
-        }
-        h1 {
-            font-size: 24px;
-            color: #fff;
-            margin-bottom: 4px;
-        }
-        h1 span {
-            background: linear-gradient(135deg, #7c4dff, #448aff);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .sub {
-            color: #889;
-            font-size: 13px;
-            margin-bottom: 10px;
-        }
-        .card {
-            background: rgba(255, 255, 255, .04);
-            border: 1px solid rgba(255, 255, 255, .08);
-            border-radius: 10px;
-            padding: 14px;
-            margin-bottom: 10px;
-        }
-        .row {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-            align-items: center;
-            margin-top: 4px;
-        }
-        label {
-            font-size: 12px;
-            color: #999;
-        }
-        input[type="file"] {
-            font-size: 12px;
-            color: #ccc;
-            background: transparent;
-            border: none;
-            cursor: pointer;
-        }
-        input[type="text"],
-        input[type="number"] {
-            padding: 3px 6px;
-            border: 1px solid rgba(255, 255, 255, .1);
-            border-radius: 4px;
-            background: rgba(0, 0, 0, .3);
-            color: #ccc;
-            font-size: 12px;
-            width: 70px;
-        }
-        .btn {
-            padding: 6px 16px;
-            border: none;
-            border-radius: 5px;
-            font-size: 12px;
-            cursor: pointer;
-            color: #fff;
-            display: inline-block;
-            text-decoration: none;
-            transition: .15s;
-        }
-        .btn-primary {
-            background: linear-gradient(135deg, #7c4dff, #5e35e0);
-        }
-        .btn-primary:hover:not(:disabled) {
-            opacity: .85;
-            transform: scale(1.02);
-        }
-        .btn-secondary {
-            background: linear-gradient(135deg, #448aff, #2962ff);
-        }
-        .btn-secondary:hover:not(:disabled) {
-            opacity: .85;
-            transform: scale(1.02);
-        }
-        .btn-success {
-            background: linear-gradient(135deg, #00c853, #00a844);
-        }
-        .btn-success:hover:not(:disabled) {
-            opacity: .85;
-            transform: scale(1.02);
-        }
-        .btn-danger {
-            background: linear-gradient(135deg, #ff1744, #d50000);
-        }
-        .btn-danger:hover:not(:disabled) {
-            opacity: .85;
-            transform: scale(1.02);
-        }
-        .btn:disabled {
-            opacity: .35;
-            cursor: not-allowed;
-        }
-        .btn-sm {
-            padding: 3px 10px;
-            font-size: 11px;
-        }
-        .btn-preview {
-            background: linear-gradient(135deg, #00b894, #00a381);
-        }
-        .btn-preview:hover:not(:disabled) {
-            opacity: .85;
-            transform: scale(1.02);
-        }
-        #st {
-            font-size: 13px;
-            padding: 10px 16px;
-            border-radius: 6px;
-            margin-bottom: 8px;
-            background: rgba(255, 255, 255, .03);
-            transition: all .3s;
-            border-left: 3px solid transparent;
-            min-height: 38px;
-        }
-        #st.status-ok {
-            border-left-color: #00c853;
-            color: #69db7c;
-        }
-        #st.status-err {
-            border-left-color: #ff1744;
-            color: #ff6b6b;
-        }
-        #st.status-info {
-            border-left-color: #448aff;
-            color: #74c0fc;
-        }
-        #st.status-file {
-            border-left-color: #ffd43b;
-            color: #ffd43b;
-            background: rgba(255, 212, 59, .08);
-        }
-        #ld {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(13, 13, 43, .92);
-            z-index: 9999;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            gap: 16px;
-        }
-        #ld.s {
-            display: flex;
-        }
-        #sp {
-            width: 40px;
-            height: 40px;
-            border: 3px solid rgba(124, 77, 255, .2);
-            border-top-color: #7c4dff;
-            border-radius: 50%;
-            animation: s .8s linear infinite;
-        }
-        @keyframes s {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-        #lt {
-            color: #889;
-            font-size: 13px;
-        }
-        .tabs {
-            display: flex;
-            border-bottom: 1px solid rgba(255, 255, 255, .06);
-            margin-top: 8px;
-        }
-        .tab {
-            padding: 5px 14px;
-            cursor: pointer;
-            font-size: 12px;
-            color: #666;
-            border-bottom: 2px solid transparent;
-            transition: .2s;
-        }
-        .tab:hover {
-            color: #aaa;
-        }
-        .tab.a {
-            color: #ccc;
-            border-bottom-color: #7c4dff;
-        }
-        .tab-c {
-            display: none;
-            margin-top: 6px;
-        }
-        .tab-c.s {
-            display: block;
-        }
-        .box {
-            background: rgba(0, 0, 0, .4);
-            border: 1px solid rgba(255, 255, 255, .06);
-            border-radius: 8px;
-            padding: 10px;
-            font-family: Consolas, monospace;
-            font-size: 11px;
-            color: #8b8baa;
-            height: 300px;
-            overflow: auto;
-            white-space: pre-wrap;
-            word-break: break-all;
-        }
-        .box-lg {
-            height: 420px;
-        }
-        .badge {
-            display: inline-block;
-            padding: 2px 10px;
-            border-radius: 10px;
-            font-size: 11px;
-            background: rgba(124, 77, 255, .2);
-            color: #b197fc;
-            margin-left: 6px;
-        }
-        .checkbox-label {
-            font-size: 12px;
-            color: #999;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            cursor: pointer;
-        }
-        .checkbox-label input[type="checkbox"] {
-            accent-color: #7c4dff;
-            width: 14px;
-            height: 14px;
-            cursor: pointer;
-        }
-        .drop-zone {
-            border: 2px dashed rgba(255, 255, 255, .1);
-            border-radius: 8px;
-            padding: 20px;
-            text-align: center;
-            color: #555;
-            transition: .3s;
-            cursor: pointer;
-            position: relative;
-        }
-        .drop-zone:hover {
-            border-color: rgba(124, 77, 255, .4);
-            background: rgba(124, 77, 255, .05);
-        }
-        .drop-zone.drag-over {
-            border-color: #7c4dff;
-            background: rgba(124, 77, 255, .12);
-            transform: scale(1.01);
-        }
-        .drop-zone.has-file {
-            border-color: #ffd43b;
-            background: rgba(255, 212, 59, .06);
-        }
-        .drop-zone .icon {
-            font-size: 32px;
-            display: block;
-            margin-bottom: 4px;
-        }
-        .drop-zone .file-name-display {
-            font-size: 14px;
-            color: #ffd43b;
-            font-weight: 500;
-            margin-top: 4px;
-        }
-        .drop-zone .file-size-display {
-            font-size: 11px;
-            color: #666;
-        }
-        .toast {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 12px 28px;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 500;
-            z-index: 10000;
-            opacity: 0;
-            transition: all .4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-            pointer-events: none;
-            background: rgba(0, 0, 0, .85);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, .1);
-        }
-        .toast.show {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-        }
-        .toast.success {
-            border-color: #00c853;
-            color: #69db7c;
-        }
-        .toast.error {
-            border-color: #ff1744;
-            color: #ff6b6b;
-        }
-        .toast.info {
-            border-color: #448aff;
-            color: #74c0fc;
-        }
-        .copy-btn {
-            background: rgba(255, 255, 255, .08);
-            border: 1px solid rgba(255, 255, 255, .1);
-            color: #aaa;
-            padding: 2px 10px;
-            border-radius: 4px;
-            font-size: 11px;
-            cursor: pointer;
-            transition: .2s;
-        }
-        .copy-btn:hover {
-            background: rgba(255, 255, 255, .15);
-            color: #fff;
-        }
-        .flex-right {
-            margin-left: auto;
-            display: flex;
-            gap: 6px;
-            align-items: center;
-        }
-        .preview-info-overlay {
-            position: absolute;
-            bottom: 12px;
-            left: 12px;
-            background: rgba(0, 0, 0, .7);
-            padding: 6px 14px;
-            border-radius: 6px;
-            font-size: 12px;
-            color: #aaa;
-            pointer-events: none;
-            z-index: 10;
-        }
-        #preview3d {
-            width: 100%;
-            height: 500px;
-            border-radius: 8px;
-            background: #0d0d2b;
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            gap: 12px;
-        }
-        #preview3d .big-icon {
-            font-size: 48px;
-            opacity: .3;
-        }
-        #preview3d .hint {
-            color: #555;
-            font-size: 14px;
-            text-align: center;
-            line-height: 1.6;
-        }
-        #preview3d .hint small {
-            color: #444;
-            font-size: 12px;
-        }
-        #progress-wrap {
-            width: 100%;
-            height: 4px;
-            background: rgba(255, 255, 255, 0.08);
-            border-radius: 2px;
-            margin-top: 6px;
-            overflow: hidden;
-            position: relative;
-            display: none;
-        }
-        #progress-wrap.active {
-            display: block;
-        }
-        #progress-bar {
-            height: 100%;
-            width: 0%;
-            border-radius: 2px;
-            background: linear-gradient(90deg, #7c4dff, #448aff, #00c853);
-            background-size: 200% 100%;
-            animation: progress-shimmer 1.5s ease-in-out infinite;
-            transition: width 0.15s ease-out;
-        }
-        @keyframes progress-shimmer {
-            0% {
-                background-position: 0% 0%;
-            }
-            100% {
-                background-position: 200% 0%;
-            }
-        }
-        #progress-text {
-            font-size: 11px;
-            color: #aaa;
-            margin-top: 2px;
-            display: block;
-        }
-        #st-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        @media (max-width: 600px) {
-            .row {
-                gap: 4px;
-            }
-            input[type="text"],
-            input[type="number"] {
-                width: 50px;
-            }
-            .btn {
-                padding: 4px 10px;
-                font-size: 11px;
-            }
-            #preview3d {
-                height: 300px;
-            }
-            .toast {
-                font-size: 12px;
-                padding: 10px 20px;
-                bottom: 20px;
-                max-width: 90%;
-            }
-        }
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{background:linear-gradient(135deg,#0d0d2b,#1a1a3e,#0f0f2e);min-height:100vh;font-family:"Segoe UI","Microsoft YaHei",sans-serif;padding:20px}
+        .container{max-width:960px;margin:0 auto}
+        h1{font-size:24px;color:#fff;margin-bottom:4px}
+        h1 span{background:linear-gradient(135deg,#7c4dff,#448aff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+        .sub{color:#889;font-size:13px;margin-bottom:10px}
+        .card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:14px;margin-bottom:10px}
+        .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:4px}
+        label{font-size:12px;color:#999}
+        input[type=file]{font-size:12px;color:#ccc;background:transparent;border:none;cursor:pointer}
+        input[type=text],input[type=number]{padding:3px 6px;border:1px solid rgba(255,255,255,.1);border-radius:4px;background:rgba(0,0,0,.3);color:#ccc;font-size:12px;width:70px}
+        .btn{padding:6px 16px;border:none;border-radius:5px;font-size:12px;cursor:pointer;color:#fff;display:inline-block;text-decoration:none;transition:.15s}
+        .btn-primary{background:linear-gradient(135deg,#7c4dff,#5e35e0)}
+        .btn-primary:hover:not(:disabled){opacity:.85;transform:scale(1.02)}
+        .btn-secondary{background:linear-gradient(135deg,#448aff,#2962ff)}
+        .btn-secondary:hover:not(:disabled){opacity:.85;transform:scale(1.02)}
+        .btn-success{background:linear-gradient(135deg,#00c853,#00a844)}
+        .btn-success:hover:not(:disabled){opacity:.85;transform:scale(1.02)}
+        .btn-danger{background:linear-gradient(135deg,#ff1744,#d50000)}
+        .btn-danger:hover:not(:disabled){opacity:.85;transform:scale(1.02)}
+        .btn:disabled{opacity:.35;cursor:not-allowed}
+        .btn-sm{padding:3px 10px;font-size:11px}
+        .btn-preview{background:linear-gradient(135deg,#00b894,#00a381)}
+        .btn-preview:hover:not(:disabled){opacity:.85;transform:scale(1.02)}
+        #st{font-size:13px;padding:10px 16px;border-radius:6px;margin-bottom:8px;background:rgba(255,255,255,.03);transition:all .3s;border-left:3px solid transparent;min-height:38px}
+        #st.status-ok{border-left-color:#00c853;color:#69db7c}
+        #st.status-err{border-left-color:#ff1744;color:#ff6b6b}
+        #st.status-info{border-left-color:#448aff;color:#74c0fc}
+        #st.status-file{border-left-color:#ffd43b;color:#ffd43b;background:rgba(255,212,59,.08)}
+        #ld{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(13,13,43,.92);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+        #ld.s{display:flex}
+        #sp{width:40px;height:40px;border:3px solid rgba(124,77,255,.2);border-top-color:#7c4dff;border-radius:50%;animation:s .8s linear infinite}
+        @keyframes s{to{transform:rotate(360deg)}}
+        #lt{color:#889;font-size:13px}
+        .tabs{display:flex;border-bottom:1px solid rgba(255,255,255,.06);margin-top:8px}
+        .tab{padding:5px 14px;cursor:pointer;font-size:12px;color:#666;border-bottom:2px solid transparent;transition:.2s}
+        .tab:hover{color:#aaa}
+        .tab.a{color:#ccc;border-bottom-color:#7c4dff}
+        .tab-c{display:none;margin-top:6px}
+        .tab-c.s{display:block}
+        .box{background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:10px;font-family:Consolas,monospace;font-size:11px;color:#8b8baa;height:300px;overflow:auto;white-space:pre-wrap;word-break:break-all}
+        .box-lg{height:420px}
+        .badge{display:inline-block;padding:2px 10px;border-radius:10px;font-size:11px;background:rgba(124,77,255,.2);color:#b197fc;margin-left:6px}
+        .checkbox-label{font-size:12px;color:#999;display:flex;align-items:center;gap:4px;cursor:pointer}
+        .checkbox-label input[type=checkbox]{accent-color:#7c4dff;width:14px;height:14px;cursor:pointer}
+        .drop-zone{border:2px dashed rgba(255,255,255,.1);border-radius:8px;padding:20px;text-align:center;color:#555;transition:.3s;cursor:pointer;position:relative}
+        .drop-zone:hover{border-color:rgba(124,77,255,.4);background:rgba(124,77,255,.05)}
+        .drop-zone.drag-over{border-color:#7c4dff;background:rgba(124,77,255,.12);transform:scale(1.01)}
+        .drop-zone.has-file{border-color:#ffd43b;background:rgba(255,212,59,.06)}
+        .drop-zone .icon{font-size:32px;display:block;margin-bottom:4px}
+        .drop-zone .file-name-display{font-size:14px;color:#ffd43b;font-weight:500;margin-top:4px}
+        .drop-zone .file-size-display{font-size:11px;color:#666}
+        .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);padding:12px 28px;border-radius:10px;font-size:14px;font-weight:500;z-index:10000;opacity:0;transition:all .4s cubic-bezier(0.68,-0.55,0.265,1.55);pointer-events:none;background:rgba(0,0,0,.85);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.1)}
+        .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+        .toast.success{border-color:#00c853;color:#69db7c}
+        .toast.error{border-color:#ff1744;color:#ff6b6b}
+        .toast.info{border-color:#448aff;color:#74c0fc}
+        .copy-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);color:#aaa;padding:2px 10px;border-radius:4px;font-size:11px;cursor:pointer;transition:.2s}
+        .copy-btn:hover{background:rgba(255,255,255,.15);color:#fff}
+        .flex-right{margin-left:auto;display:flex;gap:6px;align-items:center}
+        .preview-info-overlay{position:absolute;bottom:12px;left:12px;background:rgba(0,0,0,.7);padding:6px 14px;border-radius:6px;font-size:12px;color:#aaa;pointer-events:none;z-index:10}
+        #preview3d{width:100%;height:500px;border-radius:8px;background:#0d0d2b;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px}
+        #preview3d .big-icon{font-size:48px;opacity:.3}
+        #preview3d .hint{color:#555;font-size:14px;text-align:center;line-height:1.6}
+        #preview3d .hint small{color:#444;font-size:12px}
+        #progress-wrap{width:100%;height:4px;background:rgba(255,255,255,0.08);border-radius:2px;margin-top:6px;overflow:hidden;position:relative;display:none}
+        #progress-wrap.active{display:block}
+        #progress-bar{height:100%;width:0%;border-radius:2px;background:linear-gradient(90deg,#7c4dff,#448aff,#00c853);background-size:200% 100%;animation:progress-shimmer 1.5s ease-in-out infinite;transition:width .15s ease-out}
+        @keyframes progress-shimmer{0%{background-position:0% 0%}100%{background-position:200% 0%}}
+        #progress-text{font-size:11px;color:#aaa;margin-top:2px;display:block}
+        #st-top{display:flex;justify-content:space-between;align-items:center}
+        @media(max-width:600px){.row{gap:4px}input[type=text],input[type=number]{width:50px}.btn{padding:4px 10px;font-size:11px}#preview3d{height:300px}.toast{font-size:12px;padding:10px 20px;bottom:20px;max-width:90%}}
     </style>
 </head>
 <body>
@@ -454,97 +86,27 @@
 
     <div class="container">
         <h1>MC <span>建筑转换器</span> v3.6</h1>
-        <div class="sub">
-            作者: 小逸罒不迷茫 &nbsp;|&nbsp; B站: space.bilibili.com/3546638146603426
-            <span class="badge">Web版</span>
-        </div>
-        <div id="st">
-            <div id="st-top">
-                <span id="st-text">就绪 - 拖拽文件到下方或点击选择</span>
-                <span id="mapStatus" style="font-size:11px;color:#666;">映射表: 内置</span>
-            </div>
-            <div id="progress-wrap">
-                <div id="progress-bar"></div>
-            </div>
-            <span id="progress-text"></span>
-        </div>
+        <div class="sub">作者: 小逸罒不迷茫 | B站: space.bilibili.com/3546638146603426 <span class="badge">Web版</span></div>
+        <div id="st"><div id="st-top"><span id="st-text">就绪 - 拖拽文件到下方或点击选择</span><span id="mapStatus" style="font-size:11px;color:#666;">映射表: 内置</span></div><div id="progress-wrap"><div id="progress-bar"></div></div><span id="progress-text"></span></div>
 
         <div class="card">
-            <div class="drop-zone" id="dropZone">
-                <span class="icon" id="dropIcon">[+]</span>
-                <span id="dropText">点击选择文件 或 拖拽 .schematic / .litematic 到此处</span>
-                <input type="file" id="fi" accept=".schematic,.litematic" style="display:none;">
-                <div id="fileInfo" style="margin-top:6px;display:none;">
-                    <div class="file-name-display" id="fileNameDisplay"></div>
-                    <div class="file-size-display" id="fileSizeDisplay"></div>
-                </div>
-            </div>
+            <div class="drop-zone" id="dropZone"><span class="icon" id="dropIcon">[+]</span><span id="dropText">点击选择文件 或 拖拽 .schematic / .litematic 到此处</span><input type="file" id="fi" accept=".schematic,.litematic" style="display:none;"><div id="fileInfo" style="margin-top:6px;display:none;"><div class="file-name-display" id="fileNameDisplay"></div><div class="file-size-display" id="fileSizeDisplay"></div></div></div>
 
-            <div class="row">
-                <label>计分板:</label>
-                <input type="text" id="sb" value="dr" style="width:60px">
-                <label>速度:</label>
-                <input type="number" id="spd" value="1" style="width:45px" min="1" max="10">
-                <label>h标签:</label>
-                <input type="text" id="ht" value="h" style="width:35px">
-                <label>b标签:</label>
-                <input type="text" id="bt" value="b" style="width:35px">
-                <label>上限:</label>
-                <input type="number" id="mc" value="10000" style="width:60px" min="100" max="99999">
-            </div>
-            <div class="row" style="margin-top:6px;">
-                <label class="checkbox-label">
-                    <input type="checkbox" id="disableSensitive" checked>
-                    启用敏感词过滤
-                </label>
-                <span style="font-size:11px;color:#555;margin-left:4px;" id="sensitiveCount">规则: 6 条</span>
-                <span style="font-size:11px;color:#666;margin-left:8px;">(检测计分板分数)</span>
-            </div>
-            <div class="row" style="margin-top:8px;">
-                <button class="btn btn-preview" id="pb" onclick="preview()" disabled>生成3D预览</button>
-                <button class="btn btn-primary" id="cb" onclick="convert()" disabled>转换</button>
-                <button class="btn btn-success" id="dlBtn" onclick="downloadCommands()" disabled style="display:none;">下载指令</button>
-                <button class="btn btn-danger btn-sm" onclick="clearAll()">清空</button>
-                <span style="font-size:11px;color:#555;margin-left:auto;" id="infoText"></span>
-            </div>
+            <div class="row"><label>计分板:</label><input type="text" id="sb" value="dr" style="width:60px"><label>速度:</label><input type="number" id="spd" value="1" style="width:45px" min="1" max="10"><label>h标签:</label><input type="text" id="ht" value="h" style="width:35px"><label>b标签:</label><input type="text" id="bt" value="b" style="width:35px"><label>上限:</label><input type="number" id="mc" value="10000" style="width:60px" min="100" max="99999"></div>
+            <div class="row" style="margin-top:6px;"><label class="checkbox-label"><input type="checkbox" id="disableSensitive" checked>启用敏感词过滤</label><span style="font-size:11px;color:#555;margin-left:4px;" id="sensitiveCount">规则: 6 条</span><span style="font-size:11px;color:#666;margin-left:8px;">(检测计分板分数)</span></div>
+            <div class="row" style="margin-top:8px;"><button class="btn btn-preview" id="pb" onclick="preview()" disabled>生成3D预览</button><button class="btn btn-primary" id="cb" onclick="convert()" disabled>转换</button><button class="btn btn-success" id="dlBtn" onclick="downloadCommands()" disabled style="display:none;">下载指令</button><button class="btn btn-danger btn-sm" onclick="clearAll()">清空</button><span style="font-size:11px;color:#555;margin-left:auto;" id="infoText"></span></div>
         </div>
 
-        <div class="tabs">
-            <div class="tab a" onclick="switchTab('lg')">日志</div>
-            <div class="tab" onclick="switchTab('cm')">指令</div>
-            <div class="tab" onclick="switchTab('pr')">3D预览</div>
-        </div>
+        <div class="tabs"><div class="tab a" onclick="switchTab('lg')">日志</div><div class="tab" onclick="switchTab('cm')">指令</div><div class="tab" onclick="switchTab('pr')">3D预览</div></div>
 
-        <div class="tab-c s" id="lgC">
-            <div class="box" id="lg" style="height:180px;font-size:12px;">就绪，等待操作...</div>
-        </div>
-        <div class="tab-c" id="cmC">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                <span style="font-size:11px;color:#666;">共 <span id="cmdCount">0</span> 条指令</span>
-                <div>
-                    <button class="copy-btn" onclick="copyCommands()">复制</button>
-                </div>
-            </div>
-            <div class="box box-lg" id="cm">等待转换...</div>
-        </div>
-        <div class="tab-c" id="prC">
-            <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;align-items:center;">
-                <button class="btn btn-preview btn-sm" id="previewDownloadBtn" onclick="downloadPreviewHTML()" style="display:none;">下载预览HTML</button>
-                <span style="font-size:11px;color:#666;" id="previewInfo"></span>
-                <span style="font-size:11px;color:#555;" id="previewStatus"></span>
-            </div>
-            <div id="preview3d">
-                <div class="big-icon">[建筑]</div>
-                <div class="hint">点击「生成3D预览」生成预览HTML<br><small>下载后用浏览器打开查看3D模型</small></div>
-                <div class="preview-info-overlay" id="prInfo" style="display:none;"></div>
-            </div>
-        </div>
+        <div class="tab-c s" id="lgC"><div class="box" id="lg" style="height:180px;font-size:12px;">就绪，等待操作...</div></div>
+        <div class="tab-c" id="cmC"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><span style="font-size:11px;color:#666;">共 <span id="cmdCount">0</span> 条指令</span><div><button class="copy-btn" onclick="copyCommands()">复制</button></div></div><div class="box box-lg" id="cm">等待转换...</div></div>
+        <div class="tab-c" id="prC"><div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;align-items:center;"><button class="btn btn-preview btn-sm" id="previewDownloadBtn" onclick="downloadPreviewHTML()" style="display:none;">下载预览HTML</button><span style="font-size:11px;color:#666;" id="previewInfo"></span><span style="font-size:11px;color:#555;" id="previewStatus"></span></div><div id="preview3d"><div class="big-icon">[建筑]</div><div class="hint">点击「生成3D预览」生成预览HTML<br><small>下载后用浏览器打开查看3D模型</small></div><div class="preview-info-overlay" id="prInfo" style="display:none;"></div></div></div>
     </div>
 
-    <script src="block_map.js"></script>
     <script>
         // ============================================================
-        // 敏感词过滤器
+        // 先定义基础函数（不依赖 block_map.js）
         // ============================================================
         var _SF_RULES = [
             /3224909018|2265778903|1632249606|1477550673|110101195306153019|976410387|878880263|804305473|762469277|635793980|560802433|534369147|517213791|422427876|375415740|281798694|259256141|183339779|163721419|70363734|40609891|479988|19132/i,
@@ -570,9 +132,6 @@
             }
         };
 
-        // ============================================================
-        // Toast 通知
-        // ============================================================
         var toastTimer = null;
 
         function showToast(msg, type) {
@@ -585,9 +144,6 @@
             }, 3000);
         }
 
-        // ============================================================
-        // 主逻辑
-        // ============================================================
         var lg = document.getElementById('lg');
         var fi = document.getElementById('fi');
         var dropZone = document.getElementById('dropZone');
@@ -720,6 +276,9 @@
             }
         }
 
+        // ============================================================
+        // handleFile - 文件选择核心函数
+        // ============================================================
         function handleFile(file) {
             if (!file) return;
             var ext = file.name.split('.').pop().toLowerCase();
@@ -753,27 +312,40 @@
             reader.readAsArrayBuffer(file);
         }
 
-        fi.addEventListener('change', function(e) {
-            if (fi.files.length > 0) handleFile(fi.files[0]);
-        });
+        // ============================================================
+        // 事件绑定 - 放在 DOM 加载完成后
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            // 文件选择
+            fi.addEventListener('change', function(e) {
+                if (fi.files.length > 0) {
+                    handleFile(fi.files[0]);
+                }
+            });
 
-        dropZone.addEventListener('click', function() {
-            fi.click();
-        });
-        dropZone.addEventListener('dragover', function(e) {
-            e.preventDefault();
-            dropZone.classList.add('drag-over');
-        });
-        dropZone.addEventListener('dragleave', function() {
-            dropZone.classList.remove('drag-over');
-        });
-        dropZone.addEventListener('drop', function(e) {
-            e.preventDefault();
-            dropZone.classList.remove('drag-over');
-            if (e.dataTransfer.files.length > 0) {
-                fi.files = e.dataTransfer.files;
-                handleFile(e.dataTransfer.files[0]);
-            }
+            // 点击 drop zone
+            dropZone.addEventListener('click', function() {
+                fi.click();
+            });
+
+            // 拖拽
+            dropZone.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                dropZone.classList.add('drag-over');
+            });
+
+            dropZone.addEventListener('dragleave', function() {
+                dropZone.classList.remove('drag-over');
+            });
+
+            dropZone.addEventListener('drop', function(e) {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+                if (e.dataTransfer.files.length > 0) {
+                    fi.files = e.dataTransfer.files;
+                    handleFile(e.dataTransfer.files[0]);
+                }
+            });
         });
 
         function getParams() {
@@ -804,13 +376,68 @@
         }
 
         // ============================================================
-        // 方块映射表 - 从 block_map.js 加载
+        // 方块映射表 - 从 block_map.js 加载 (放在 HTML 底部)
         // ============================================================
-        var blockMap = BLOCK_MAP || {};
-        var mapLoaded = true;
-        mapStatus.textContent = '映射表: 已加载 ' + Object.keys(blockMap).length + ' 条';
-        mapStatus.style.color = '#69db7c';
-        log('映射表加载完成: ' + Object.keys(blockMap).length + ' 条');
+        var blockMap = {};
+        var mapLoaded = false;
+
+        // 尝试从 block_map.js 加载
+        try {
+            if (typeof BLOCK_MAP !== 'undefined' && BLOCK_MAP !== null) {
+                blockMap = BLOCK_MAP;
+                mapLoaded = true;
+                mapStatus.textContent = '映射表: 已加载 ' + Object.keys(blockMap).length + ' 条';
+                mapStatus.style.color = '#69db7c';
+                log('映射表加载完成: ' + Object.keys(blockMap).length + ' 条');
+            } else {
+                mapStatus.textContent = '映射表: 未加载，使用内置简化映射';
+                mapStatus.style.color = '#ff6b6b';
+                log('映射表未加载，使用内置简化映射');
+                // 内置简化映射 fallback
+                blockMap = {
+                    'minecraft:stone': 'stone',
+                    'minecraft:grass_block': 'grass_block',
+                    'minecraft:dirt': 'dirt',
+                    'minecraft:cobblestone': 'cobblestone',
+                    'minecraft:oak_planks': 'oak_planks',
+                    'minecraft:bedrock': 'bedrock',
+                    'minecraft:glass': 'glass',
+                    'minecraft:water': 'water',
+                    'minecraft:lava': 'lava',
+                    'minecraft:sand': 'sand',
+                    'minecraft:gravel': 'gravel',
+                    'minecraft:clay': 'clay',
+                    'minecraft:white_concrete': 'concrete 0',
+                    'minecraft:orange_concrete': 'concrete 1',
+                    'minecraft:magenta_concrete': 'concrete 2',
+                    'minecraft:light_blue_concrete': 'concrete 3',
+                    'minecraft:yellow_concrete': 'concrete 4',
+                    'minecraft:lime_concrete': 'concrete 5',
+                    'minecraft:pink_concrete': 'concrete 6',
+                    'minecraft:gray_concrete': 'concrete 7',
+                    'minecraft:light_gray_concrete': 'concrete 8',
+                    'minecraft:cyan_concrete': 'concrete 9',
+                    'minecraft:purple_concrete': 'concrete 10',
+                    'minecraft:blue_concrete': 'concrete 11',
+                    'minecraft:brown_concrete': 'concrete 12',
+                    'minecraft:green_concrete': 'concrete 13',
+                    'minecraft:red_concrete': 'concrete 14',
+                    'minecraft:black_concrete': 'concrete 15',
+                    'minecraft:oak_log': 'oak_log',
+                    'minecraft:spruce_log': 'spruce_log',
+                    'minecraft:birch_log': 'birch_log',
+                    'minecraft:jungle_log': 'jungle_log',
+                    'minecraft:acacia_log': 'acacia_log',
+                    'minecraft:dark_oak_log': 'dark_oak_log'
+                };
+                mapLoaded = true;
+            }
+        } catch (e) {
+            mapStatus.textContent = '映射表: 加载异常';
+            mapStatus.style.color = '#ff6b6b';
+            log('映射表加载异常: ' + e.message);
+            mapLoaded = false;
+        }
 
         function getBedrockId(javaId) {
             if (!mapLoaded) {
@@ -1909,174 +1536,174 @@
             html += 'var scene, camera, renderer, controls, modelGroup, textureCache = {};\n';
 
             html += `
-                    function createFallbackTexture(bid) {
-                        var color = blockColors[bid] || "#888888";
-                        var canvas = document.createElement("canvas");
-                        canvas.width = 16;
-                        canvas.height = 16;
-                        var ctx = canvas.getContext("2d");
-                        ctx.fillStyle = color;
-                        ctx.fillRect(0, 0, 16, 16);
-                        ctx.strokeStyle = "rgba(255,255,255,0.1)";
-                        ctx.lineWidth = 0.5;
-                        ctx.strokeRect(0, 0, 16, 16);
-                        var tex = new THREE.CanvasTexture(canvas);
-                        tex.magFilter = THREE.NearestFilter;
-                        tex.minFilter = THREE.NearestFilter;
-                        return tex;
-                    }
-
-                    function loadBakedTexture(bid, callback) {
-                        if (textureCache[bid]) {
-                            callback(textureCache[bid]);
-                            return;
+                        function createFallbackTexture(bid) {
+                            var color = blockColors[bid] || "#888888";
+                            var canvas = document.createElement("canvas");
+                            canvas.width = 16;
+                            canvas.height = 16;
+                            var ctx = canvas.getContext("2d");
+                            ctx.fillStyle = color;
+                            ctx.fillRect(0, 0, 16, 16);
+                            ctx.strokeStyle = "rgba(255,255,255,0.1)";
+                            ctx.lineWidth = 0.5;
+                            ctx.strokeRect(0, 0, 16, 16);
+                            var tex = new THREE.CanvasTexture(canvas);
+                            tex.magFilter = THREE.NearestFilter;
+                            tex.minFilter = THREE.NearestFilter;
+                            return tex;
                         }
-                        if (bakedTextures[bid]) {
-                            var loader = new THREE.TextureLoader();
-                            loader.load(bakedTextures[bid], function(tex) {
-                                tex.magFilter = THREE.NearestFilter;
-                                tex.minFilter = THREE.NearestFilter;
-                                textureCache[bid] = tex;
-                                loadedTextures++;
-                                callback(tex);
-                            }, undefined, function() {
+
+                        function loadBakedTexture(bid, callback) {
+                            if (textureCache[bid]) {
+                                callback(textureCache[bid]);
+                                return;
+                            }
+                            if (bakedTextures[bid]) {
+                                var loader = new THREE.TextureLoader();
+                                loader.load(bakedTextures[bid], function(tex) {
+                                    tex.magFilter = THREE.NearestFilter;
+                                    tex.minFilter = THREE.NearestFilter;
+                                    textureCache[bid] = tex;
+                                    loadedTextures++;
+                                    callback(tex);
+                                }, undefined, function() {
+                                    var tex = createFallbackTexture(bid);
+                                    textureCache[bid] = tex;
+                                    callback(tex);
+                                });
+                            } else {
                                 var tex = createFallbackTexture(bid);
                                 textureCache[bid] = tex;
                                 callback(tex);
-                            });
-                        } else {
-                            var tex = createFallbackTexture(bid);
-                            textureCache[bid] = tex;
-                            callback(tex);
+                            }
                         }
-                    }
 
-                    function buildScene() {
-                        document.getElementById("loading").style.display = "none";
-                        scene = new THREE.Scene();
-                        scene.background = new THREE.Color(0x0d0d2b);
-                        var maxDim = Math.max(W, H, L);
-                        var dist = maxDim * 1.5 + 10;
-                        camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 5000);
-                        camera.position.set(dist * 0.8, dist * 0.6, dist * 0.8);
-                        renderer = new THREE.WebGLRenderer({ antialias: true });
-                        renderer.setSize(window.innerWidth, window.innerHeight);
-                        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-                        document.body.appendChild(renderer.domElement);
-                        controls = new THREE.OrbitControls(camera, renderer.domElement);
-                        controls.enableDamping = true;
-                        controls.dampingFactor = 0.08;
-                        controls.target.set(0, 0, 0);
-                        controls.update();
-                        var ambient = new THREE.AmbientLight(0x404070, 0.6);
-                        scene.add(ambient);
-                        var sun = new THREE.DirectionalLight(0xffeedd, 1.2);
-                        sun.position.set(80, 150, 60);
-                        scene.add(sun);
-                        var back = new THREE.DirectionalLight(0x8888ff, 0.3);
-                        back.position.set(-60, 80, -40);
-                        scene.add(back);
-                        var grid = new THREE.GridHelper(Math.max(maxDim * 2 + 10, 40), Math.floor(Math.max(maxDim, 20)), 0x444488, 0x333366);
-                        grid.position.y = -0.5;
-                        scene.add(grid);
-                        modelGroup = new THREE.Group();
-                        scene.add(modelGroup);
-                        var faceVerts = [
-                            { n: [1, 0, 0], u: [0, 1, 0, 1, 0, 1, 0, 0], v: [0, 0, 1, 1, 1, 1, 0, 0] },
-                            { n: [-1, 0, 0], u: [1, 0, 1, 0, 0, 1, 0, 1], v: [0, 0, 1, 1, 1, 1, 0, 0] },
-                            { n: [0, 1, 0], u: [0, 0, 1, 1, 1, 1, 0, 0], v: [1, 0, 1, 0, 0, 1, 0, 1] },
-                            { n: [0, -1, 0], u: [0, 0, 1, 1, 1, 1, 0, 0], v: [0, 1, 0, 1, 1, 0, 1, 0] },
-                            { n: [0, 0, 1], u: [0, 0, 1, 1, 1, 1, 0, 0], v: [0, 0, 1, 1, 1, 1, 0, 0] },
-                            { n: [0, 0, -1], u: [1, 0, 1, 0, 0, 1, 0, 1], v: [0, 0, 1, 1, 1, 1, 0, 0] }
-                        ];
-                        var offsets = [
-                            [0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1],
-                            [0, 1, 0], [1, 1, 0], [1, 1, 1], [0, 1, 1]
-                        ];
-                        var faceIndices = [
-                            [1, 5, 6, 2], [0, 3, 7, 4], [4, 7, 6, 5],
-                            [0, 1, 2, 3], [2, 6, 7, 3], [0, 4, 5, 1]
-                        ];
-                        var bids = Object.keys(blockPosData);
-                        var pending = bids.length;
-                        for (var idx = 0; idx < bids.length; idx++) {
-                            var bid = bids[idx];
-                            var posList = blockPosData[bid];
-                            var positions = [];
-                            var uvs = [];
-                            var normals = [];
-                            for (var bi = 0; bi < posList.length; bi++) {
-                                var p = posList[bi];
-                                var bx = p[0] - cx;
-                                var by = p[1] - cy;
-                                var bz = p[2] - cz;
-                                for (var f = 0; f < 6; f++) {
-                                    var idxs = faceIndices[f];
-                                    var n = faceVerts[f].n;
-                                    var uArr = faceVerts[f].u;
-                                    var vArr = faceVerts[f].v;
-                                    for (var vi = 0; vi < 4; vi++) {
-                                        var oi = idxs[vi];
-                                        positions.push(bx + offsets[oi][0]);
-                                        positions.push(by + offsets[oi][1]);
-                                        positions.push(bz + offsets[oi][2]);
-                                        uvs.push(uArr[vi]);
-                                        uvs.push(vArr[vi]);
-                                        normals.push(n[0], n[1], n[2]);
+                        function buildScene() {
+                            document.getElementById("loading").style.display = "none";
+                            scene = new THREE.Scene();
+                            scene.background = new THREE.Color(0x0d0d2b);
+                            var maxDim = Math.max(W, H, L);
+                            var dist = maxDim * 1.5 + 10;
+                            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 5000);
+                            camera.position.set(dist * 0.8, dist * 0.6, dist * 0.8);
+                            renderer = new THREE.WebGLRenderer({ antialias: true });
+                            renderer.setSize(window.innerWidth, window.innerHeight);
+                            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                            document.body.appendChild(renderer.domElement);
+                            controls = new THREE.OrbitControls(camera, renderer.domElement);
+                            controls.enableDamping = true;
+                            controls.dampingFactor = 0.08;
+                            controls.target.set(0, 0, 0);
+                            controls.update();
+                            var ambient = new THREE.AmbientLight(0x404070, 0.6);
+                            scene.add(ambient);
+                            var sun = new THREE.DirectionalLight(0xffeedd, 1.2);
+                            sun.position.set(80, 150, 60);
+                            scene.add(sun);
+                            var back = new THREE.DirectionalLight(0x8888ff, 0.3);
+                            back.position.set(-60, 80, -40);
+                            scene.add(back);
+                            var grid = new THREE.GridHelper(Math.max(maxDim * 2 + 10, 40), Math.floor(Math.max(maxDim, 20)), 0x444488, 0x333366);
+                            grid.position.y = -0.5;
+                            scene.add(grid);
+                            modelGroup = new THREE.Group();
+                            scene.add(modelGroup);
+                            var faceVerts = [
+                                { n: [1, 0, 0], u: [0, 1, 0, 1, 0, 1, 0, 0], v: [0, 0, 1, 1, 1, 1, 0, 0] },
+                                { n: [-1, 0, 0], u: [1, 0, 1, 0, 0, 1, 0, 1], v: [0, 0, 1, 1, 1, 1, 0, 0] },
+                                { n: [0, 1, 0], u: [0, 0, 1, 1, 1, 1, 0, 0], v: [1, 0, 1, 0, 0, 1, 0, 1] },
+                                { n: [0, -1, 0], u: [0, 0, 1, 1, 1, 1, 0, 0], v: [0, 1, 0, 1, 1, 0, 1, 0] },
+                                { n: [0, 0, 1], u: [0, 0, 1, 1, 1, 1, 0, 0], v: [0, 0, 1, 1, 1, 1, 0, 0] },
+                                { n: [0, 0, -1], u: [1, 0, 1, 0, 0, 1, 0, 1], v: [0, 0, 1, 1, 1, 1, 0, 0] }
+                            ];
+                            var offsets = [
+                                [0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1],
+                                [0, 1, 0], [1, 1, 0], [1, 1, 1], [0, 1, 1]
+                            ];
+                            var faceIndices = [
+                                [1, 5, 6, 2], [0, 3, 7, 4], [4, 7, 6, 5],
+                                [0, 1, 2, 3], [2, 6, 7, 3], [0, 4, 5, 1]
+                            ];
+                            var bids = Object.keys(blockPosData);
+                            var pending = bids.length;
+                            for (var idx = 0; idx < bids.length; idx++) {
+                                var bid = bids[idx];
+                                var posList = blockPosData[bid];
+                                var positions = [];
+                                var uvs = [];
+                                var normals = [];
+                                for (var bi = 0; bi < posList.length; bi++) {
+                                    var p = posList[bi];
+                                    var bx = p[0] - cx;
+                                    var by = p[1] - cy;
+                                    var bz = p[2] - cz;
+                                    for (var f = 0; f < 6; f++) {
+                                        var idxs = faceIndices[f];
+                                        var n = faceVerts[f].n;
+                                        var uArr = faceVerts[f].u;
+                                        var vArr = faceVerts[f].v;
+                                        for (var vi = 0; vi < 4; vi++) {
+                                            var oi = idxs[vi];
+                                            positions.push(bx + offsets[oi][0]);
+                                            positions.push(by + offsets[oi][1]);
+                                            positions.push(bz + offsets[oi][2]);
+                                            uvs.push(uArr[vi]);
+                                            uvs.push(vArr[vi]);
+                                            normals.push(n[0], n[1], n[2]);
+                                        }
                                     }
                                 }
-                            }
-                            var geo = new THREE.BufferGeometry();
-                            var vertCount = positions.length / 3;
-                            geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-                            geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
-                            geo.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
-                            var indices = [];
-                            for (var i = 0; i < vertCount / 4; i++) {
-                                var base = i * 4;
-                                indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
-                            }
-                            geo.setIndex(indices);
-                            (function(bid, geo) {
-                                loadBakedTexture(bid, function(tex) {
-                                    var mat = new THREE.MeshStandardMaterial({
-                                        map: tex,
-                                        roughness: 0.7,
-                                        metalness: 0.05,
-                                        side: THREE.DoubleSide,
-                                        alphaTest: 0.5,
+                                var geo = new THREE.BufferGeometry();
+                                var vertCount = positions.length / 3;
+                                geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+                                geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+                                geo.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
+                                var indices = [];
+                                for (var i = 0; i < vertCount / 4; i++) {
+                                    var base = i * 4;
+                                    indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+                                }
+                                geo.setIndex(indices);
+                                (function(bid, geo) {
+                                    loadBakedTexture(bid, function(tex) {
+                                        var mat = new THREE.MeshStandardMaterial({
+                                            map: tex,
+                                            roughness: 0.7,
+                                            metalness: 0.05,
+                                            side: THREE.DoubleSide,
+                                            alphaTest: 0.5,
+                                        });
+                                        var mesh = new THREE.Mesh(geo, mat);
+                                        modelGroup.add(mesh);
+                                        pending--;
+                                        if (pending === 0) {
+                                            document.getElementById("loading").style.display = "none";
+                                        }
                                     });
-                                    var mesh = new THREE.Mesh(geo, mat);
-                                    modelGroup.add(mesh);
-                                    pending--;
-                                    if (pending === 0) {
-                                        document.getElementById("loading").style.display = "none";
-                                    }
-                                });
-                            })(bid, geo);
+                                })(bid, geo);
+                            }
+                            animate();
                         }
-                        animate();
-                    }
 
-                    function animate() {
-                        requestAnimationFrame(animate);
-                        if (controls) controls.update();
-                        if (renderer && scene && camera) {
-                            renderer.render(scene, camera);
+                        function animate() {
+                            requestAnimationFrame(animate);
+                            if (controls) controls.update();
+                            if (renderer && scene && camera) {
+                                renderer.render(scene, camera);
+                            }
                         }
-                    }
 
-                    window.addEventListener("resize", function() {
-                        if (camera) {
-                            camera.aspect = window.innerWidth / window.innerHeight;
-                            camera.updateProjectionMatrix();
-                        }
-                        if (renderer) {
-                            renderer.setSize(window.innerWidth, window.innerHeight);
-                        }
-                    });
-                    buildScene();
-                <\/script>\n';
+                        window.addEventListener("resize", function() {
+                            if (camera) {
+                                camera.aspect = window.innerWidth / window.innerHeight;
+                                camera.updateProjectionMatrix();
+                            }
+                            if (renderer) {
+                                renderer.setSize(window.innerWidth, window.innerHeight);
+                            }
+                        });
+                        buildScene();
+                    <\/script>\n';
 
             html += '</body>\n</html>';
             return html;
