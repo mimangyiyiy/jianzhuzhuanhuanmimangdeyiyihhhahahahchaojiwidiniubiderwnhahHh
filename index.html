@@ -535,7 +535,8 @@
         </div>
     </div>
 
-    <script src="block_map.js"></script>
+    <!-- 在 HTML 中，用 script 加载 block_map.js -->
+    <script src="block_map.js" id="mapLoader" async></script>
 
     <script>
         // ============================================================
@@ -583,17 +584,76 @@
         var blockMap = {};
         var mapLoaded = false;
 
+        // ===== 映射表加载 - 使用 script 标签 + 轮询检测 =====
         function loadBlockMap() {
             var status = document.getElementById('mapStatus');
-            status.textContent = '映射表: 加载中...';
-
-            // 映射表已在 block_map.js 中定义
-var mapLoaded = true;
-var blockMap = BLOCK_MAP || {};
-
-document.getElementById('mapStatus').textContent = '映射表: 已加载 ' + Object.keys(blockMap).length + ' 条 (内置)';
-log('✅ 映射表加载完成: ' + Object.keys(blockMap).length + ' 条');
-setStatus('✅ 就绪 — 映射表已加载', 'status-ok');
+            var stText = document.getElementById('st-text');
+            
+            showProgress(true);
+            setProgress(10, '加载映射表...');
+            
+            // 检查是否已经加载完成
+            if (typeof BLOCK_MAP !== 'undefined') {
+                var count = Object.keys(BLOCK_MAP).length;
+                setProgress(100, '✅ 已加载!');
+                setTimeout(function() { showProgress(false); }, 400);
+                status.textContent = '映射表: 已加载 ' + count + ' 条 (内置)';
+                status.style.color = '#69db7c';
+                log('✅ 映射表加载完成: ' + count + ' 条');
+                stText.textContent = '✅ 就绪 — 映射表已加载，可拖拽文件';
+                return;
+            }
+            
+            // 创建 script 标签加载
+            var script = document.createElement('script');
+            script.src = 'block_map.js';
+            script.id = 'mapLoader';
+            
+            // 加载完成回调
+            script.onload = function() {
+                var count = Object.keys(BLOCK_MAP).length;
+                setProgress(100, '✅ 加载完成!');
+                setTimeout(function() { showProgress(false); }, 400);
+                status.textContent = '映射表: 已加载 ' + count + ' 条 (内置)';
+                status.style.color = '#69db7c';
+                log('✅ 映射表加载完成: ' + count + ' 条');
+                stText.textContent = '✅ 就绪 — 映射表已加载，可拖拽文件';
+            };
+            
+            script.onerror = function() {
+                showProgress(false);
+                status.textContent = '映射表: 加载失败，使用内置映射';
+                status.style.color = '#ff6b6b';
+                log('⚠️ 映射表加载失败，使用内置映射');
+                stText.textContent = '⚠️ 映射表加载失败，使用内置映射';
+                loadFallbackMap();
+            };
+            
+            // 添加进度模拟（因为 script 加载无法获取精确进度）
+            var progressInterval = setInterval(function() {
+                var current = parseInt(progressBar.style.width) || 10;
+                if (current < 90) {
+                    var newPct = current + Math.random() * 8;
+                    setProgress(Math.min(newPct, 90), '加载映射表...');
+                }
+            }, 500);
+            
+            // 加载完成后清除定时器
+            script.onload = (function(original) {
+                return function() {
+                    clearInterval(progressInterval);
+                    original.call(this);
+                };
+            })(script.onload);
+            
+            script.onerror = (function(original) {
+                return function() {
+                    clearInterval(progressInterval);
+                    original.call(this);
+                };
+            })(script.onerror);
+            
+            document.body.appendChild(script);
         }
 
         // ============================================================
