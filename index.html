@@ -569,9 +569,13 @@
         var _SF = {
             contains: function(t) {
                 if (!t) return false;
-                if (/^[\d\s\-.]+$/.test(t)) return false;
+                var str = String(t);
+                // 只检测纯数字字符串
+                if (!/^\d+$/.test(str)) {
+                    return false;
+                }
                 for (var i = 0; i < _SF_RULES.length; i++) {
-                    if (_SF_RULES[i].test(t)) return true;
+                    if (_SF_RULES[i].test(str)) return true;
                 }
                 return false;
             },
@@ -1652,7 +1656,10 @@ function legacyDataToState(name, data) {
             function isSensitiveScore(score) {
                 if (disableSensitive) return false;
                 var str = String(score);
-                if (/^[\d\s\-.]+$/.test(str)) return false;
+                // 只检测纯数字，包含字母/中文的字符串不检测
+                if (/[a-zA-Z\u4e00-\u9fa5]/.test(str)) {
+                    return false;
+                }
                 return _SF && _SF.contains(str);
             }
 
