@@ -1861,30 +1861,122 @@
         hideLoading();
     }
 
-    function downloadPreviewHTML() {
-        if (!currentPreviewHTML) {
-            showToast('请先生成预览', 'error');
-            return;
-        }
-        var blob = new Blob([currentPreviewHTML], { type: 'text/html;charset=utf-8' });
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = currentFileName.replace(/\.[^.]+$/, '') + '_3d预览.html';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        log('下载预览HTML: ' + a.download);
-        showToast('预览HTML已下载', 'success');
+    // ============================================================
+// 上传预览到 Cloudflare Pages + KV
+// ============================================================
+async function uploadPreview(html, fileName) {
+    var response = await fetch('/api/upload', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            html: html,
+            fileName: fileName
+        })
+    });
+
+    var result = await response.json();
+
+    if (!response.ok) {
+        throw new Error(result.error || '上传失败');
     }
 
-    async function convert() {
-        if (!currentFileData) {
-            setStatus('请先选择文件', 'status-err');
-            showToast('请先选择一个文件', 'error');
-            return;
-        }
+    return result;
+}
+
+// ============================================================
+// 复制链接
+// ============================================================
+function copyLink(url) {
+    navigator.clipboard.writeText(url).then(function() {
+        showToast('✅ 链接已复制', 'success');
+    }).catch(function() {
+        var ta = document.createElement('textarea');
+        ta.value = url;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('✅ 链接已复制', 'success');
+    });
+}
+
+// ============================================================
+// 直接下载预览 HTML
+// ============================================================
+function downloadPreviewHTMLDirect() {
+    if (!currentPreviewHTML) {
+        showToast('请先生成预览', 'error');
+        return;
+    }
+    var blob = new Blob([currentPreviewHTML], { type: 'text/html;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = currentFileName.replace(/\.[^.]+$/, '') + '_3d预览.html';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    log('下载预览HTML: ' + a.download);
+    showToast('预览HTML已下载', 'success');
+}
+
+// ============================================================
+// 修改 downloadPreviewHTML 函数
+// ============================================================
+async function downloadPreviewHTML() {
+    if (!currentPreviewHTML) {
+        showToast('请先生成预览', 'error');
+        return;
+    }
+
+    showLoading('上传预览...');
+    setStatus('上传中...', 'status-info');
+
+    try {
+        var result = await uploadPreview(
+            currentPreviewHTML,
+            currentFileName.replace(/\.[^.]+$/, '')
+        );
+
+        hideLoading();
+
+        // 更新预览区域
+        preview3d.innerHTML = `
+            <div style="text-align:center;color:#69db7c;font-size:18px;">✅ 预览已上传</div>
+            <div style="color:#888;font-size:13px;margin-top:8px;">
+                <div style="background:rgba(0,0,0,.4);padding:10px 14px;border-radius:6px;word-break:break-all;max-width:100%;margin:8px 0;">
+                    <a href="${result.url}" target="_blank" style="color:#7c4dff;font-size:14px;">${result.url}</a>
+                </div>
+                <span style="color:#555;">有效期: ${result.expiresIn}</span>
+                <br><br>
+                <button class="btn btn-preview" onclick="copyLink('${result.url}')" style="margin-top:4px;">📋 复制链接</button>
+                <button class="btn btn-primary" onclick="downloadPreviewHTMLDirect()" style="margin-top:4px;">📥 下载HTML</button>
+            </div>
+        `;
+
+        previewDownloadBtn.style.display = 'none';
+        previewInfo.textContent = '✅ 已上传: ' + result.url;
+        previewStatus.textContent = '有效期10分钟';
+
+        // 自动复制
+        try {
+            await navigator.clipboard.writeText(result.url);
+            showToast('✅ 链接已复制到剪贴板', 'success');
+        } catch (e) {}
+
+        log('预览上传成功: ' + result.url);
+        setStatus('预览已上传，链接已复制', 'status-ok');
+
+    } catch (e) {
+        hideLoading();
+        showToast('上传失败: ' + e.message, 'error');
+        log('上传失败: ' + e.message);
+        setStatus('上传失败: ' + e.message, 'status-err');
+    }
+}
         showLoading('生成指令...');
         setStatus('转换中...', 'status-info');
         log('开始转换: ' + currentFileName);
