@@ -114,1861 +114,1841 @@
     </div>
 
     <script>
-        // ============================================================
-        // 敏感词过滤器
-        // ============================================================
-        var _SF_RULES = [
-            /3224909018|2265778903|1632249606|1477550673|110101195306153019|976410387|878880263|804305473|762469277|635793980|560802433|534369147|517213791|422427876|375415740|281798694|259256141|183339779|163721419|70363734|40609891|479988|19132/i,
-            /3.{0,3}?7.{0,3}?5.{0,3}?4.{0,3}?1.{0,3}?5/i,
-            /8[^1-8a-z]*?9*?6[^1-46-9a-z]*?4|6[^1-9a-z]*?4[^0-9a-z]*?8[^1-9a-z]*?9/i,
-            /(?<![a-z0-9#])8\s*?9\s*?6\s*?4(?![0-9a-z_])/i,
-            /(?<![a-z0-9])19890?60?4(?![a-z0-9])|(?<![0-9])98753210?(?![0-9])/i,
-            /^(?!.*?([0-9])\1{3,}?).*?(?<![0-9a-z#])(1[12345]|2[123]|3[1234567]|4[123456]|5[012345]|6[12345])[0-9]{4}(19[0-9]{2}|20[012][0-9])(0[1-9]|1[012])(0[1-9]|[123][0-9])[0-9]{3}[0-9x](?![0-9a-z])/i
-        ];
+    // ============================================================
+    // 敏感词过滤器
+    // ============================================================
+    var _SF_RULES = [
+        /3224909018|2265778903|1632249606|1477550673|110101195306153019|976410387|878880263|804305473|762469277|635793980|560802433|534369147|517213791|422427876|375415740|281798694|259256141|183339779|163721419|70363734|40609891|479988|19132/i,
+        /3.{0,3}?7.{0,3}?5.{0,3}?4.{0,3}?1.{0,3}?5/i,
+        /8[^1-8a-z]*?9*?6[^1-46-9a-z]*?4|6[^1-9a-z]*?4[^0-9a-z]*?8[^1-9a-z]*?9/i,
+        /(?<![a-z0-9#])8\s*?9\s*?6\s*?4(?![0-9a-z_])/i,
+        /(?<![a-z0-9])19890?60?4(?![a-z0-9])|(?<![0-9])98753210?(?![0-9])/i,
+        /^(?!.*?([0-9])\1{3,}?).*?(?<![0-9a-z#])(1[12345]|2[123]|3[1234567]|4[123456]|5[012345]|6[12345])[0-9]{4}(19[0-9]{2}|20[012][0-9])(0[1-9]|1[012])(0[1-9]|[123][0-9])[0-9]{3}[0-9x](?![0-9a-z])/i
+    ];
 
-        var _SF = {
-            contains: function(t) {
-                if (!t) return false;
-                var s = String(t);
-                if (!/^\d+$/.test(s)) return false;
-                for (var i = 0; i < _SF_RULES.length; i++) {
-                    if (_SF_RULES[i].test(s)) return true;
+    var _SF = {
+        contains: function(t) {
+            if (!t) return false;
+            var s = String(t);
+            if (!/^\d+$/.test(s)) return false;
+            for (var i = 0; i < _SF_RULES.length; i++) {
+                if (_SF_RULES[i].test(s)) return true;
+            }
+            return false;
+        },
+        count: function() { return _SF_RULES.length; }
+    };
+
+    var toastTimer = null;
+
+    function showToast(msg, type) {
+        var el = document.getElementById('toast');
+        el.textContent = msg;
+        el.className = 'toast ' + (type || 'info') + ' show';
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function() { el.classList.remove('show'); }, 3000);
+    }
+
+    var lg = document.getElementById('lg');
+    var fi = document.getElementById('fi');
+    var dropZone = document.getElementById('dropZone');
+    var currentFileData = null;
+    var currentFileName = '';
+    var currentCommands = null;
+    var currentPreviewResult = null;
+    var currentPreviewHTML = null;
+
+    var sbEl = document.getElementById('sb');
+    var spdEl = document.getElementById('spd');
+    var htEl = document.getElementById('ht');
+    var btEl = document.getElementById('bt');
+    var mcEl = document.getElementById('mc');
+    var pbBtn = document.getElementById('pb');
+    var cbBtn = document.getElementById('cb');
+    var dlBtn = document.getElementById('dlBtn');
+    var cmBox = document.getElementById('cm');
+    var infoText = document.getElementById('infoText');
+    var cmdCountEl = document.getElementById('cmdCount');
+    var disableSensitiveEl = document.getElementById('disableSensitive');
+    var sensitiveCountEl = document.getElementById('sensitiveCount');
+    var previewDownloadBtn = document.getElementById('previewDownloadBtn');
+    var previewInfo = document.getElementById('previewInfo');
+    var previewStatus = document.getElementById('previewStatus');
+    var prInfo = document.getElementById('prInfo');
+    var preview3d = document.getElementById('preview3d');
+    var mapStatus = document.getElementById('mapStatus');
+    var stText = document.getElementById('st-text');
+    var progressWrap = document.getElementById('progress-wrap');
+    var progressBar = document.getElementById('progress-bar');
+    var progressText = document.getElementById('progress-text');
+
+    sensitiveCountEl.textContent = '规则: ' + _SF.count() + ' 条';
+
+    function log(msg) {
+        var line = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+        lg.textContent += line + '\n';
+        lg.scrollTop = lg.scrollHeight;
+    }
+
+    function setStatus(msg, cls) {
+        var el = document.getElementById('st');
+        el.className = cls || '';
+        stText.textContent = msg;
+    }
+
+    function showLoading(msg) {
+        document.getElementById('lt').textContent = msg || '处理中...';
+        document.getElementById('ld').className = 's';
+    }
+
+    function hideLoading() {
+        document.getElementById('ld').className = '';
+    }
+
+    function switchTab(name) {
+        document.querySelectorAll('.tab,.tab-c').forEach(function(el) {
+            el.classList.remove('a', 's');
+        });
+        document.getElementById(name + 'C').classList.add('s');
+        document.querySelector('.tab[onclick*="' + name + '"]').classList.add('a');
+    }
+
+    function showProgress(show) {
+        if (show) {
+            progressWrap.classList.add('active');
+        } else {
+            progressWrap.classList.remove('active');
+            progressBar.style.width = '0%';
+            progressText.textContent = '';
+        }
+    }
+
+    function setProgress(pct, label) {
+        var p = Math.min(Math.max(pct, 0), 100);
+        progressBar.style.width = p + '%';
+        var txt = label || '加载映射表';
+        progressText.textContent = txt + ' (' + Math.round(p) + '%)';
+        mapStatus.textContent = '映射表: ' + Math.round(p) + '%';
+    }
+
+    function clearAll() {
+        currentFileData = null;
+        currentFileName = '';
+        currentCommands = null;
+        currentPreviewResult = null;
+        currentPreviewHTML = null;
+        fi.value = '';
+        updateFileUI(null);
+        pbBtn.disabled = true;
+        cbBtn.disabled = true;
+        dlBtn.style.display = 'none';
+        previewDownloadBtn.style.display = 'none';
+        previewInfo.textContent = '';
+        previewStatus.textContent = '';
+        prInfo.style.display = 'none';
+        preview3d.innerHTML =
+            '<div class="big-icon">[建筑]</div><div class="hint">点击「生成3D预览」生成预览HTML<br><small>下载后用浏览器打开查看3D模型</small></div><div class="preview-info-overlay" id="prInfo" style="display:none;"></div>';
+        cmBox.textContent = '等待转换...';
+        cmdCountEl.textContent = '0';
+        setStatus('已清空');
+        log('已清空所有数据');
+        infoText.textContent = '';
+        showToast('已清空所有数据', 'info');
+    }
+
+    function updateFileUI(file) {
+        var fn = document.getElementById('fileNameDisplay');
+        var fs = document.getElementById('fileSizeDisplay');
+        var fi2 = document.getElementById('fileInfo');
+        if (file) {
+            dropZone.classList.add('has-file');
+            fi2.style.display = 'block';
+            fn.textContent = file.name;
+            var sz = file.size;
+            if (sz < 1024) fs.textContent = sz + ' B';
+            else if (sz < 1024 * 1024) fs.textContent = (sz / 1024).toFixed(1) + ' KB';
+            else fs.textContent = (sz / (1024 * 1024)).toFixed(1) + ' MB';
+            document.getElementById('dropText').textContent = '文件已选择，点击可更换';
+            document.getElementById('dropIcon').textContent = '[文件]';
+            showToast('已加载: ' + file.name, 'success');
+        } else {
+            dropZone.classList.remove('has-file');
+            fi2.style.display = 'none';
+            document.getElementById('dropText').textContent = '点击选择文件 或 拖拽 .schematic / .litematic 到此处';
+            document.getElementById('dropIcon').textContent = '[+]';
+        }
+    }
+
+    function handleFile(file) {
+        if (!file) return;
+        var ext = file.name.split('.').pop().toLowerCase();
+        if (ext !== 'schematic' && ext !== 'litematic') {
+            setStatus('不支持的文件格式: ' + ext, 'status-err');
+            log('不支持的文件格式: ' + ext);
+            showToast('不支持的文件格式: ' + ext, 'error');
+            return;
+        }
+        currentFileName = file.name;
+        updateFileUI(file);
+        pbBtn.disabled = false;
+        cbBtn.disabled = false;
+        dlBtn.style.display = 'none';
+        previewDownloadBtn.style.display = 'none';
+        setStatus('已加载: ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)', 'status-file');
+        log('加载文件: ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)');
+
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            currentFileData = new Uint8Array(e.target.result);
+            log('文件读取完成，大小: ' + currentFileData.length + ' 字节');
+            setStatus('就绪，可预览或转换: ' + file.name, 'status-file');
+            showToast('文件已就绪', 'success');
+        };
+        reader.onerror = function() {
+            setStatus('读取文件失败', 'status-err');
+            log('读取文件失败');
+            showToast('读取文件失败', 'error');
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        fi.addEventListener('change', function(e) {
+            if (fi.files.length > 0) { handleFile(fi.files[0]); }
+        });
+        dropZone.addEventListener('click', function() { fi.click(); });
+        dropZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+        dropZone.addEventListener('dragleave', function() {
+            dropZone.classList.remove('drag-over');
+        });
+        dropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            if (e.dataTransfer.files.length > 0) {
+                fi.files = e.dataTransfer.files;
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+    });
+
+    function getParams() {
+        return {
+            sb: sbEl.value || 'dr',
+            sp: parseInt(spdEl.value) || 1,
+            ht: htEl.value || 'h',
+            bt: btEl.value || 'b',
+            mc: parseInt(mcEl.value) || 10000,
+            disableSensitive: disableSensitiveEl.checked
+        };
+    }
+
+    function copyCommands() {
+        var t = cmBox.textContent;
+        if (!t || t === '等待转换...') return;
+        navigator.clipboard.writeText(t).then(function() {
+            showToast('已复制到剪贴板', 'success');
+        }).catch(function() {
+            var ta = document.createElement('textarea');
+            ta.value = t;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            showToast('已复制到剪贴板', 'success');
+        });
+    }
+
+    // ============================================================
+    // 加载 block_map.js
+    // ============================================================
+    var blockMap = {};
+    var mapLoaded = false;
+
+    function loadBlockMap() {
+        showProgress(true);
+        setProgress(0, '加载映射表');
+        var script = document.createElement('script');
+        script.src = 'block_map.js';
+        script.onload = function() {
+            try {
+                if (typeof BLOCK_MAP !== 'undefined' && BLOCK_MAP !== null) {
+                    blockMap = BLOCK_MAP;
+                    mapLoaded = true;
+                    var count = Object.keys(blockMap).length;
+                    setProgress(100, '加载完成!');
+                    mapStatus.textContent = '映射表: 已加载 ' + count + ' 条';
+                    mapStatus.style.color = '#69db7c';
+                    stText.textContent = '就绪 — 拖拽文件到下方或点击选择';
+                    log('映射表加载完成: ' + count + ' 条');
+                    showToast('映射表加载完成: ' + count + ' 条', 'success');
+                    setTimeout(function() { showProgress(false); }, 800);
+                } else {
+                    throw new Error('BLOCK_MAP 未定义');
                 }
-                return false;
-            },
-            count: function() {
-                return _SF_RULES.length;
+            } catch (e) {
+                loadFallbackMap(e.message);
             }
         };
+        script.onerror = function() {
+            loadFallbackMap('block_map.js 文件不存在');
+        };
+        document.head.appendChild(script);
+    }
 
-        var toastTimer = null;
+    function loadFallbackMap(errMsg) {
+        setProgress(0, '加载失败');
+        mapStatus.textContent = '⚠️ 映射表加载失败: ' + errMsg;
+        mapStatus.style.color = '#ff6b6b';
+        stText.textContent = '⚠️ 映射表加载失败，使用内置简化映射';
+        log('⚠️ 映射表加载失败: ' + errMsg);
+        showToast('映射表加载失败，使用内置简化映射', 'error');
+        blockMap = {
+            'minecraft:stone': 'stone',
+            'minecraft:grass_block': 'grass_block',
+            'minecraft:dirt': 'dirt',
+            'minecraft:cobblestone': 'cobblestone',
+            'minecraft:oak_planks': 'oak_planks',
+            'minecraft:bedrock': 'bedrock',
+            'minecraft:glass': 'glass',
+            'minecraft:water': 'water',
+            'minecraft:lava': 'lava',
+            'minecraft:sand': 'sand',
+            'minecraft:gravel': 'gravel',
+            'minecraft:clay': 'clay',
+            'minecraft:white_concrete': 'concrete 0',
+            'minecraft:orange_concrete': 'concrete 1',
+            'minecraft:magenta_concrete': 'concrete 2',
+            'minecraft:light_blue_concrete': 'concrete 3',
+            'minecraft:yellow_concrete': 'concrete 4',
+            'minecraft:lime_concrete': 'concrete 5',
+            'minecraft:pink_concrete': 'concrete 6',
+            'minecraft:gray_concrete': 'concrete 7',
+            'minecraft:light_gray_concrete': 'concrete 8',
+            'minecraft:cyan_concrete': 'concrete 9',
+            'minecraft:purple_concrete': 'concrete 10',
+            'minecraft:blue_concrete': 'concrete 11',
+            'minecraft:brown_concrete': 'concrete 12',
+            'minecraft:green_concrete': 'concrete 13',
+            'minecraft:red_concrete': 'concrete 14',
+            'minecraft:black_concrete': 'concrete 15',
+            'minecraft:oak_log': 'oak_log',
+            'minecraft:spruce_log': 'spruce_log',
+            'minecraft:birch_log': 'birch_log',
+            'minecraft:jungle_log': 'jungle_log',
+            'minecraft:acacia_log': 'acacia_log',
+            'minecraft:dark_oak_log': 'dark_oak_log'
+        };
+        mapLoaded = true;
+        setTimeout(function() { showProgress(false); }, 1000);
+    }
 
-        function showToast(msg, type) {
-            var el = document.getElementById('toast');
-            el.textContent = msg;
-            el.className = 'toast ' + (type || 'info') + ' show';
-            clearTimeout(toastTimer);
-            toastTimer = setTimeout(function() {
-                el.classList.remove('show');
-            }, 3000);
-        }
+    loadBlockMap();
 
-        var lg = document.getElementById('lg');
-        var fi = document.getElementById('fi');
-        var dropZone = document.getElementById('dropZone');
-        var currentFileData = null;
-        var currentFileName = '';
-        var currentCommands = null;
-        var currentPreviewResult = null;
-        var currentPreviewHTML = null;
-
-        var sbEl = document.getElementById('sb');
-        var spdEl = document.getElementById('spd');
-        var htEl = document.getElementById('ht');
-        var btEl = document.getElementById('bt');
-        var mcEl = document.getElementById('mc');
-        var pbBtn = document.getElementById('pb');
-        var cbBtn = document.getElementById('cb');
-        var dlBtn = document.getElementById('dlBtn');
-        var cmBox = document.getElementById('cm');
-        var infoText = document.getElementById('infoText');
-        var cmdCountEl = document.getElementById('cmdCount');
-        var disableSensitiveEl = document.getElementById('disableSensitive');
-        var sensitiveCountEl = document.getElementById('sensitiveCount');
-        var previewDownloadBtn = document.getElementById('previewDownloadBtn');
-        var previewInfo = document.getElementById('previewInfo');
-        var previewStatus = document.getElementById('previewStatus');
-        var prInfo = document.getElementById('prInfo');
-        var preview3d = document.getElementById('preview3d');
-        var mapStatus = document.getElementById('mapStatus');
-        var stText = document.getElementById('st-text');
-        var progressWrap = document.getElementById('progress-wrap');
-        var progressBar = document.getElementById('progress-bar');
-        var progressText = document.getElementById('progress-text');
-
-        sensitiveCountEl.textContent = '规则: ' + _SF.count() + ' 条';
-
-        function log(msg) {
-            var line = '[' + new Date().toLocaleTimeString() + '] ' + msg;
-            lg.textContent += line + '\n';
-            lg.scrollTop = lg.scrollHeight;
-        }
-
-        function setStatus(msg, cls) {
-            var el = document.getElementById('st');
-            el.className = cls || '';
-            stText.textContent = msg;
-        }
-
-        function showLoading(msg) {
-            document.getElementById('lt').textContent = msg || '处理中...';
-            document.getElementById('ld').className = 's';
-        }
-
-        function hideLoading() {
-            document.getElementById('ld').className = '';
-        }
-
-        function switchTab(name) {
-            document.querySelectorAll('.tab,.tab-c').forEach(function(el) {
-                el.classList.remove('a', 's');
-            });
-            document.getElementById(name + 'C').classList.add('s');
-            document.querySelector('.tab[onclick*="' + name + '"]').classList.add('a');
-        }
-
-        function showProgress(show) {
-            if (show) {
-                progressWrap.classList.add('active');
-            } else {
-                progressWrap.classList.remove('active');
-                progressBar.style.width = '0%';
-                progressText.textContent = '';
-            }
-        }
-
-        function setProgress(pct, label) {
-            var p = Math.min(Math.max(pct, 0), 100);
-            progressBar.style.width = p + '%';
-            var txt = label || '加载映射表';
-            progressText.textContent = txt + ' (' + Math.round(p) + '%)';
-            mapStatus.textContent = '映射表: ' + Math.round(p) + '%';
-        }
-
-        function clearAll() {
-            currentFileData = null;
-            currentFileName = '';
-            currentCommands = null;
-            currentPreviewResult = null;
-            currentPreviewHTML = null;
-            fi.value = '';
-            updateFileUI(null);
-            pbBtn.disabled = true;
-            cbBtn.disabled = true;
-            dlBtn.style.display = 'none';
-            previewDownloadBtn.style.display = 'none';
-            previewInfo.textContent = '';
-            previewStatus.textContent = '';
-            prInfo.style.display = 'none';
-            preview3d.innerHTML =
-                '<div class="big-icon">[建筑]</div><div class="hint">点击「生成3D预览」生成预览HTML<br><small>下载后用浏览器打开查看3D模型</small></div><div class="preview-info-overlay" id="prInfo" style="display:none;"></div>';
-            cmBox.textContent = '等待转换...';
-            cmdCountEl.textContent = '0';
-            setStatus('已清空');
-            log('已清空所有数据');
-            infoText.textContent = '';
-            showToast('已清空所有数据', 'info');
-        }
-
-        function updateFileUI(file) {
-            var fn = document.getElementById('fileNameDisplay');
-            var fs = document.getElementById('fileSizeDisplay');
-            var fi2 = document.getElementById('fileInfo');
-            if (file) {
-                dropZone.classList.add('has-file');
-                fi2.style.display = 'block';
-                fn.textContent = file.name;
-                var sz = file.size;
-                if (sz < 1024) fs.textContent = sz + ' B';
-                else if (sz < 1024 * 1024) fs.textContent = (sz / 1024).toFixed(1) + ' KB';
-                else fs.textContent = (sz / (1024 * 1024)).toFixed(1) + ' MB';
-                document.getElementById('dropText').textContent = '文件已选择，点击可更换';
-                document.getElementById('dropIcon').textContent = '[文件]';
-                showToast('已加载: ' + file.name, 'success');
-            } else {
-                dropZone.classList.remove('has-file');
-                fi2.style.display = 'none';
-                document.getElementById('dropText').textContent = '点击选择文件 或 拖拽 .schematic / .litematic 到此处';
-                document.getElementById('dropIcon').textContent = '[+]';
-            }
-        }
-
-        function handleFile(file) {
-            if (!file) return;
-            var ext = file.name.split('.').pop().toLowerCase();
-            if (ext !== 'schematic' && ext !== 'litematic') {
-                setStatus('不支持的文件格式: ' + ext, 'status-err');
-                log('不支持的文件格式: ' + ext);
-                showToast('不支持的文件格式: ' + ext, 'error');
-                return;
-            }
-            currentFileName = file.name;
-            updateFileUI(file);
-            pbBtn.disabled = false;
-            cbBtn.disabled = false;
-            dlBtn.style.display = 'none';
-            previewDownloadBtn.style.display = 'none';
-            setStatus('已加载: ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)', 'status-file');
-            log('加载文件: ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)');
-
-            var reader = new FileReader();
-            reader.onload = function(e) {
-                currentFileData = new Uint8Array(e.target.result);
-                log('文件读取完成，大小: ' + currentFileData.length + ' 字节');
-                setStatus('就绪，可预览或转换: ' + file.name, 'status-file');
-                showToast('文件已就绪', 'success');
-            };
-            reader.onerror = function() {
-                setStatus('读取文件失败', 'status-err');
-                log('读取文件失败');
-                showToast('读取文件失败', 'error');
-            };
-            reader.readAsArrayBuffer(file);
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            fi.addEventListener('change', function(e) {
-                if (fi.files.length > 0) {
-                    handleFile(fi.files[0]);
-                }
-            });
-            dropZone.addEventListener('click', function() {
-                fi.click();
-            });
-            dropZone.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                dropZone.classList.add('drag-over');
-            });
-            dropZone.addEventListener('dragleave', function() {
-                dropZone.classList.remove('drag-over');
-            });
-            dropZone.addEventListener('drop', function(e) {
-                e.preventDefault();
-                dropZone.classList.remove('drag-over');
-                if (e.dataTransfer.files.length > 0) {
-                    fi.files = e.dataTransfer.files;
-                    handleFile(e.dataTransfer.files[0]);
-                }
-            });
-        });
-
-        function getParams() {
-            return {
-                sb: sbEl.value || 'dr',
-                sp: parseInt(spdEl.value) || 1,
-                ht: htEl.value || 'h',
-                bt: btEl.value || 'b',
-                mc: parseInt(mcEl.value) || 10000,
-                disableSensitive: disableSensitiveEl.checked
-            };
-        }
-
-        function copyCommands() {
-            var t = cmBox.textContent;
-            if (!t || t === '等待转换...') return;
-            navigator.clipboard.writeText(t).then(function() {
-                showToast('已复制到剪贴板', 'success');
-            }).catch(function() {
-                var ta = document.createElement('textarea');
-                ta.value = t;
-                document.body.appendChild(ta);
-                ta.select();
-                document.execCommand('copy');
-                document.body.removeChild(ta);
-                showToast('已复制到剪贴板', 'success');
-            });
-        }
-
-        // ============================================================
-        // 加载 block_map.js
-        // ============================================================
-        var blockMap = {};
-        var mapLoaded = false;
-
-        function loadBlockMap() {
-            showProgress(true);
-            setProgress(0, '加载映射表');
-            var script = document.createElement('script');
-            script.src = 'block_map.js';
-            script.onload = function() {
-                try {
-                    if (typeof BLOCK_MAP !== 'undefined' && BLOCK_MAP !== null) {
-                        blockMap = BLOCK_MAP;
-                        mapLoaded = true;
-                        var count = Object.keys(blockMap).length;
-                        setProgress(100, '加载完成!');
-                        mapStatus.textContent = '映射表: 已加载 ' + count + ' 条';
-                        mapStatus.style.color = '#69db7c';
-                        stText.textContent = '就绪 — 拖拽文件到下方或点击选择';
-                        log('映射表加载完成: ' + count + ' 条');
-                        showToast('映射表加载完成: ' + count + ' 条', 'success');
-                        setTimeout(function() {
-                            showProgress(false);
-                        }, 800);
-                    } else {
-                        throw new Error('BLOCK_MAP 未定义');
-                    }
-                } catch (e) {
-                    loadFallbackMap(e.message);
-                }
-            };
-            script.onerror = function() {
-                loadFallbackMap('block_map.js 文件不存在');
-            };
-            document.head.appendChild(script);
-        }
-
-        function loadFallbackMap(errMsg) {
-            setProgress(0, '加载失败');
-            mapStatus.textContent = '⚠️ 映射表加载失败: ' + errMsg;
-            mapStatus.style.color = '#ff6b6b';
-            stText.textContent = '⚠️ 映射表加载失败，使用内置简化映射';
-            log('⚠️ 映射表加载失败: ' + errMsg);
-            showToast('映射表加载失败，使用内置简化映射', 'error');
-            blockMap = {
-                'minecraft:stone': 'stone',
-                'minecraft:grass_block': 'grass_block',
-                'minecraft:dirt': 'dirt',
-                'minecraft:cobblestone': 'cobblestone',
-                'minecraft:oak_planks': 'oak_planks',
-                'minecraft:bedrock': 'bedrock',
-                'minecraft:glass': 'glass',
-                'minecraft:water': 'water',
-                'minecraft:lava': 'lava',
-                'minecraft:sand': 'sand',
-                'minecraft:gravel': 'gravel',
-                'minecraft:clay': 'clay',
-                'minecraft:white_concrete': 'concrete 0',
-                'minecraft:orange_concrete': 'concrete 1',
-                'minecraft:magenta_concrete': 'concrete 2',
-                'minecraft:light_blue_concrete': 'concrete 3',
-                'minecraft:yellow_concrete': 'concrete 4',
-                'minecraft:lime_concrete': 'concrete 5',
-                'minecraft:pink_concrete': 'concrete 6',
-                'minecraft:gray_concrete': 'concrete 7',
-                'minecraft:light_gray_concrete': 'concrete 8',
-                'minecraft:cyan_concrete': 'concrete 9',
-                'minecraft:purple_concrete': 'concrete 10',
-                'minecraft:blue_concrete': 'concrete 11',
-                'minecraft:brown_concrete': 'concrete 12',
-                'minecraft:green_concrete': 'concrete 13',
-                'minecraft:red_concrete': 'concrete 14',
-                'minecraft:black_concrete': 'concrete 15',
-                'minecraft:oak_log': 'oak_log',
-                'minecraft:spruce_log': 'spruce_log',
-                'minecraft:birch_log': 'birch_log',
-                'minecraft:jungle_log': 'jungle_log',
-                'minecraft:acacia_log': 'acacia_log',
-                'minecraft:dark_oak_log': 'dark_oak_log'
-            };
-            mapLoaded = true;
-            setTimeout(function() {
-                showProgress(false);
-            }, 1000);
-        }
-
-        loadBlockMap();
-
-        function getBedrockId(javaId) {
-            if (!mapLoaded) {
-                return javaId.split(':').pop() || javaId;
-            }
-            if (blockMap[javaId] !== undefined) {
-                return blockMap[javaId];
-            }
-            var bracket = javaId.indexOf('[');
-            if (bracket > -1) {
-                var base = javaId.substring(0, bracket);
-                if (blockMap[base] !== undefined) {
-                    return blockMap[base];
-                }
-                var props = javaId.substring(bracket + 1, javaId.length - 1);
-                var propPairs = props.split(',');
-                var sortedProps = propPairs.slice().sort();
-                var key = base + '[' + sortedProps.join(',') + ']';
-                if (blockMap[key] !== undefined) {
-                    return blockMap[key];
-                }
-            }
+    function getBedrockId(javaId) {
+        if (!mapLoaded) {
             return javaId.split(':').pop() || javaId;
         }
-
-        // ============================================================
-        // NBT 解析
-        // ============================================================
-        function parseNBT(buf) {
-            var dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
-            var off = 0;
-
-            function check(n) {
-                if (off + n > dv.byteLength) {
-                    throw new Error('Offset is outside the bounds of the DataView');
-                }
+        if (blockMap[javaId] !== undefined) {
+            return blockMap[javaId];
+        }
+        var bracket = javaId.indexOf('[');
+        if (bracket > -1) {
+            var base = javaId.substring(0, bracket);
+            if (blockMap[base] !== undefined) {
+                return blockMap[base];
             }
-
-            function rB() { check(1); return dv.getUint8(off++); }
-
-            function rS() { check(2); var v = dv.getInt16(off);
-                off += 2; return v; }
-
-            function rI() { check(4); var v = dv.getInt32(off);
-                off += 4; return v; }
-
-            function rL() { check(8); var v = dv.getBigInt64(off);
-                off += 8; return Number(v); }
-
-            function rF() { check(4); var v = dv.getFloat32(off);
-                off += 4; return v; }
-
-            function rD() { check(8); var v = dv.getFloat64(off);
-                off += 8; return v; }
-
-            function rStr() {
-                var l = rS();
-                if (l < 0) throw new Error('Invalid string length');
-                check(l);
-                var s = '';
-                for (var i = 0; i < l; i++) s += String.fromCharCode(dv.getUint8(off + i));
-                off += l;
-                return s;
+            var props = javaId.substring(bracket + 1, javaId.length - 1);
+            var propPairs = props.split(',');
+            var sortedProps = propPairs.slice().sort();
+            var key = base + '[' + sortedProps.join(',') + ']';
+            if (blockMap[key] !== undefined) {
+                return blockMap[key];
             }
+        }
+        return javaId.split(':').pop() || javaId;
+    }
 
-            function rList() {
-                var t = rB(),
-                    l = rI(),
+    // ============================================================
+    // NBT 解析 (省略，和之前一样)
+    // ============================================================
+    function parseNBT(buf) {
+        var dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+        var off = 0;
+
+        function check(n) {
+            if (off + n > dv.byteLength) {
+                throw new Error('Offset is outside the bounds of the DataView');
+            }
+        }
+
+        function rB() { check(1); return dv.getUint8(off++); }
+
+        function rS() { check(2); var v = dv.getInt16(off);
+            off += 2; return v; }
+
+        function rI() { check(4); var v = dv.getInt32(off);
+            off += 4; return v; }
+
+        function rL() { check(8); var v = dv.getBigInt64(off);
+            off += 8; return Number(v); }
+
+        function rF() { check(4); var v = dv.getFloat32(off);
+            off += 4; return v; }
+
+        function rD() { check(8); var v = dv.getFloat64(off);
+            off += 8; return v; }
+
+        function rStr() {
+            var l = rS();
+            if (l < 0) throw new Error('Invalid string length');
+            check(l);
+            var s = '';
+            for (var i = 0; i < l; i++) s += String.fromCharCode(dv.getUint8(off + i));
+            off += l;
+            return s;
+        }
+
+        function rList() {
+            var t = rB(),
+                l = rI(),
+                a = [];
+            for (var i = 0; i < l; i++) a.push(rTag(t));
+            return a;
+        }
+
+        function rCompound() {
+            var o = {};
+            while (true) {
+                var t = rB();
+                if (t === 0) break;
+                o[rStr()] = rTag(t);
+            }
+            return o;
+        }
+
+        function rTag(t) {
+            if (t === 1) return rB();
+            if (t === 2) return rS();
+            if (t === 3) return rI();
+            if (t === 4) { var h = rI(),
+                    l = rI(); return { high: h, low: l >>> 0 }; }
+            if (t === 5) return rF();
+            if (t === 6) return rD();
+            if (t === 7) { var l = rI();
+                check(l); var a = new Uint8Array(buf.buffer, buf.byteOffset + off, l);
+                off += l; return a; }
+            if (t === 8) return rStr();
+            if (t === 9) return rList();
+            if (t === 10) return rCompound();
+            if (t === 11) { var l = rI(),
                     a = [];
-                for (var i = 0; i < l; i++) a.push(rTag(t));
-                return a;
-            }
-
-            function rCompound() {
-                var o = {};
-                while (true) {
-                    var t = rB();
-                    if (t === 0) break;
-                    o[rStr()] = rTag(t);
-                }
-                return o;
-            }
-
-            function rTag(t) {
-                if (t === 1) return rB();
-                if (t === 2) return rS();
-                if (t === 3) return rI();
-                if (t === 4) { var h = rI(),
-                        l = rI(); return { high: h, low: l >>> 0 }; }
-                if (t === 5) return rF();
-                if (t === 6) return rD();
-                if (t === 7) { var l = rI();
-                    check(l); var a = new Uint8Array(buf.buffer, buf.byteOffset + off, l);
-                    off += l; return a; }
-                if (t === 8) return rStr();
-                if (t === 9) return rList();
-                if (t === 10) return rCompound();
-                if (t === 11) { var l = rI(),
-                        a = [];
-                    for (var i = 0; i < l; i++) a.push(rI()); return a; }
-                if (t === 12) { var l = rI(),
-                        a = [];
-                    for (var i = 0; i < l; i++) a.push(rL()); return a; }
-                return null;
-            }
-
-            var rt = rB();
-            if (rt !== 10) {
-                off = 0;
-                var rt2 = rB();
-                if (rt2 === 10) { rStr(); return rTag(10); }
-                throw new Error('Root tag is not TAG_Compound');
-            }
-            rStr();
-            return rTag(10);
+                for (var i = 0; i < l; i++) a.push(rI()); return a; }
+            if (t === 12) { var l = rI(),
+                    a = [];
+                for (var i = 0; i < l; i++) a.push(rL()); return a; }
+            return null;
         }
 
-        // ============================================================
-        // 解压缩
-        // ============================================================
-        async function decompress(data) {
-            if (!data || data.length < 2) return data;
-            if (data[0] === 0x1f && data[1] === 0x8b) {
-                try {
-                    var ds = new DecompressionStream('gzip');
-                    var w = ds.writable.getWriter();
-                    w.write(data);
-                    w.close();
-                    var ch = [],
-                        r = ds.readable.getReader();
-                    while (true) { var v = await r.read(); if (v.done) break;
-                        ch.push(v.value); }
-                    return new Uint8Array(await new Blob(ch).arrayBuffer());
-                } catch (e) { return data; }
-            }
-            if (data[0] === 0x78) {
-                try {
-                    var ds = new DecompressionStream('deflate-raw');
-                    var w = ds.writable.getWriter();
-                    w.write(data);
-                    w.close();
-                    var ch = [],
-                        r = ds.readable.getReader();
-                    while (true) { var v = await r.read(); if (v.done) break;
-                        ch.push(v.value); }
-                    return new Uint8Array(await new Blob(ch).arrayBuffer());
-                } catch (e) { return data; }
-            }
-            return data;
+        var rt = rB();
+        if (rt !== 10) {
+            off = 0;
+            var rt2 = rB();
+            if (rt2 === 10) { rStr(); return rTag(10); }
+            throw new Error('Root tag is not TAG_Compound');
         }
+        rStr();
+        return rTag(10);
+    }
 
-        // ============================================================
-        // 区间收集器
-        // ============================================================
-        function createCollector() {
-            return { starts: new Int32Array(1024), ends: new Int32Array(1024), ptr: 0, start: -1, end: -1, intervals: null };
-        }
-
-        function addToCollector(col, score) {
-            if (col.start === -1) { col.start = score;
-                col.end = score; } else if (score === col.end + 1) { col.end = score; } else {
-                if (col.ptr >= col.starts.length) {
-                    var ns = new Int32Array(col.starts.length * 2);
-                    ns.set(col.starts);
-                    col.starts = ns;
-                    var ne = new Int32Array(col.ends.length * 2);
-                    ne.set(col.ends);
-                    col.ends = ne;
-                }
-                col.starts[col.ptr] = col.start;
-                col.ends[col.ptr] = col.end;
-                col.ptr++;
-                col.start = score;
-                col.end = score;
-            }
-        }
-
-        function finishCollector(col) {
-            if (col.intervals) return col.intervals;
-            if (col.start !== -1) {
-                if (col.ptr >= col.starts.length) {
-                    var ns = new Int32Array(col.starts.length + 1);
-                    ns.set(col.starts);
-                    col.starts = ns;
-                    var ne = new Int32Array(col.ends.length + 1);
-                    ne.set(col.ends);
-                    col.ends = ne;
-                }
-                col.starts[col.ptr] = col.start;
-                col.ends[col.ptr] = col.end;
-                col.ptr++;
-                col.start = -1;
-                col.end = -1;
-            }
-            col.intervals = { starts: col.starts, ends: col.ends, len: col.ptr };
-            return col.intervals;
-        }
-
-        // ============================================================
-        // BlockStates 位提取
-        // ============================================================
-        function extractBlockIndices(blockStates, totalBlocks, bitsPerIndex) {
-            var indices = new Uint32Array(totalBlocks);
-            if (!blockStates || !blockStates.zeroCopy) return indices;
+    async function decompress(data) {
+        if (!data || data.length < 2) return data;
+        if (data[0] === 0x1f && data[1] === 0x8b) {
             try {
-                var buf = new DataView(blockStates.buffer, blockStates.byteOffset, blockStates.length * 8);
-                var wordLen = blockStates.length * 2,
-                    words = new Uint32Array(wordLen);
-                for (var i = 0; i < wordLen; i++) words[i] = buf.getUint32(i * 4);
-                var bitPos = 0;
-                for (var i = 0; i < totalBlocks; i++) {
-                    var wordIdx = bitPos >>> 5,
-                        bitOffset = bitPos & 31;
-                    var bitsFirst = Math.min(bitsPerIndex, 32 - bitOffset);
-                    var value = (words[wordIdx] >>> bitOffset) & ((1 << bitsFirst) - 1);
-                    var remaining = bitsPerIndex - bitsFirst;
-                    if (remaining > 0) value |= ((words[wordIdx + 1] || 0) & ((1 << remaining) - 1)) << bitsFirst;
-                    indices[i] = value;
-                    bitPos += bitsPerIndex;
-                }
-            } catch (e) {}
-            return indices;
+                var ds = new DecompressionStream('gzip');
+                var w = ds.writable.getWriter();
+                w.write(data);
+                w.close();
+                var ch = [],
+                    r = ds.readable.getReader();
+                while (true) { var v = await r.read(); if (v.done) break;
+                    ch.push(v.value); }
+                return new Uint8Array(await new Blob(ch).arrayBuffer());
+            } catch (e) { return data; }
+        }
+        if (data[0] === 0x78) {
+            try {
+                var ds = new DecompressionStream('deflate-raw');
+                var w = ds.writable.getWriter();
+                w.write(data);
+                w.close();
+                var ch = [],
+                    r = ds.readable.getReader();
+                while (true) { var v = await r.read(); if (v.done) break;
+                    ch.push(v.value); }
+                return new Uint8Array(await new Blob(ch).arrayBuffer());
+            } catch (e) { return data; }
+        }
+        return data;
+    }
+
+    function createCollector() {
+        return { starts: new Int32Array(1024), ends: new Int32Array(1024), ptr: 0, start: -1, end: -1, intervals: null };
+    }
+
+    function addToCollector(col, score) {
+        if (col.start === -1) { col.start = score;
+            col.end = score; } else if (score === col.end + 1) { col.end = score; } else {
+            if (col.ptr >= col.starts.length) {
+                var ns = new Int32Array(col.starts.length * 2);
+                ns.set(col.starts);
+                col.starts = ns;
+                var ne = new Int32Array(col.ends.length * 2);
+                ne.set(col.ends);
+                col.ends = ne;
+            }
+            col.starts[col.ptr] = col.start;
+            col.ends[col.ptr] = col.end;
+            col.ptr++;
+            col.start = score;
+            col.end = score;
+        }
+    }
+
+    function finishCollector(col) {
+        if (col.intervals) return col.intervals;
+        if (col.start !== -1) {
+            if (col.ptr >= col.starts.length) {
+                var ns = new Int32Array(col.starts.length + 1);
+                ns.set(col.starts);
+                col.starts = ns;
+                var ne = new Int32Array(col.ends.length + 1);
+                ne.set(col.ends);
+                col.ends = ne;
+            }
+            col.starts[col.ptr] = col.start;
+            col.ends[col.ptr] = col.end;
+            col.ptr++;
+            col.start = -1;
+            col.end = -1;
+        }
+        col.intervals = { starts: col.starts, ends: col.ends, len: col.ptr };
+        return col.intervals;
+    }
+
+    function extractBlockIndices(blockStates, totalBlocks, bitsPerIndex) {
+        var indices = new Uint32Array(totalBlocks);
+        if (!blockStates || !blockStates.zeroCopy) return indices;
+        try {
+            var buf = new DataView(blockStates.buffer, blockStates.byteOffset, blockStates.length * 8);
+            var wordLen = blockStates.length * 2,
+                words = new Uint32Array(wordLen);
+            for (var i = 0; i < wordLen; i++) words[i] = buf.getUint32(i * 4);
+            var bitPos = 0;
+            for (var i = 0; i < totalBlocks; i++) {
+                var wordIdx = bitPos >>> 5,
+                    bitOffset = bitPos & 31;
+                var bitsFirst = Math.min(bitsPerIndex, 32 - bitOffset);
+                var value = (words[wordIdx] >>> bitOffset) & ((1 << bitsFirst) - 1);
+                var remaining = bitsPerIndex - bitsFirst;
+                if (remaining > 0) value |= ((words[wordIdx + 1] || 0) & ((1 << remaining) - 1)) << bitsFirst;
+                indices[i] = value;
+                bitPos += bitsPerIndex;
+            }
+        } catch (e) {}
+        return indices;
+    }
+
+    // ============================================================
+    // 解析 litematic / schematic (省略，和之前一样)
+    // ============================================================
+    async function parseLitematic(data) {
+        var raw = data[0] === 0x1f || data[0] === 0x78 ? await decompress(data) : data;
+        var root = parseNBT(raw);
+
+        var regions = null;
+        if (root.Regions) {
+            regions = root.Regions;
+        } else if (root.Minecraft && root.Minecraft.Regions) {
+            regions = root.Minecraft.Regions;
+        } else if (root.regions) {
+            regions = root.regions;
         }
 
-        // ============================================================
-        // 解析 .litematic
-        // ============================================================
-        async function parseLitematic(data) {
-            var raw = data[0] === 0x1f || data[0] === 0x78 ? await decompress(data) : data;
-            var root = parseNBT(raw);
-
-            var regions = null;
-            if (root.Regions) {
-                regions = root.Regions;
-            } else if (root.Minecraft && root.Minecraft.Regions) {
-                regions = root.Minecraft.Regions;
-            } else if (root.regions) {
-                regions = root.regions;
+        if (Array.isArray(regions)) {
+            var newRegions = {};
+            for (var i = 0; i < regions.length; i++) {
+                newRegions['region_' + i] = regions[i];
             }
+            regions = newRegions;
+        }
 
-            if (Array.isArray(regions)) {
-                var newRegions = {};
-                for (var i = 0; i < regions.length; i++) {
-                    newRegions['region_' + i] = regions[i];
+        if (!regions) {
+            for (var key in root) {
+                if (typeof root[key] === 'object' && root[key] && root[key].Size && root[key].BlockStatePalette) {
+                    regions = {};
+                    regions[key] = root[key];
+                    break;
                 }
-                regions = newRegions;
             }
-
             if (!regions) {
-                for (var key in root) {
-                    if (typeof root[key] === 'object' && root[key] && root[key].Size && root[key].BlockStatePalette) {
-                        regions = {};
-                        regions[key] = root[key];
-                        break;
-                    }
-                }
-                if (!regions) {
-                    throw new Error('未找到 Regions，根键: ' + Object.keys(root).join(', '));
-                }
+                throw new Error('未找到 Regions，根键: ' + Object.keys(root).join(', '));
             }
-
-            function getVal(o, k) {
-                if (!o) return 0;
-                if (Array.isArray(o)) {
-                    var m = { x: 0, y: 1, z: 2 };
-                    return o[m[k] || 0] || 0;
-                }
-                if (typeof o === 'object') return o[k] || 0;
-                return o;
-            }
-
-            var allBlocks = [];
-            var minX = Infinity,
-                minY = Infinity,
-                minZ = Infinity;
-
-            for (var rname in regions) {
-                var region = regions[rname];
-                if (!region || typeof region !== 'object') continue;
-
-                var sx = Math.abs(getVal(region.Size, 'x') || 0);
-                var sy = Math.abs(getVal(region.Size, 'y') || 0);
-                var sz = Math.abs(getVal(region.Size, 'z') || 0);
-
-                if (sx === 0 || sy === 0 || sz === 0) continue;
-
-                var rx = getVal(region.Position, 'x') || 0;
-                var ry = getVal(region.Position, 'y') || 0;
-                var rz = getVal(region.Position, 'z') || 0;
-
-                var palette = region.BlockStatePalette || region.Palette || region.blockStatePalette;
-                if (!palette || !palette.length) {
-                    for (var key in region) {
-                        if (Array.isArray(region[key]) && region[key].length > 0) {
-                            var first = region[key][0];
-                            if (first && (first.Name || first.name || typeof first === 'string')) {
-                                palette = region[key];
-                                break;
-                            }
-                        }
-                    }
-                    if (!palette || !palette.length) continue;
-                }
-
-                var blockStates = region.BlockStates || region.blockStates || region.BlockStatesLongArray || [];
-                if (!blockStates || !blockStates.length) {
-                    for (var key in region) {
-                        if (Array.isArray(region[key]) && region[key].length > 0) {
-                            var first = region[key][0];
-                            if (typeof first === 'number' || typeof first === 'bigint') {
-                                blockStates = region[key];
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                if (!blockStates || !blockStates.length) continue;
-
-                var longArray = [];
-                for (var i = 0; i < blockStates.length; i++) {
-                    var val = blockStates[i];
-                    if (typeof val === 'bigint') {
-                        longArray.push(Number(val));
-                    } else {
-                        longArray.push(Number(val));
-                    }
-                }
-
-                var psize = palette.length;
-                var bits = Math.max(2, Math.ceil(Math.log2(psize)));
-                var mask = (1 << bits) - 1;
-                var totalBlocks = sx * sy * sz;
-
-                var indices = new Uint32Array(totalBlocks);
-                var bitPos = 0;
-                for (var i = 0; i < totalBlocks; i++) {
-                    var bitIndex = i * bits;
-                    var wordIndex = Math.floor(bitIndex / 64);
-                    var bitOffset = bitIndex % 64;
-                    var value = 0;
-                    if (wordIndex < longArray.length) {
-                        var chunk1 = longArray[wordIndex] >>> bitOffset;
-                        value |= chunk1 & ((1 << Math.min(bits, 64 - bitOffset)) - 1);
-                        var remaining = bits - (64 - bitOffset);
-                        if (remaining > 0 && wordIndex + 1 < longArray.length) {
-                            var chunk2 = longArray[wordIndex + 1] & ((1 << remaining) - 1);
-                            value |= chunk2 << (64 - bitOffset);
-                        }
-                    }
-                    indices[i] = value & mask;
-                }
-
-                var palCache = [];
-                for (var pi = 0; pi < psize; pi++) {
-                    var entry = palette[pi];
-                    var name = '';
-                    if (typeof entry === 'string') {
-                        name = entry;
-                    } else if (entry && entry.Name) {
-                        name = entry.Name;
-                    } else if (entry && entry.name) {
-                        name = entry.name;
-                    } else if (entry && entry.id) {
-                        name = entry.id;
-                    }
-                    if (!name || name === 'minecraft:air' || name === 'minecraft:cave_air' || name === 'minecraft:void_air') {
-                        palCache.push(null);
-                        continue;
-                    }
-                    if (entry && entry.Properties) {
-                        var props = entry.Properties;
-                        var stateStr = [];
-                        for (var pk in props) {
-                            stateStr.push(pk + '=' + props[pk]);
-                        }
-                        if (stateStr.length > 0) {
-                            name = name + '[' + stateStr.join(',') + ']';
-                        }
-                    }
-                    palCache.push({ id: getBedrockId(name), javaId: name });
-                }
-
-                var sliceSize = sx * sz;
-                for (var y = 0; y < sy; y++) {
-                    for (var z = 0; z < sz; z++) {
-                        for (var x = 0; x < sx; x++) {
-                            var idx = indices[y * sliceSize + z * sx + x];
-                            if (idx >= palCache.length) continue;
-                            var pe = palCache[idx];
-                            if (!pe) continue;
-                            var wx = rx + x;
-                            var wy = ry + y;
-                            var wz = rz + z;
-                            allBlocks.push({ x: wx, y: wy, z: wz, id: pe.javaId || pe.id });
-                            if (wx < minX) minX = wx;
-                            if (wy < minY) minY = wy;
-                            if (wz < minZ) minZ = wz;
-                        }
-                    }
-                }
-            }
-
-            if (!allBlocks.length) {
-                throw new Error('未找到任何方块');
-            }
-
-            var width = 0,
-                height = 0,
-                length = 0;
-            for (var i = 0; i < allBlocks.length; i++) {
-                var b = allBlocks[i];
-                b.x -= minX;
-                b.y -= minY;
-                b.z -= minZ;
-                if (b.x >= width) width = b.x + 1;
-                if (b.y >= height) height = b.y + 1;
-                if (b.z >= length) length = b.z + 1;
-            }
-
-            var collectors = {};
-            var ss = width * length;
-            for (var i = 0; i < allBlocks.length; i++) {
-                var b = allBlocks[i];
-                var bid = getBedrockId(b.id);
-                if (!collectors[bid]) collectors[bid] = createCollector();
-                addToCollector(collectors[bid], b.z * width + b.x + b.y * ss + 1);
-            }
-            for (var k in collectors) finishCollector(collectors[k]);
-
-            log('解析完成: ' + allBlocks.length + ' 个方块, 尺寸 ' + width + 'x' + height + 'x' + length);
-            return { blocks: allBlocks, width: width, height: height, length: length, collectors: collectors };
         }
 
-        // ============================================================
-        // 解析 .schematic
-        // ============================================================
-        async function parseSchematic(data) {
-            if (data[0] === 80 && data[1] === 75) throw new Error('ZIP 格式的 schematic 暂不支持');
-            var raw = (data[0] === 0x1f || data[0] === 0x78) ? await decompress(data) : data;
-            var root = parseNBT(raw);
-            var w = root.Width || 0,
-                h = root.Height || 0,
-                l = root.Length || 0;
-            if (!w || !h || !l) throw new Error('无效的 schematic 文件');
+        function getVal(o, k) {
+            if (!o) return 0;
+            if (Array.isArray(o)) {
+                var m = { x: 0, y: 1, z: 2 };
+                return o[m[k] || 0] || 0;
+            }
+            if (typeof o === 'object') return o[k] || 0;
+            return o;
+        }
 
-            var blocks = [];
+        var allBlocks = [];
+        var minX = Infinity,
+            minY = Infinity,
+            minZ = Infinity;
 
-            var pal = root.Palette || {};
-            var bd = root.BlockData || root.block_states || null;
-            var pkeys = Object.keys(pal);
+        for (var rname in regions) {
+            var region = regions[rname];
+            if (!region || typeof region !== 'object') continue;
 
-            if (pkeys.length > 0 && bd) {
-                log('使用新格式解析 (Palette + BlockData)');
-                var paletteList = [];
-                for (var k in pal) {
-                    paletteList[pal[k]] = k;
+            var sx = Math.abs(getVal(region.Size, 'x') || 0);
+            var sy = Math.abs(getVal(region.Size, 'y') || 0);
+            var sz = Math.abs(getVal(region.Size, 'z') || 0);
+
+            if (sx === 0 || sy === 0 || sz === 0) continue;
+
+            var rx = getVal(region.Position, 'x') || 0;
+            var ry = getVal(region.Position, 'y') || 0;
+            var rz = getVal(region.Position, 'z') || 0;
+
+            var palette = region.BlockStatePalette || region.Palette || region.blockStatePalette;
+            if (!palette || !palette.length) {
+                for (var key in region) {
+                    if (Array.isArray(region[key]) && region[key].length > 0) {
+                        var first = region[key][0];
+                        if (first && (first.Name || first.name || typeof first === 'string')) {
+                            palette = region[key];
+                            break;
+                        }
+                    }
                 }
-                var bits = Math.max(2, Math.ceil(Math.log2(pkeys.length)));
-                var mask = (1 << bits) - 1;
+                if (!palette || !palette.length) continue;
+            }
+
+            var blockStates = region.BlockStates || region.blockStates || region.BlockStatesLongArray || [];
+            if (!blockStates || !blockStates.length) {
+                for (var key in region) {
+                    if (Array.isArray(region[key]) && region[key].length > 0) {
+                        var first = region[key][0];
+                        if (typeof first === 'number' || typeof first === 'bigint') {
+                            blockStates = region[key];
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (!blockStates || !blockStates.length) continue;
+
+            var longArray = [];
+            for (var i = 0; i < blockStates.length; i++) {
+                var val = blockStates[i];
+                if (typeof val === 'bigint') {
+                    longArray.push(Number(val));
+                } else {
+                    longArray.push(Number(val));
+                }
+            }
+
+            var psize = palette.length;
+            var bits = Math.max(2, Math.ceil(Math.log2(psize)));
+            var mask = (1 << bits) - 1;
+            var totalBlocks = sx * sy * sz;
+
+            var indices = new Uint32Array(totalBlocks);
+            var bitPos = 0;
+            for (var i = 0; i < totalBlocks; i++) {
+                var bitIndex = i * bits;
+                var wordIndex = Math.floor(bitIndex / 64);
+                var bitOffset = bitIndex % 64;
+                var value = 0;
+                if (wordIndex < longArray.length) {
+                    var chunk1 = longArray[wordIndex] >>> bitOffset;
+                    value |= chunk1 & ((1 << Math.min(bits, 64 - bitOffset)) - 1);
+                    var remaining = bits - (64 - bitOffset);
+                    if (remaining > 0 && wordIndex + 1 < longArray.length) {
+                        var chunk2 = longArray[wordIndex + 1] & ((1 << remaining) - 1);
+                        value |= chunk2 << (64 - bitOffset);
+                    }
+                }
+                indices[i] = value & mask;
+            }
+
+            var palCache = [];
+            for (var pi = 0; pi < psize; pi++) {
+                var entry = palette[pi];
+                var name = '';
+                if (typeof entry === 'string') {
+                    name = entry;
+                } else if (entry && entry.Name) {
+                    name = entry.Name;
+                } else if (entry && entry.name) {
+                    name = entry.name;
+                } else if (entry && entry.id) {
+                    name = entry.id;
+                }
+                if (!name || name === 'minecraft:air' || name === 'minecraft:cave_air' || name === 'minecraft:void_air') {
+                    palCache.push(null);
+                    continue;
+                }
+                if (entry && entry.Properties) {
+                    var props = entry.Properties;
+                    var stateStr = [];
+                    for (var pk in props) {
+                        stateStr.push(pk + '=' + props[pk]);
+                    }
+                    if (stateStr.length > 0) {
+                        name = name + '[' + stateStr.join(',') + ']';
+                    }
+                }
+                palCache.push({ id: getBedrockId(name), javaId: name });
+            }
+
+            var sliceSize = sx * sz;
+            for (var y = 0; y < sy; y++) {
+                for (var z = 0; z < sz; z++) {
+                    for (var x = 0; x < sx; x++) {
+                        var idx = indices[y * sliceSize + z * sx + x];
+                        if (idx >= palCache.length) continue;
+                        var pe = palCache[idx];
+                        if (!pe) continue;
+                        var wx = rx + x;
+                        var wy = ry + y;
+                        var wz = rz + z;
+                        allBlocks.push({ x: wx, y: wy, z: wz, id: pe.javaId || pe.id });
+                        if (wx < minX) minX = wx;
+                        if (wy < minY) minY = wy;
+                        if (wz < minZ) minZ = wz;
+                    }
+                }
+            }
+        }
+
+        if (!allBlocks.length) {
+            throw new Error('未找到任何方块');
+        }
+
+        var width = 0,
+            height = 0,
+            length = 0;
+        for (var i = 0; i < allBlocks.length; i++) {
+            var b = allBlocks[i];
+            b.x -= minX;
+            b.y -= minY;
+            b.z -= minZ;
+            if (b.x >= width) width = b.x + 1;
+            if (b.y >= height) height = b.y + 1;
+            if (b.z >= length) length = b.z + 1;
+        }
+
+        var collectors = {};
+        var ss = width * length;
+        for (var i = 0; i < allBlocks.length; i++) {
+            var b = allBlocks[i];
+            var bid = getBedrockId(b.id);
+            if (!collectors[bid]) collectors[bid] = createCollector();
+            addToCollector(collectors[bid], b.z * width + b.x + b.y * ss + 1);
+        }
+        for (var k in collectors) finishCollector(collectors[k]);
+
+        log('解析完成: ' + allBlocks.length + ' 个方块, 尺寸 ' + width + 'x' + height + 'x' + length);
+        return { blocks: allBlocks, width: width, height: height, length: length, collectors: collectors };
+    }
+
+    async function parseSchematic(data) {
+        if (data[0] === 80 && data[1] === 75) throw new Error('ZIP 格式的 schematic 暂不支持');
+        var raw = (data[0] === 0x1f || data[0] === 0x78) ? await decompress(data) : data;
+        var root = parseNBT(raw);
+        var w = root.Width || 0,
+            h = root.Height || 0,
+            l = root.Length || 0;
+        if (!w || !h || !l) throw new Error('无效的 schematic 文件');
+
+        var blocks = [];
+
+        var pal = root.Palette || {};
+        var bd = root.BlockData || root.block_states || null;
+        var pkeys = Object.keys(pal);
+
+        if (pkeys.length > 0 && bd) {
+            log('使用新格式解析 (Palette + BlockData)');
+            var paletteList = [];
+            for (var k in pal) {
+                paletteList[pal[k]] = k;
+            }
+            var bits = Math.max(2, Math.ceil(Math.log2(pkeys.length)));
+            var mask = (1 << bits) - 1;
+            var total = w * h * l;
+
+            var blockDataBytes = bd;
+            if (typeof blockDataBytes === 'string') {
+                var a = new Uint8Array(blockDataBytes.length);
+                for (var i = 0; i < blockDataBytes.length; i++) a[i] = blockDataBytes.charCodeAt(i) & 0xFF;
+                blockDataBytes = a;
+            }
+
+            var idx = 0;
+            for (var y = 0; y < h; y++) {
+                for (var z = 0; z < l; z++) {
+                    for (var x = 0; x < w; x++) {
+                        if (idx >= total) break;
+                        var bitIdx = idx * bits;
+                        var byteIdx = bitIdx >>> 3;
+                        var bitOff = bitIdx & 7;
+                        var val = 0;
+                        if (byteIdx + 4 < blockDataBytes.length) {
+                            val = ((blockDataBytes[byteIdx] || 0) |
+                                ((blockDataBytes[byteIdx + 1] || 0) << 8) |
+                                ((blockDataBytes[byteIdx + 2] || 0) << 16) |
+                                ((blockDataBytes[byteIdx + 3] || 0) << 24)) >>> bitOff;
+                            val &= mask;
+                        }
+                        idx++;
+                        var name = paletteList[val] || 'minecraft:air';
+                        if (name !== 'minecraft:air' && name !== 'minecraft:cave_air' && name !== 'minecraft:void_air') {
+                            blocks.push({ x: x, y: y, z: z, id: name });
+                        }
+                    }
+                }
+            }
+        }
+
+        if (blocks.length === 0) {
+            var blocksRaw = root.Blocks || root.blocks || [];
+            var dataRaw = root.Data || root.data || [];
+            var materials = root.Materials || root.materials || '';
+
+            if (blocksRaw.length > 0) {
+                log('使用旧格式解析 (Blocks + Data + Materials)');
+
+                var matList = materials.split(',').map(function(s) { return s.trim(); });
+                var isNumericMaterials = matList.length > 0 && /^\d+$/.test(matList[0]);
+
+                if (matList.length === 0 || matList[0] === '') {
+                    var fallbackNames = [
+                        'minecraft:air', 'minecraft:stone', 'minecraft:grass_block', 'minecraft:dirt',
+                        'minecraft:cobblestone', 'minecraft:oak_planks', 'minecraft:oak_sapling',
+                        'minecraft:bedrock', 'minecraft:water', 'minecraft:water', 'minecraft:lava',
+                        'minecraft:lava', 'minecraft:sand', 'minecraft:gravel', 'minecraft:gold_ore',
+                        'minecraft:iron_ore', 'minecraft:coal_ore', 'minecraft:oak_log', 'minecraft:oak_leaves',
+                        'minecraft:sponge', 'minecraft:glass', 'minecraft:lapis_ore', 'minecraft:lapis_block',
+                        'minecraft:dispenser', 'minecraft:sandstone', 'minecraft:note_block', 'minecraft:bed',
+                        'minecraft:golden_rail', 'minecraft:detector_rail', 'minecraft:sticky_piston',
+                        'minecraft:web', 'minecraft:tall_grass', 'minecraft:dead_bush', 'minecraft:piston',
+                        'minecraft:piston_head', 'minecraft:white_wool', 'minecraft:unknown',
+                        'minecraft:dandelion', 'minecraft:poppy', 'minecraft:brown_mushroom',
+                        'minecraft:red_mushroom', 'minecraft:gold_block', 'minecraft:iron_block',
+                        'minecraft:stone_slab', 'minecraft:stone_slab', 'minecraft:bricks', 'minecraft:tnt',
+                        'minecraft:bookshelf', 'minecraft:mossy_cobblestone', 'minecraft:obsidian',
+                        'minecraft:torch', 'minecraft:fire', 'minecraft:spawner', 'minecraft:oak_stairs',
+                        'minecraft:chest', 'minecraft:redstone_wire', 'minecraft:diamond_ore',
+                        'minecraft:diamond_block', 'minecraft:crafting_table', 'minecraft:wheat',
+                        'minecraft:farmland', 'minecraft:furnace', 'minecraft:furnace',
+                        'minecraft:standing_sign', 'minecraft:oak_door', 'minecraft:ladder', 'minecraft:rail',
+                        'minecraft:cobblestone_stairs', 'minecraft:wall_sign', 'minecraft:lever',
+                        'minecraft:stone_pressure_plate', 'minecraft:iron_door', 'minecraft:oak_pressure_plate',
+                        'minecraft:redstone_ore', 'minecraft:redstone_ore', 'minecraft:redstone_torch',
+                        'minecraft:redstone_torch', 'minecraft:stone_button', 'minecraft:snow',
+                        'minecraft:ice', 'minecraft:snow_block', 'minecraft:cactus', 'minecraft:clay',
+                        'minecraft:sugar_cane', 'minecraft:jukebox', 'minecraft:oak_fence', 'minecraft:pumpkin',
+                        'minecraft:netherrack', 'minecraft:soul_sand', 'minecraft:glowstone',
+                        'minecraft:nether_portal', 'minecraft:jack_o_lantern', 'minecraft:cake',
+                        'minecraft:repeater', 'minecraft:repeater', 'minecraft:white_stained_glass',
+                        'minecraft:oak_trapdoor', 'minecraft:infested_stone', 'minecraft:stone_bricks',
+                        'minecraft:brown_mushroom_block', 'minecraft:red_mushroom_block', 'minecraft:iron_bars',
+                        'minecraft:glass_pane', 'minecraft:melon', 'minecraft:pumpkin_stem',
+                        'minecraft:melon_stem', 'minecraft:vine', 'minecraft:oak_fence_gate',
+                        'minecraft:brick_stairs', 'minecraft:stone_brick_stairs', 'minecraft:mycelium',
+                        'minecraft:waterlily', 'minecraft:nether_bricks', 'minecraft:nether_brick_fence',
+                        'minecraft:nether_brick_stairs', 'minecraft:nether_wart', 'minecraft:enchanting_table',
+                        'minecraft:brewing_stand', 'minecraft:cauldron', 'minecraft:end_portal',
+                        'minecraft:end_portal_frame', 'minecraft:end_stone', 'minecraft:dragon_egg',
+                        'minecraft:redstone_lamp', 'minecraft:redstone_lamp', 'minecraft:oak_slab'
+                    ];
+                    matList = fallbackNames;
+                    isNumericMaterials = false;
+                }
+
                 var total = w * h * l;
-
-                var blockDataBytes = bd;
-                if (typeof blockDataBytes === 'string') {
-                    var a = new Uint8Array(blockDataBytes.length);
-                    for (var i = 0; i < blockDataBytes.length; i++) a[i] = blockDataBytes.charCodeAt(i) & 0xFF;
-                    blockDataBytes = a;
-                }
-
                 var idx = 0;
                 for (var y = 0; y < h; y++) {
                     for (var z = 0; z < l; z++) {
                         for (var x = 0; x < w; x++) {
                             if (idx >= total) break;
-                            var bitIdx = idx * bits;
-                            var byteIdx = bitIdx >>> 3;
-                            var bitOff = bitIdx & 7;
-                            var val = 0;
-                            if (byteIdx + 4 < blockDataBytes.length) {
-                                val = ((blockDataBytes[byteIdx] || 0) |
-                                    ((blockDataBytes[byteIdx + 1] || 0) << 8) |
-                                    ((blockDataBytes[byteIdx + 2] || 0) << 16) |
-                                    ((blockDataBytes[byteIdx + 3] || 0) << 24)) >>> bitOff;
-                                val &= mask;
-                            }
+                            var bid = blocksRaw[idx] || 0;
+                            var d = dataRaw[idx] || 0;
                             idx++;
-                            var name = paletteList[val] || 'minecraft:air';
-                            if (name !== 'minecraft:air' && name !== 'minecraft:cave_air' && name !== 'minecraft:void_air') {
+
+                            if (bid === 0) continue;
+
+                            var name;
+                            if (isNumericMaterials) {
+                                var legacyName = matList[bid] || 'minecraft:unknown';
+                                name = legacyName;
+                                if (d > 0 && name.indexOf('[') === -1) {
+                                    var stateName = legacyDataToState(name, d);
+                                    if (stateName) name = stateName;
+                                }
+                            } else {
+                                name = matList[bid] || 'minecraft:unknown';
+                                if (d > 0 && name.indexOf('[') === -1) {
+                                    var stateName = legacyDataToState(name, d);
+                                    if (stateName) name = stateName;
+                                }
+                            }
+
+                            if (name && name !== 'minecraft:air') {
                                 blocks.push({ x: x, y: y, z: z, id: name });
                             }
                         }
                     }
                 }
             }
+        }
 
-            if (blocks.length === 0) {
-                var blocksRaw = root.Blocks || root.blocks || [];
-                var dataRaw = root.Data || root.data || [];
-                var materials = root.Materials || root.materials || '';
+        if (blocks.length === 0) {
+            throw new Error('未找到任何方块数据 (不支持此格式)');
+        }
 
-                if (blocksRaw.length > 0) {
-                    log('使用旧格式解析 (Blocks + Data + Materials)');
+        var collectors = {};
+        var ss = w * l;
+        for (var i = 0; i < blocks.length; i++) {
+            var b = blocks[i];
+            var bid = getBedrockId(b.id);
+            if (!collectors[bid]) collectors[bid] = createCollector();
+            addToCollector(collectors[bid], b.z * w + b.x + b.y * ss + 1);
+        }
+        for (var k in collectors) finishCollector(collectors[k]);
 
-                    var matList = materials.split(',').map(function(s) { return s.trim(); });
-                    var isNumericMaterials = matList.length > 0 && /^\d+$/.test(matList[0]);
+        log('解析完成: ' + blocks.length + ' 个方块, 尺寸 ' + w + 'x' + h + 'x' + l);
+        return { blocks: blocks, width: w, height: h, length: l, collectors: collectors };
+    }
 
-                    if (matList.length === 0 || matList[0] === '') {
-                        var fallbackNames = [
-                            'minecraft:air', 'minecraft:stone', 'minecraft:grass_block', 'minecraft:dirt',
-                            'minecraft:cobblestone', 'minecraft:oak_planks', 'minecraft:oak_sapling',
-                            'minecraft:bedrock', 'minecraft:water', 'minecraft:water', 'minecraft:lava',
-                            'minecraft:lava', 'minecraft:sand', 'minecraft:gravel', 'minecraft:gold_ore',
-                            'minecraft:iron_ore', 'minecraft:coal_ore', 'minecraft:oak_log', 'minecraft:oak_leaves',
-                            'minecraft:sponge', 'minecraft:glass', 'minecraft:lapis_ore', 'minecraft:lapis_block',
-                            'minecraft:dispenser', 'minecraft:sandstone', 'minecraft:note_block', 'minecraft:bed',
-                            'minecraft:golden_rail', 'minecraft:detector_rail', 'minecraft:sticky_piston',
-                            'minecraft:web', 'minecraft:tall_grass', 'minecraft:dead_bush', 'minecraft:piston',
-                            'minecraft:piston_head', 'minecraft:white_wool', 'minecraft:unknown',
-                            'minecraft:dandelion', 'minecraft:poppy', 'minecraft:brown_mushroom',
-                            'minecraft:red_mushroom', 'minecraft:gold_block', 'minecraft:iron_block',
-                            'minecraft:stone_slab', 'minecraft:stone_slab', 'minecraft:bricks', 'minecraft:tnt',
-                            'minecraft:bookshelf', 'minecraft:mossy_cobblestone', 'minecraft:obsidian',
-                            'minecraft:torch', 'minecraft:fire', 'minecraft:spawner', 'minecraft:oak_stairs',
-                            'minecraft:chest', 'minecraft:redstone_wire', 'minecraft:diamond_ore',
-                            'minecraft:diamond_block', 'minecraft:crafting_table', 'minecraft:wheat',
-                            'minecraft:farmland', 'minecraft:furnace', 'minecraft:furnace',
-                            'minecraft:standing_sign', 'minecraft:oak_door', 'minecraft:ladder', 'minecraft:rail',
-                            'minecraft:cobblestone_stairs', 'minecraft:wall_sign', 'minecraft:lever',
-                            'minecraft:stone_pressure_plate', 'minecraft:iron_door', 'minecraft:oak_pressure_plate',
-                            'minecraft:redstone_ore', 'minecraft:redstone_ore', 'minecraft:redstone_torch',
-                            'minecraft:redstone_torch', 'minecraft:stone_button', 'minecraft:snow',
-                            'minecraft:ice', 'minecraft:snow_block', 'minecraft:cactus', 'minecraft:clay',
-                            'minecraft:sugar_cane', 'minecraft:jukebox', 'minecraft:oak_fence', 'minecraft:pumpkin',
-                            'minecraft:netherrack', 'minecraft:soul_sand', 'minecraft:glowstone',
-                            'minecraft:nether_portal', 'minecraft:jack_o_lantern', 'minecraft:cake',
-                            'minecraft:repeater', 'minecraft:repeater', 'minecraft:white_stained_glass',
-                            'minecraft:oak_trapdoor', 'minecraft:infested_stone', 'minecraft:stone_bricks',
-                            'minecraft:brown_mushroom_block', 'minecraft:red_mushroom_block', 'minecraft:iron_bars',
-                            'minecraft:glass_pane', 'minecraft:melon', 'minecraft:pumpkin_stem',
-                            'minecraft:melon_stem', 'minecraft:vine', 'minecraft:oak_fence_gate',
-                            'minecraft:brick_stairs', 'minecraft:stone_brick_stairs', 'minecraft:mycelium',
-                            'minecraft:waterlily', 'minecraft:nether_bricks', 'minecraft:nether_brick_fence',
-                            'minecraft:nether_brick_stairs', 'minecraft:nether_wart', 'minecraft:enchanting_table',
-                            'minecraft:brewing_stand', 'minecraft:cauldron', 'minecraft:end_portal',
-                            'minecraft:end_portal_frame', 'minecraft:end_stone', 'minecraft:dragon_egg',
-                            'minecraft:redstone_lamp', 'minecraft:redstone_lamp', 'minecraft:oak_slab'
-                        ];
-                        matList = fallbackNames;
-                        isNumericMaterials = false;
-                    }
+    function legacyDataToState(name, data) {
+        if (name.indexOf('stairs') !== -1 || name.indexOf('_stairs') !== -1) {
+            var dirs = ['east', 'west', 'south', 'north'];
+            var facing = dirs[data & 3] || 'east';
+            var half = (data & 4) ? 'top' : 'bottom';
+            return name + '[facing=' + facing + ',half=' + half + ']';
+        }
+        if (name.indexOf('_log') !== -1 || name.indexOf('_stem') !== -1 || name.indexOf('_wood') !== -1) {
+            var axes = ['y', 'x', 'z'];
+            var axis = axes[(data >> 2) & 3] || 'y';
+            return name + '[axis=' + axis + ']';
+        }
+        if (name === 'minecraft:white_wool') {
+            var colors = ['white', 'orange', 'magenta', 'light_blue', 'yellow', 'lime', 'pink', 'gray', 'light_gray',
+                'cyan', 'purple', 'blue', 'brown', 'green', 'red', 'black'
+            ];
+            return 'minecraft:' + colors[data] + '_wool';
+        }
+        return null;
+    }
 
-                    var total = w * h * l;
-                    var idx = 0;
-                    for (var y = 0; y < h; y++) {
-                        for (var z = 0; z < l; z++) {
-                            for (var x = 0; x < w; x++) {
-                                if (idx >= total) break;
-                                var bid = blocksRaw[idx] || 0;
-                                var d = dataRaw[idx] || 0;
-                                idx++;
-
-                                if (bid === 0) continue;
-
-                                var name;
-                                if (isNumericMaterials) {
-                                    var legacyName = matList[bid] || 'minecraft:unknown';
-                                    name = legacyName;
-                                    if (d > 0 && name.indexOf('[') === -1) {
-                                        var stateName = legacyDataToState(name, d);
-                                        if (stateName) name = stateName;
-                                    }
-                                } else {
-                                    name = matList[bid] || 'minecraft:unknown';
-                                    if (d > 0 && name.indexOf('[') === -1) {
-                                        var stateName = legacyDataToState(name, d);
-                                        if (stateName) name = stateName;
-                                    }
-                                }
-
-                                if (name && name !== 'minecraft:air') {
-                                    blocks.push({ x: x, y: y, z: z, id: name });
-                                }
-                            }
-                        }
-                    }
-                }
+    async function parseBuilding(data, name) {
+        var ext = name.split('.').pop().toLowerCase();
+        if (ext === 'litematic') {
+            return parseLitematic(data);
+        }
+        try {
+            return await parseSchematic(data);
+        } catch (e) {
+            log('schematic 解析失败，尝试 litematic: ' + e.message);
+            try {
+                return await parseLitematic(data);
+            } catch (e2) {
+                log('litematic 解析也失败: ' + e2.message);
             }
+            throw new Error('不支持的文件格式或文件已损坏');
+        }
+    }
 
-            if (blocks.length === 0) {
-                throw new Error('未找到任何方块数据 (不支持此格式)');
-            }
+    // ============================================================
+    // 生成指令 (完整)
+    // ============================================================
+    async function generateCommands(blocks, fn, w, l, params) {
+        var sb = params.sb || 'dr';
+        var sp = params.sp || 1;
+        var ht = params.ht || 'h';
+        var bt = params.bt || 'b';
+        var mc = params.mc || 10000;
+        var disableSensitive = params.disableSensitive || false;
 
-            var collectors = {};
+        var cmds = [];
+
+        function _c(cmd, comment) {
+            if (comment) cmds.push('#' + comment);
+            cmds.push(cmd);
+        }
+
+        var maxY = 0,
+            minY = Infinity;
+        for (var i = 0; i < blocks.blocks.length; i++) {
+            var b = blocks.blocks[i];
+            if (b.y > maxY) maxY = b.y;
+            if (b.y < minY) minY = b.y;
+        }
+        var totalHeight = maxY - minY + 1;
+
+        cmds.push('# [脉冲] [无条件] [红石控制] 一次性执行');
+        _c('scoreboard objectives add ' + sb + ' dummy', '创建 ' + sb + ' 计分板');
+        _c('summon armor_stand ~ ~ ~', '召唤 h 高度扫描器');
+        _c('tag @e[type=armor_stand,c=1,r=2.5,tag=!b] add ' + ht, '标记 h');
+        _c('tp @e[tag=' + ht + ',type=armor_stand] ~ ~0 ~', '传送 h 到 y=0');
+        _c('summon armor_stand ~ ~ ~', '召唤 b 位置扫描器');
+        _c('tag @e[type=armor_stand,c=1,r=2.5,tag=!h] add ' + bt, '标记 b');
+        _c('tp @e[tag=' + bt + ',type=armor_stand] ~ ~0 ~', '传送 b 到 y=0');
+        _c('scoreboard players set @e[tag=' + ht + ',type=armor_stand] ' + sb + ' 0', 'h 计数归零');
+        _c('scoreboard players set @e[tag=' + bt + ',type=armor_stand] ' + sb + ' 0', 'b 计数归零');
+        cmds.push('');
+        cmds.push('# [循环] [无条件] [保持开启] 速度' + sp + 'x');
+        _c('scoreboard players add @e[tag=' + ht + ',type=armor_stand] ' + sb + ' ' + sp, 'h 计数 +' + sp);
+        _c('scoreboard players add @e[tag=' + bt + ',type=armor_stand] ' + sb + ' ' + sp, 'b 计数 +' + sp);
+        cmds.push('');
+        cmds.push('# [连锁] [无条件] [保持开启]');
+
+        var collectors = blocks.collectors;
+        if (!collectors) {
+            collectors = {};
             var ss = w * l;
-            for (var i = 0; i < blocks.length; i++) {
-                var b = blocks[i];
+            for (var i = 0; i < blocks.blocks.length; i++) {
+                var b = blocks.blocks[i];
                 var bid = getBedrockId(b.id);
                 if (!collectors[bid]) collectors[bid] = createCollector();
                 addToCollector(collectors[bid], b.z * w + b.x + b.y * ss + 1);
             }
             for (var k in collectors) finishCollector(collectors[k]);
-
-            log('解析完成: ' + blocks.length + ' 个方块, 尺寸 ' + w + 'x' + h + 'x' + l);
-            return { blocks: blocks, width: w, height: h, length: l, collectors: collectors };
         }
 
-        function legacyDataToState(name, data) {
-            if (name.indexOf('stairs') !== -1 || name.indexOf('_stairs') !== -1) {
-                var dirs = ['east', 'west', 'south', 'north'];
-                var facing = dirs[data & 3] || 'east';
-                var half = (data & 4) ? 'top' : 'bottom';
-                return name + '[facing=' + facing + ',half=' + half + ']';
-            }
-            if (name.indexOf('_log') !== -1 || name.indexOf('_stem') !== -1 || name.indexOf('_wood') !== -1) {
-                var axes = ['y', 'x', 'z'];
-                var axis = axes[(data >> 2) & 3] || 'y';
-                return name + '[axis=' + axis + ']';
-            }
-            if (name === 'minecraft:white_wool') {
-                var colors = ['white', 'orange', 'magenta', 'light_blue', 'yellow', 'lime', 'pink', 'gray', 'light_gray',
-                    'cyan', 'purple', 'blue', 'brown', 'green', 'red', 'black'
-                ];
-                return 'minecraft:' + colors[data] + '_wool';
-            }
-            return null;
+        function isSensitiveScore(score) {
+            if (disableSensitive) return false;
+            var str = String(score);
+            if (!/^\d+$/.test(str)) return false;
+            return _SF && _SF.contains(str);
         }
 
-        async function parseBuilding(data, name) {
-            var ext = name.split('.').pop().toLowerCase();
-            if (ext === 'litematic') {
-                return parseLitematic(data);
-            }
-            try {
-                return await parseSchematic(data);
-            } catch (e) {
-                log('schematic 解析失败，尝试 litematic: ' + e.message);
-                try {
-                    return await parseLitematic(data);
-                } catch (e2) {
-                    log('litematic 解析也失败: ' + e2.message);
-                }
-                throw new Error('不支持的文件格式或文件已损坏');
+        var allBatch = [];
+        var allSingle = [];
+        var totalBlocksCount = 0;
+        var sensitiveCount = 0;
+
+        for (var bid in collectors) {
+            var col = collectors[bid];
+            if (!col || !col.intervals || !col.intervals.len) continue;
+            for (var ii = 0; ii < col.intervals.len; ii++) {
+                totalBlocksCount += col.intervals.ends[ii] - col.intervals.starts[ii] + 1;
             }
         }
+        log('总方块数: ' + totalBlocksCount);
 
-        // ============================================================
-        // 生成指令
-        // ============================================================
-        async function generateCommands(blocks, fn, w, l, params) {
-            var sb = params.sb || 'dr';
-            var sp = params.sp || 1;
-            var ht = params.ht || 'h';
-            var bt = params.bt || 'b';
-            var mc = params.mc || 10000;
-            var disableSensitive = params.disableSensitive || false;
+        for (var bid in collectors) {
+            var col = collectors[bid];
+            if (!col || !col.intervals || !col.intervals.len) continue;
 
-            var cmds = [];
-
-            function _c(cmd, comment) {
-                if (comment) cmds.push('#' + comment);
-                cmds.push(cmd);
+            var itv = col.intervals;
+            var ranges = [];
+            for (var ii = 0; ii < itv.len; ii++) {
+                ranges.push([itv.starts[ii], itv.ends[ii]]);
             }
 
-            var maxY = 0,
-                minY = Infinity;
-            for (var i = 0; i < blocks.blocks.length; i++) {
-                var b = blocks.blocks[i];
-                if (b.y > maxY) maxY = b.y;
-                if (b.y < minY) minY = b.y;
-            }
-            var totalHeight = maxY - minY + 1;
+            for (var ri = 0; ri < ranges.length; ri++) {
+                var start = ranges[ri][0];
+                var end = ranges[ri][1];
 
-            cmds.push('# [脉冲] [无条件] [红石控制] 一次性执行');
-            _c('scoreboard objectives add ' + sb + ' dummy', '创建 ' + sb + ' 计分板');
-            _c('summon armor_stand ~ ~ ~', '召唤 h 高度扫描器');
-            _c('tag @e[type=armor_stand,c=1,r=2.5,tag=!b] add ' + ht, '标记 h');
-            _c('tp @e[tag=' + ht + ',type=armor_stand] ~ ~0 ~', '传送 h 到 y=0');
-            _c('summon armor_stand ~ ~ ~', '召唤 b 位置扫描器');
-            _c('tag @e[type=armor_stand,c=1,r=2.5,tag=!h] add ' + bt, '标记 b');
-            _c('tp @e[tag=' + bt + ',type=armor_stand] ~ ~0 ~', '传送 b 到 y=0');
-            _c('scoreboard players set @e[tag=' + ht + ',type=armor_stand] ' + sb + ' 0', 'h 计数归零');
-            _c('scoreboard players set @e[tag=' + bt + ',type=armor_stand] ' + sb + ' 0', 'b 计数归零');
-            cmds.push('');
-            cmds.push('# [循环] [无条件] [保持开启] 速度' + sp + 'x');
-            _c('scoreboard players add @e[tag=' + ht + ',type=armor_stand] ' + sb + ' ' + sp, 'h 计数 +' + sp);
-            _c('scoreboard players add @e[tag=' + bt + ',type=armor_stand] ' + sb + ' ' + sp, 'b 计数 +' + sp);
-            cmds.push('');
-            cmds.push('# [连锁] [无条件] [保持开启]');
-
-            var collectors = blocks.collectors;
-            if (!collectors) {
-                collectors = {};
-                var ss = w * l;
-                for (var i = 0; i < blocks.blocks.length; i++) {
-                    var b = blocks.blocks[i];
-                    var bid = getBedrockId(b.id);
-                    if (!collectors[bid]) collectors[bid] = createCollector();
-                    addToCollector(collectors[bid], b.z * w + b.x + b.y * ss + 1);
-                }
-                for (var k in collectors) finishCollector(collectors[k]);
-            }
-
-            function isSensitiveScore(score) {
-                if (disableSensitive) return false;
-                var str = String(score);
-                if (!/^\d+$/.test(str)) return false;
-                return _SF && _SF.contains(str);
-            }
-
-            var allBatch = [];
-            var allSingle = [];
-            var totalBlocksCount = 0;
-            var sensitiveCount = 0;
-
-            for (var bid in collectors) {
-                var col = collectors[bid];
-                if (!col || !col.intervals || !col.intervals.len) continue;
-                for (var ii = 0; ii < col.intervals.len; ii++) {
-                    totalBlocksCount += col.intervals.ends[ii] - col.intervals.starts[ii] + 1;
-                }
-            }
-            log('总方块数: ' + totalBlocksCount);
-
-            for (var bid in collectors) {
-                var col = collectors[bid];
-                if (!col || !col.intervals || !col.intervals.len) continue;
-
-                var itv = col.intervals;
-                var ranges = [];
-                for (var ii = 0; ii < itv.len; ii++) {
-                    ranges.push([itv.starts[ii], itv.ends[ii]]);
-                }
-
-                for (var ri = 0; ri < ranges.length; ri++) {
-                    var start = ranges[ri][0];
-                    var end = ranges[ri][1];
-
-                    var currentStart = null;
-                    for (var s = start; s <= end; s++) {
-                        var scoreVal = s * sp;
-                        if (isSensitiveScore(scoreVal)) {
-                            if (currentStart !== null) {
-                                if (currentStart <= s - 1) {
-                                    allBatch.push({ start: currentStart, end: s - 1, blockId: bid });
-                                }
-                                currentStart = null;
+                var currentStart = null;
+                for (var s = start; s <= end; s++) {
+                    var scoreVal = s * sp;
+                    if (isSensitiveScore(scoreVal)) {
+                        if (currentStart !== null) {
+                            if (currentStart <= s - 1) {
+                                allBatch.push({ start: currentStart, end: s - 1, blockId: bid });
                             }
-                            allSingle.push({ score: s, blockId: bid });
-                            sensitiveCount++;
-                        } else {
-                            if (currentStart === null) {
-                                currentStart = s;
-                            }
+                            currentStart = null;
+                        }
+                        allSingle.push({ score: s, blockId: bid });
+                        sensitiveCount++;
+                    } else {
+                        if (currentStart === null) {
+                            currentStart = s;
                         }
                     }
-                    if (currentStart !== null && currentStart <= end) {
-                        allBatch.push({ start: currentStart, end: end, blockId: bid });
-                    }
+                }
+                if (currentStart !== null && currentStart <= end) {
+                    allBatch.push({ start: currentStart, end: end, blockId: bid });
                 }
             }
+        }
 
-            log('敏感方块数: ' + sensitiveCount + ' (将转为手动 setblock)');
+        log('敏感方块数: ' + sensitiveCount + ' (将转为手动 setblock)');
 
-            var batchByBlock = {};
-            for (var i = 0; i < allBatch.length; i++) {
-                var item = allBatch[i];
-                if (!batchByBlock[item.blockId]) batchByBlock[item.blockId] = [];
-                batchByBlock[item.blockId].push([item.start, item.end]);
+        var batchByBlock = {};
+        for (var i = 0; i < allBatch.length; i++) {
+            var item = allBatch[i];
+            if (!batchByBlock[item.blockId]) batchByBlock[item.blockId] = [];
+            batchByBlock[item.blockId].push([item.start, item.end]);
+        }
+
+        function formatScoreRange(start, end, sp, sb) {
+            var s = start * sp;
+            var e = end * sp;
+            if (s === e) {
+                return sb + '=!' + s;
+            } else {
+                return sb + '=!' + s + '..' + e;
             }
+        }
 
-            function formatScoreRange(start, end, sp, sb) {
-                var s = start * sp;
-                var e = end * sp;
-                if (s === e) {
-                    return sb + '=!' + s;
+        for (var bid in batchByBlock) {
+            var ranges2 = batchByBlock[bid];
+            ranges2.sort(function(a, b) { return a[0] - b[0]; });
+
+            var merged = [];
+            for (var i = 0; i < ranges2.length; i++) {
+                if (merged.length === 0) {
+                    merged.push([ranges2[i][0], ranges2[i][1]]);
                 } else {
-                    return sb + '=!' + s + '..' + e;
+                    var last = merged[merged.length - 1];
+                    if (ranges2[i][0] <= last[1] + 1) {
+                        if (ranges2[i][1] > last[1]) {
+                            last[1] = ranges2[i][1];
+                        }
+                    } else {
+                        merged.push([ranges2[i][0], ranges2[i][1]]);
+                    }
                 }
             }
 
-            for (var bid in batchByBlock) {
-                var ranges2 = batchByBlock[bid];
-                ranges2.sort(function(a, b) { return a[0] - b[0]; });
+            var temp = [];
+            for (var i = 0; i < merged.length; i++) {
+                var test = temp.concat([merged[i]]);
+                var testStr = test.map(function(x) {
+                    return formatScoreRange(x[0], x[1], sp, sb);
+                }).join(',');
 
-                var merged = [];
-                for (var i = 0; i < ranges2.length; i++) {
-                    if (merged.length === 0) {
-                        merged.push([ranges2[i][0], ranges2[i][1]]);
-                    } else {
-                        var last = merged[merged.length - 1];
-                        if (ranges2[i][0] <= last[1] + 1) {
-                            if (ranges2[i][1] > last[1]) {
-                                last[1] = ranges2[i][1];
-                            }
-                        } else {
-                            merged.push([ranges2[i][0], ranges2[i][1]]);
-                        }
-                    }
-                }
-
-                var temp = [];
-                for (var i = 0; i < merged.length; i++) {
-                    var test = temp.concat([merged[i]]);
-                    var testStr = test.map(function(x) {
-                        return formatScoreRange(x[0], x[1], sp, sb);
-                    }).join(',');
-
-                    if (testStr.length > mc && temp.length > 0) {
-                        var tempStr = temp.map(function(x) {
-                            return formatScoreRange(x[0], x[1], sp, sb);
-                        }).join(',');
-                        cmds.push('execute as @e[tag=' + bt + ',type=armor_stand] at @s unless entity @s[scores={' +
-                            tempStr + '}] run setblock ~ ~ ~ ' + bid);
-                        temp = [];
-                        temp.push(merged[i]);
-                    } else {
-                        temp.push(merged[i]);
-                    }
-                }
-                if (temp.length > 0) {
+                if (testStr.length > mc && temp.length > 0) {
                     var tempStr = temp.map(function(x) {
                         return formatScoreRange(x[0], x[1], sp, sb);
                     }).join(',');
                     cmds.push('execute as @e[tag=' + bt + ',type=armor_stand] at @s unless entity @s[scores={' +
                         tempStr + '}] run setblock ~ ~ ~ ' + bid);
+                    temp = [];
+                    temp.push(merged[i]);
+                } else {
+                    temp.push(merged[i]);
                 }
             }
-
-            if (allSingle.length > 0) {
-                cmds.push('');
-                cmds.push('# ===== [手动执行] 以下 ' + allSingle.length + ' 个方块含敏感分值，请逐条手动执行 =====');
-                cmds.push('# 站在盔甲架起始位置，逐条输入以下 setblock 指令');
-
-                var singleByBlock = {};
-                for (var i = 0; i < allSingle.length; i++) {
-                    var item = allSingle[i];
-                    if (!singleByBlock[item.blockId]) singleByBlock[item.blockId] = [];
-                    singleByBlock[item.blockId].push(item.score);
-                }
-
-                for (var bid in singleByBlock) {
-                    var scores = singleByBlock[bid];
-                    scores.sort(function(a, b) { return a - b; });
-                    for (var i = 0; i < scores.length; i++) {
-                        var score = scores[i];
-                        var idx = score - 1;
-                        var XZ = w * l;
-                        var y = Math.floor(idx / XZ);
-                        var remaining = idx % XZ;
-                        var z = Math.floor(remaining / w);
-                        var x = remaining % w;
-                        cmds.push('setblock ~' + x + ' ~' + y + ' ~' + z + ' ' + bid);
-                    }
-                }
-                cmds.push('# ===== [手动执行结束] =====');
+            if (temp.length > 0) {
+                var tempStr = temp.map(function(x) {
+                    return formatScoreRange(x[0], x[1], sp, sb);
+                }).join(',');
+                cmds.push('execute as @e[tag=' + bt + ',type=armor_stand] at @s unless entity @s[scores={' +
+                    tempStr + '}] run setblock ~ ~ ~ ' + bid);
             }
-
-            cmds.push('');
-            cmds.push('# ===== b 移动 =====');
-            _c('execute as @e[tag=' + bt + ',type=armor_stand] at @s run tp @s ~1 ~ ~', 'b 向右移动 1 格');
-            cmds.push('');
-
-            cmds.push('# ===== 换行/换层 =====');
-
-            var wrapScores = [];
-            for (var i = 1; i < l; i++) {
-                wrapScores.push(i * w * sp);
-            }
-            if (wrapScores.length > 0) {
-                var wrapMerged = [];
-                for (var i = 0; i < wrapScores.length; i++) {
-                    if (wrapMerged.length === 0 || wrapScores[i] > wrapMerged[wrapMerged.length - 1][1] + 1) {
-                        wrapMerged.push([wrapScores[i], wrapScores[i]]);
-                    } else {
-                        wrapMerged[wrapMerged.length - 1][1] = wrapScores[i];
-                    }
-                }
-                for (var i = 0; i < wrapMerged.length; i++) {
-                    var s = wrapMerged[i][0];
-                    var e = wrapMerged[i][1];
-                    if (s === e) {
-                        cmds.push('execute as @e[tag=' + bt + ',type=armor_stand] if entity @s[scores={' + sb + '=' + s +
-                            '..' + s + '}] run tp @s ~-' + w + ' ~ ~1');
-                    } else {
-                        cmds.push('execute as @e[tag=' + bt + ',type=armor_stand] if entity @s[scores={' + sb + '=' + s +
-                            '..' + e + '}] run tp @s ~-' + w + ' ~ ~1');
-                    }
-                }
-            }
-
-            var totalBlocks = w * l;
-            var layerScores = [];
-            for (var i = 1; i < totalHeight; i++) {
-                layerScores.push(i * totalBlocks * sp);
-            }
-            if (layerScores.length > 0) {
-                var layerMerged = [];
-                for (var i = 0; i < layerScores.length; i++) {
-                    if (layerMerged.length === 0 || layerScores[i] > layerMerged[layerMerged.length - 1][1] + 1) {
-                        layerMerged.push([layerScores[i], layerScores[i]]);
-                    } else {
-                        layerMerged[layerMerged.length - 1][1] = layerScores[i];
-                    }
-                }
-                for (var i = 0; i < layerMerged.length; i++) {
-                    var s = layerMerged[i][0];
-                    var e = layerMerged[i][1];
-                    if (s === e) {
-                        cmds.push('execute as @e[tag=' + ht + ',type=armor_stand] if entity @s[scores={' + sb + '=' + s +
-                            '..' + s + '}] run tp @s ~ ~1 ~');
-                        cmds.push('execute as @e[tag=' + ht + ',type=armor_stand] if entity @s[scores={' + sb + '=' + s +
-                            '..' + s + '}] at @s run tp @e[tag=' + bt + ',type=armor_stand] ~ ~ ~');
-                    } else {
-                        cmds.push('execute as @e[tag=' + ht + ',type=armor_stand] if entity @s[scores={' + sb + '=' + s +
-                            '..' + e + '}] run tp @s ~ ~1 ~');
-                        cmds.push('execute as @e[tag=' + ht + ',type=armor_stand] if entity @s[scores={' + sb + '=' + s +
-                            '..' + e + '}] at @s run tp @e[tag=' + bt + ',type=armor_stand] ~ ~ ~');
-                    }
-                }
-            }
-
-            cmds.push('');
-            _c('titleraw @a actionbar {"rawtext":[{"text":"文件 ' + fn + ' 加载完成"}]}', '加载完成提示');
-            cmds.push('');
-
-            cmds.push('# ===== 重置 =====');
-            _c('scoreboard players set @e[tag=' + ht + ',type=armor_stand] ' + sb + ' 0', 'h 计数归零');
-            _c('scoreboard players set @e[tag=' + bt + ',type=armor_stand] ' + sb + ' 0', 'b 计数归零');
-            _c('tp @e[tag=' + ht + ',type=armor_stand] ~ ~0 ~', '传送 h 回 y=0');
-            _c('tp @e[tag=' + bt + ',type=armor_stand] ~ ~0 ~', '传送 b 回 y=0');
-            _c('kill @e[tag=' + ht + ',type=armor_stand]', '移除 h');
-            _c('kill @e[tag=' + bt + ',type=armor_stand]', '移除 b');
-            cmds.push('');
-
-            cmds.push('# ===== 使用说明 =====');
-            cmds.push('# 1. 在命令方块中(按顺序)粘贴以上指令');
-            cmds.push('# 2. [脉冲]一次性执行 -> [循环]保持开启 -> [连锁]保持开启');
-            cmds.push('# 3. 确保建筑区域已清空再运行');
-            if (allSingle.length > 0) {
-                cmds.push('# 4. ' + allSingle.length + ' 个敏感方块已转为手动 setblock，请执行');
-            } else {
-                cmds.push('# 4. 无敏感方块，全部自动执行');
-            }
-
-            return cmds;
         }
 
-        // ============================================================
-        // 生成 3D 预览 HTML
-        // ============================================================
-        function generatePreviewHTMLWithBakedTextures(result, fileName, bakedTextures, blockIdList) {
-            if (!result || !result.blocks || result.blocks.length === 0) {
-                return null;
+        if (allSingle.length > 0) {
+            cmds.push('');
+            cmds.push('# ===== [手动执行] 以下 ' + allSingle.length + ' 个方块含敏感分值，请逐条手动执行 =====');
+            cmds.push('# 站在盔甲架起始位置，逐条输入以下 setblock 指令');
+
+            var singleByBlock = {};
+            for (var i = 0; i < allSingle.length; i++) {
+                var item = allSingle[i];
+                if (!singleByBlock[item.blockId]) singleByBlock[item.blockId] = [];
+                singleByBlock[item.blockId].push(item.score);
             }
 
-            var blocks = result.blocks;
-            var w = result.width || 1;
-            var h = result.height || 1;
-            var l = result.length || 1;
-
-            var maxBlocks = 50000;
-            var showBlocks = blocks;
-            if (blocks.length > maxBlocks) {
-                showBlocks = blocks.slice(0, maxBlocks);
-            }
-
-            var groupMap = {};
-            for (var i = 0; i < showBlocks.length; i++) {
-                var b = showBlocks[i];
-                var bid = getBedrockId(b.id);
-                if (!groupMap[bid]) groupMap[bid] = [];
-                groupMap[bid].push(b);
-            }
-
-            var blockPosData = {};
-            for (var bid in groupMap) {
-                var list = groupMap[bid];
-                var positions = [];
-                for (var j = 0; j < list.length; j++) {
-                    var b = list[j];
-                    positions.push([b.x, b.y, b.z]);
+            for (var bid in singleByBlock) {
+                var scores = singleByBlock[bid];
+                scores.sort(function(a, b) { return a - b; });
+                for (var i = 0; i < scores.length; i++) {
+                    var score = scores[i];
+                    var idx = score - 1;
+                    var XZ = w * l;
+                    var y = Math.floor(idx / XZ);
+                    var remaining = idx % XZ;
+                    var z = Math.floor(remaining / w);
+                    var x = remaining % w;
+                    cmds.push('setblock ~' + x + ' ~' + y + ' ~' + z + ' ' + bid);
                 }
-                blockPosData[bid] = positions;
             }
+            cmds.push('# ===== [手动执行结束] =====');
+        }
 
-            var blockColors = {};
-            for (var i = 0; i < blockIdList.length; i++) {
-                var bid = blockIdList[i];
-                var hash = 0;
-                for (var ci = 0; ci < bid.length; ci++) hash = (hash * 31 + bid.charCodeAt(ci)) & 0xFFFFFF;
-                blockColors[bid] = '#' + (0x404040 + (hash & 0x7F7F7F)).toString(16).padStart(6, '0');
+        cmds.push('');
+        cmds.push('# ===== b 移动 =====');
+        _c('execute as @e[tag=' + bt + ',type=armor_stand] at @s run tp @s ~1 ~ ~', 'b 向右移动 1 格');
+        cmds.push('');
+
+        cmds.push('# ===== 换行/换层 =====');
+
+        var wrapScores = [];
+        for (var i = 1; i < l; i++) {
+            wrapScores.push(i * w * sp);
+        }
+        if (wrapScores.length > 0) {
+            var wrapMerged = [];
+            for (var i = 0; i < wrapScores.length; i++) {
+                if (wrapMerged.length === 0 || wrapScores[i] > wrapMerged[wrapMerged.length - 1][1] + 1) {
+                    wrapMerged.push([wrapScores[i], wrapScores[i]]);
+                } else {
+                    wrapMerged[wrapMerged.length - 1][1] = wrapScores[i];
+                }
             }
+            for (var i = 0; i < wrapMerged.length; i++) {
+                var s = wrapMerged[i][0];
+                var e = wrapMerged[i][1];
+                if (s === e) {
+                    cmds.push('execute as @e[tag=' + bt + ',type=armor_stand] if entity @s[scores={' + sb + '=' + s +
+                        '..' + s + '}] run tp @s ~-' + w + ' ~ ~1');
+                } else {
+                    cmds.push('execute as @e[tag=' + bt + ',type=armor_stand] if entity @s[scores={' + sb + '=' + s +
+                        '..' + e + '}] run tp @s ~-' + w + ' ~ ~1');
+                }
+            }
+        }
 
-            var html = '<!DOCTYPE html>\n';
-            html += '<html>\n<head>\n';
-            html += '<meta charset="utf-8">\n';
-            html += '<title>3D预览 - ' + fileName + '</title>\n';
-            html += '<style>\n';
-            html += 'body{margin:0;overflow:hidden;background:#0d0d2b;font-family:sans-serif;}\n';
-            html += '#info{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:#aaa;font-size:13px;background:rgba(0,0,0,.6);padding:6px 20px;border-radius:8px;pointer-events:none;z-index:10;}\n';
-            html += '#loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#666;font-size:16px;z-index:20;text-align:center;}\n';
-            html += '#loading .spinner{width:32px;height:32px;margin:0 auto 12px;border:3px solid rgba(124,77,255,.2);border-top-color:#7c4dff;border-radius:50%;animation:spin .8s linear infinite;}\n';
-            html += '@keyframes spin{to{transform:rotate(360deg);}}\n';
-            html += '</style>\n';
-            html += '</head>\n<body>\n';
-            html += '<div id="loading"><div class="spinner"></div>加载纹理...</div>\n';
-            html += '<div id="info">' + fileName + ' | 方块: ' + showBlocks.length + ' | 尺寸: ' + w + 'x' + h + 'x' + l +
-                ' | 拖拽旋转/滚轮缩放</div>\n';
+        var totalBlocks = w * l;
+        var layerScores = [];
+        for (var i = 1; i < totalHeight; i++) {
+            layerScores.push(i * totalBlocks * sp);
+        }
+        if (layerScores.length > 0) {
+            var layerMerged = [];
+            for (var i = 0; i < layerScores.length; i++) {
+                if (layerMerged.length === 0 || layerScores[i] > layerMerged[layerMerged.length - 1][1] + 1) {
+                    layerMerged.push([layerScores[i], layerScores[i]]);
+                } else {
+                    layerMerged[layerMerged.length - 1][1] = layerScores[i];
+                }
+            }
+            for (var i = 0; i < layerMerged.length; i++) {
+                var s = layerMerged[i][0];
+                var e = layerMerged[i][1];
+                if (s === e) {
+                    cmds.push('execute as @e[tag=' + ht + ',type=armor_stand] if entity @s[scores={' + sb + '=' + s +
+                        '..' + s + '}] run tp @s ~ ~1 ~');
+                    cmds.push('execute as @e[tag=' + ht + ',type=armor_stand] if entity @s[scores={' + sb + '=' + s +
+                        '..' + s + '}] at @s run tp @e[tag=' + bt + ',type=armor_stand] ~ ~ ~');
+                } else {
+                    cmds.push('execute as @e[tag=' + ht + ',type=armor_stand] if entity @s[scores={' + sb + '=' + s +
+                        '..' + e + '}] run tp @s ~ ~1 ~');
+                    cmds.push('execute as @e[tag=' + ht + ',type=armor_stand] if entity @s[scores={' + sb + '=' + s +
+                        '..' + e + '}] at @s run tp @e[tag=' + bt + ',type=armor_stand] ~ ~ ~');
+                }
+            }
+        }
 
-            html += '<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>\n';
-            html +=
-                '<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"><\/script>\n';
+        cmds.push('');
+        _c('titleraw @a actionbar {"rawtext":[{"text":"文件 ' + fn + ' 加载完成"}]}', '加载完成提示');
+        cmds.push('');
 
-            html += '<script>\n';
-            html += 'var blockPosData = ' + JSON.stringify(blockPosData) + ';\n';
-            html += 'var blockColors = ' + JSON.stringify(blockColors) + ';\n';
-            html += 'var bakedTextures = ' + JSON.stringify(bakedTextures) + ';\n';
-            html += 'var totalTextures = ' + Object.keys(bakedTextures).length + ';\n';
-            html += 'var loadedTextures = 0;\n';
-            html += 'var W = ' + w + ', H = ' + h + ', L = ' + l + ';\n';
-            html += 'var cx = W/2, cy = H/2, cz = L/2;\n';
-            html += 'var scene, camera, renderer, controls, modelGroup, textureCache = {};\n';
+        cmds.push('# ===== 重置 =====');
+        _c('scoreboard players set @e[tag=' + ht + ',type=armor_stand] ' + sb + ' 0', 'h 计数归零');
+        _c('scoreboard players set @e[tag=' + bt + ',type=armor_stand] ' + sb + ' 0', 'b 计数归零');
+        _c('tp @e[tag=' + ht + ',type=armor_stand] ~ ~0 ~', '传送 h 回 y=0');
+        _c('tp @e[tag=' + bt + ',type=armor_stand] ~ ~0 ~', '传送 b 回 y=0');
+        _c('kill @e[tag=' + ht + ',type=armor_stand]', '移除 h');
+        _c('kill @e[tag=' + bt + ',type=armor_stand]', '移除 b');
+        cmds.push('');
 
-            html += `
-                    function createFallbackTexture(bid) {
-                        var color = blockColors[bid] || "#888888";
-                        var canvas = document.createElement("canvas");
-                        canvas.width = 16;
-                        canvas.height = 16;
-                        var ctx = canvas.getContext("2d");
-                        ctx.fillStyle = color;
-                        ctx.fillRect(0, 0, 16, 16);
-                        ctx.strokeStyle = "rgba(255,255,255,0.1)";
-                        ctx.lineWidth = 0.5;
-                        ctx.strokeRect(0, 0, 16, 16);
-                        var tex = new THREE.CanvasTexture(canvas);
-                        tex.magFilter = THREE.NearestFilter;
-                        tex.minFilter = THREE.NearestFilter;
-                        return tex;
+        cmds.push('# ===== 使用说明 =====');
+        cmds.push('# 1. 在命令方块中(按顺序)粘贴以上指令');
+        cmds.push('# 2. [脉冲]一次性执行 -> [循环]保持开启 -> [连锁]保持开启');
+        cmds.push('# 3. 确保建筑区域已清空再运行');
+        if (allSingle.length > 0) {
+            cmds.push('# 4. ' + allSingle.length + ' 个敏感方块已转为手动 setblock，请执行');
+        } else {
+            cmds.push('# 4. 无敏感方块，全部自动执行');
+        }
+
+        return cmds;
+    }
+
+    // ============================================================
+    // 生成 3D 预览 HTML (纹理烘焙修复版)
+    // ============================================================
+    function generatePreviewHTMLWithBakedTextures(result, fileName, bakedTextures, blockIdList) {
+        if (!result || !result.blocks || result.blocks.length === 0) {
+            return null;
+        }
+
+        var blocks = result.blocks;
+        var w = result.width || 1;
+        var h = result.height || 1;
+        var l = result.length || 1;
+
+        var maxBlocks = 50000;
+        var showBlocks = blocks;
+        if (blocks.length > maxBlocks) {
+            showBlocks = blocks.slice(0, maxBlocks);
+        }
+
+        var groupMap = {};
+        for (var i = 0; i < showBlocks.length; i++) {
+            var b = showBlocks[i];
+            var bid = getBedrockId(b.id);
+            if (!groupMap[bid]) groupMap[bid] = [];
+            groupMap[bid].push(b);
+        }
+
+        var blockPosData = {};
+        for (var bid in groupMap) {
+            var list = groupMap[bid];
+            var positions = [];
+            for (var j = 0; j < list.length; j++) {
+                var b = list[j];
+                positions.push([b.x, b.y, b.z]);
+            }
+            blockPosData[bid] = positions;
+        }
+
+        var blockColors = {};
+        for (var i = 0; i < blockIdList.length; i++) {
+            var bid = blockIdList[i];
+            var hash = 0;
+            for (var ci = 0; ci < bid.length; ci++) hash = (hash * 31 + bid.charCodeAt(ci)) & 0xFFFFFF;
+            blockColors[bid] = '#' + (0x404040 + (hash & 0x7F7F7F)).toString(16).padStart(6, '0');
+        }
+
+        // 构建纹理数据 (直接从 bakedTextures 传入)
+        var texData = {};
+        for (var bid in bakedTextures) {
+            texData[bid] = bakedTextures[bid];
+        }
+
+        var html = '<!DOCTYPE html>\n';
+        html += '<html>\n<head>\n';
+        html += '<meta charset="utf-8">\n';
+        html += '<title>3D预览 - ' + fileName + '</title>\n';
+        html += '<style>\n';
+        html += 'body{margin:0;overflow:hidden;background:#0d0d2b;font-family:sans-serif;}\n';
+        html += '#info{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:#aaa;font-size:13px;background:rgba(0,0,0,.6);padding:6px 20px;border-radius:8px;pointer-events:none;z-index:10;}\n';
+        html += '#loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#666;font-size:16px;z-index:20;text-align:center;}\n';
+        html += '#loading .spinner{width:32px;height:32px;margin:0 auto 12px;border:3px solid rgba(124,77,255,.2);border-top-color:#7c4dff;border-radius:50%;animation:spin .8s linear infinite;}\n';
+        html += '@keyframes spin{to{transform:rotate(360deg);}}\n';
+        html += '</style>\n';
+        html += '</head>\n<body>\n';
+        html += '<div id="loading"><div class="spinner"></div>加载纹理...</div>\n';
+        html += '<div id="info">' + fileName + ' | 方块: ' + showBlocks.length + ' | 尺寸: ' + w + 'x' + h + 'x' + l +
+            ' | 拖拽旋转/滚轮缩放</div>\n';
+
+        html += '<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>\n';
+        html +=
+        '<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"><\/script>\n';
+
+        html += '<script>\n';
+        html += 'var blockPosData = ' + JSON.stringify(blockPosData) + ';\n';
+        html += 'var blockColors = ' + JSON.stringify(blockColors) + ';\n';
+        // 直接内嵌纹理数据
+        html += 'var bakedTextures = ' + JSON.stringify(texData) + ';\n';
+        html += 'var totalTextures = ' + Object.keys(texData).length + ';\n';
+        html += 'var loadedTextures = 0;\n';
+        html += 'var W = ' + w + ', H = ' + h + ', L = ' + l + ';\n';
+        html += 'var cx = W/2, cy = H/2, cz = L/2;\n';
+        html += 'var scene, camera, renderer, controls, modelGroup, textureCache = {};\n';
+
+        html += `
+                function createFallbackTexture(bid) {
+                    var color = blockColors[bid] || "#888888";
+                    var canvas = document.createElement("canvas");
+                    canvas.width = 16;
+                    canvas.height = 16;
+                    var ctx = canvas.getContext("2d");
+                    ctx.fillStyle = color;
+                    ctx.fillRect(0, 0, 16, 16);
+                    ctx.strokeStyle = "rgba(255,255,255,0.1)";
+                    ctx.lineWidth = 0.5;
+                    ctx.strokeRect(0, 0, 16, 16);
+                    var tex = new THREE.CanvasTexture(canvas);
+                    tex.magFilter = THREE.NearestFilter;
+                    tex.minFilter = THREE.NearestFilter;
+                    return tex;
+                }
+
+                function loadBakedTexture(bid, callback) {
+                    if (textureCache[bid]) {
+                        callback(textureCache[bid]);
+                        return;
                     }
-
-                    function loadBakedTexture(bid, callback) {
-                        if (textureCache[bid]) {
-                            callback(textureCache[bid]);
-                            return;
-                        }
-                        if (bakedTextures[bid]) {
-                            var loader = new THREE.TextureLoader();
-                            loader.load(bakedTextures[bid], function(tex) {
-                                tex.magFilter = THREE.NearestFilter;
-                                tex.minFilter = THREE.NearestFilter;
-                                textureCache[bid] = tex;
-                                loadedTextures++;
-                                callback(tex);
-                            }, undefined, function() {
-                                var tex = createFallbackTexture(bid);
-                                textureCache[bid] = tex;
-                                callback(tex);
-                            });
-                        } else {
+                    if (bakedTextures[bid]) {
+                        var loader = new THREE.TextureLoader();
+                        loader.load(bakedTextures[bid], function(tex) {
+                            tex.magFilter = THREE.NearestFilter;
+                            tex.minFilter = THREE.NearestFilter;
+                            textureCache[bid] = tex;
+                            loadedTextures++;
+                            callback(tex);
+                        }, undefined, function() {
                             var tex = createFallbackTexture(bid);
                             textureCache[bid] = tex;
                             callback(tex);
-                        }
+                        });
+                    } else {
+                        var tex = createFallbackTexture(bid);
+                        textureCache[bid] = tex;
+                        callback(tex);
                     }
+                }
 
-                    function buildScene() {
-                        document.getElementById("loading").style.display = "none";
-                        scene = new THREE.Scene();
-                        scene.background = new THREE.Color(0x0d0d2b);
-                        var maxDim = Math.max(W, H, L);
-                        var dist = maxDim * 1.5 + 10;
-                        camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 5000);
-                        camera.position.set(dist * 0.8, dist * 0.6, dist * 0.8);
-                        renderer = new THREE.WebGLRenderer({ antialias: true });
-                        renderer.setSize(window.innerWidth, window.innerHeight);
-                        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-                        document.body.appendChild(renderer.domElement);
-                        controls = new THREE.OrbitControls(camera, renderer.domElement);
-                        controls.enableDamping = true;
-                        controls.dampingFactor = 0.08;
-                        controls.target.set(0, 0, 0);
-                        controls.update();
-                        var ambient = new THREE.AmbientLight(0x404070, 0.6);
-                        scene.add(ambient);
-                        var sun = new THREE.DirectionalLight(0xffeedd, 1.2);
-                        sun.position.set(80, 150, 60);
-                        scene.add(sun);
-                        var back = new THREE.DirectionalLight(0x8888ff, 0.3);
-                        back.position.set(-60, 80, -40);
-                        scene.add(back);
-                        var grid = new THREE.GridHelper(Math.max(maxDim * 2 + 10, 40), Math.floor(Math.max(maxDim, 20)), 0x444488, 0x333366);
-                        grid.position.y = -0.5;
-                        scene.add(grid);
-                        modelGroup = new THREE.Group();
-                        scene.add(modelGroup);
-                        var faceVerts = [
-                            { n: [1, 0, 0], u: [0, 1, 0, 1, 0, 1, 0, 0], v: [0, 0, 1, 1, 1, 1, 0, 0] },
-                            { n: [-1, 0, 0], u: [1, 0, 1, 0, 0, 1, 0, 1], v: [0, 0, 1, 1, 1, 1, 0, 0] },
-                            { n: [0, 1, 0], u: [0, 0, 1, 1, 1, 1, 0, 0], v: [1, 0, 1, 0, 0, 1, 0, 1] },
-                            { n: [0, -1, 0], u: [0, 0, 1, 1, 1, 1, 0, 0], v: [0, 1, 0, 1, 1, 0, 1, 0] },
-                            { n: [0, 0, 1], u: [0, 0, 1, 1, 1, 1, 0, 0], v: [0, 0, 1, 1, 1, 1, 0, 0] },
-                            { n: [0, 0, -1], u: [1, 0, 1, 0, 0, 1, 0, 1], v: [0, 0, 1, 1, 1, 1, 0, 0] }
-                        ];
-                        var offsets = [
-                            [0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1],
-                            [0, 1, 0], [1, 1, 0], [1, 1, 1], [0, 1, 1]
-                        ];
-                        var faceIndices = [
-                            [1, 5, 6, 2], [0, 3, 7, 4], [4, 7, 6, 5],
-                            [0, 1, 2, 3], [2, 6, 7, 3], [0, 4, 5, 1]
-                        ];
-                        var bids = Object.keys(blockPosData);
-                        var pending = bids.length;
-                        for (var idx = 0; idx < bids.length; idx++) {
-                            var bid = bids[idx];
-                            var posList = blockPosData[bid];
-                            var positions = [];
-                            var uvs = [];
-                            var normals = [];
-                            for (var bi = 0; bi < posList.length; bi++) {
-                                var p = posList[bi];
-                                var bx = p[0] - cx;
-                                var by = p[1] - cy;
-                                var bz = p[2] - cz;
-                                for (var f = 0; f < 6; f++) {
-                                    var idxs = faceIndices[f];
-                                    var n = faceVerts[f].n;
-                                    var uArr = faceVerts[f].u;
-                                    var vArr = faceVerts[f].v;
-                                    for (var vi = 0; vi < 4; vi++) {
-                                        var oi = idxs[vi];
-                                        positions.push(bx + offsets[oi][0]);
-                                        positions.push(by + offsets[oi][1]);
-                                        positions.push(bz + offsets[oi][2]);
-                                        uvs.push(uArr[vi]);
-                                        uvs.push(vArr[vi]);
-                                        normals.push(n[0], n[1], n[2]);
-                                    }
+                function buildScene() {
+                    document.getElementById("loading").style.display = "none";
+                    scene = new THREE.Scene();
+                    scene.background = new THREE.Color(0x0d0d2b);
+                    var maxDim = Math.max(W, H, L);
+                    var dist = maxDim * 1.5 + 10;
+                    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 5000);
+                    camera.position.set(dist * 0.8, dist * 0.6, dist * 0.8);
+                    renderer = new THREE.WebGLRenderer({ antialias: true });
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                    document.body.appendChild(renderer.domElement);
+                    controls = new THREE.OrbitControls(camera, renderer.domElement);
+                    controls.enableDamping = true;
+                    controls.dampingFactor = 0.08;
+                    controls.target.set(0, 0, 0);
+                    controls.update();
+                    var ambient = new THREE.AmbientLight(0x404070, 0.6);
+                    scene.add(ambient);
+                    var sun = new THREE.DirectionalLight(0xffeedd, 1.2);
+                    sun.position.set(80, 150, 60);
+                    scene.add(sun);
+                    var back = new THREE.DirectionalLight(0x8888ff, 0.3);
+                    back.position.set(-60, 80, -40);
+                    scene.add(back);
+                    var grid = new THREE.GridHelper(Math.max(maxDim * 2 + 10, 40), Math.floor(Math.max(maxDim, 20)), 0x444488, 0x333366);
+                    grid.position.y = -0.5;
+                    scene.add(grid);
+                    modelGroup = new THREE.Group();
+                    scene.add(modelGroup);
+                    var faceVerts = [
+                        { n: [1, 0, 0], u: [0, 1, 0, 1, 0, 1, 0, 0], v: [0, 0, 1, 1, 1, 1, 0, 0] },
+                        { n: [-1, 0, 0], u: [1, 0, 1, 0, 0, 1, 0, 1], v: [0, 0, 1, 1, 1, 1, 0, 0] },
+                        { n: [0, 1, 0], u: [0, 0, 1, 1, 1, 1, 0, 0], v: [1, 0, 1, 0, 0, 1, 0, 1] },
+                        { n: [0, -1, 0], u: [0, 0, 1, 1, 1, 1, 0, 0], v: [0, 1, 0, 1, 1, 0, 1, 0] },
+                        { n: [0, 0, 1], u: [0, 0, 1, 1, 1, 1, 0, 0], v: [0, 0, 1, 1, 1, 1, 0, 0] },
+                        { n: [0, 0, -1], u: [1, 0, 1, 0, 0, 1, 0, 1], v: [0, 0, 1, 1, 1, 1, 0, 0] }
+                    ];
+                    var offsets = [
+                        [0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1],
+                        [0, 1, 0], [1, 1, 0], [1, 1, 1], [0, 1, 1]
+                    ];
+                    var faceIndices = [
+                        [1, 5, 6, 2], [0, 3, 7, 4], [4, 7, 6, 5],
+                        [0, 1, 2, 3], [2, 6, 7, 3], [0, 4, 5, 1]
+                    ];
+                    var bids = Object.keys(blockPosData);
+                    var pending = bids.length;
+                    for (var idx = 0; idx < bids.length; idx++) {
+                        var bid = bids[idx];
+                        var posList = blockPosData[bid];
+                        var positions = [];
+                        var uvs = [];
+                        var normals = [];
+                        for (var bi = 0; bi < posList.length; bi++) {
+                            var p = posList[bi];
+                            var bx = p[0] - cx;
+                            var by = p[1] - cy;
+                            var bz = p[2] - cz;
+                            for (var f = 0; f < 6; f++) {
+                                var idxs = faceIndices[f];
+                                var n = faceVerts[f].n;
+                                var uArr = faceVerts[f].u;
+                                var vArr = faceVerts[f].v;
+                                for (var vi = 0; vi < 4; vi++) {
+                                    var oi = idxs[vi];
+                                    positions.push(bx + offsets[oi][0]);
+                                    positions.push(by + offsets[oi][1]);
+                                    positions.push(bz + offsets[oi][2]);
+                                    uvs.push(uArr[vi]);
+                                    uvs.push(vArr[vi]);
+                                    normals.push(n[0], n[1], n[2]);
                                 }
                             }
-                            var geo = new THREE.BufferGeometry();
-                            var vertCount = positions.length / 3;
-                            geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-                            geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
-                            geo.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
-                            var indices = [];
-                            for (var i = 0; i < vertCount / 4; i++) {
-                                var base = i * 4;
-                                indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
-                            }
-                            geo.setIndex(indices);
-                            (function(bid, geo) {
-                                loadBakedTexture(bid, function(tex) {
-                                    var mat = new THREE.MeshStandardMaterial({
-                                        map: tex,
-                                        roughness: 0.7,
-                                        metalness: 0.05,
-                                        side: THREE.DoubleSide,
-                                        alphaTest: 0.5,
-                                    });
-                                    var mesh = new THREE.Mesh(geo, mat);
-                                    modelGroup.add(mesh);
-                                    pending--;
-                                    if (pending === 0) {
-                                        document.getElementById("loading").style.display = "none";
-                                    }
+                        }
+                        var geo = new THREE.BufferGeometry();
+                        var vertCount = positions.length / 3;
+                        geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+                        geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+                        geo.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
+                        var indices = [];
+                        for (var i = 0; i < vertCount / 4; i++) {
+                            var base = i * 4;
+                            indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+                        }
+                        geo.setIndex(indices);
+                        (function(bid, geo) {
+                            loadBakedTexture(bid, function(tex) {
+                                var mat = new THREE.MeshStandardMaterial({
+                                    map: tex,
+                                    roughness: 0.7,
+                                    metalness: 0.05,
+                                    side: THREE.DoubleSide,
+                                    alphaTest: 0.5,
                                 });
-                            })(bid, geo);
-                        }
-                        animate();
+                                var mesh = new THREE.Mesh(geo, mat);
+                                modelGroup.add(mesh);
+                                pending--;
+                                if (pending === 0) {
+                                    document.getElementById("loading").style.display = "none";
+                                }
+                            });
+                        })(bid, geo);
                     }
+                    animate();
+                }
 
-                    function animate() {
-                        requestAnimationFrame(animate);
-                        if (controls) controls.update();
-                        if (renderer && scene && camera) {
-                            renderer.render(scene, camera);
-                        }
+                function animate() {
+                    requestAnimationFrame(animate);
+                    if (controls) controls.update();
+                    if (renderer && scene && camera) {
+                        renderer.render(scene, camera);
                     }
+                }
 
-                    window.addEventListener("resize", function() {
-                        if (camera) {
-                            camera.aspect = window.innerWidth / window.innerHeight;
-                            camera.updateProjectionMatrix();
-                        }
-                        if (renderer) {
-                            renderer.setSize(window.innerWidth, window.innerHeight);
-                        }
-                    });
-                    buildScene();
-                <\/script>\n`;
+                window.addEventListener("resize", function() {
+                    if (camera) {
+                        camera.aspect = window.innerWidth / window.innerHeight;
+                        camera.updateProjectionMatrix();
+                    }
+                    if (renderer) {
+                        renderer.setSize(window.innerWidth, window.innerHeight);
+                    }
+                });
+                buildScene();
+            <\/script>\n`;
 
-            html += '</body>\n</html>';
-            return html;
+        html += '</body>\n</html>';
+        return html;
+    }
+
+    // ============================================================
+    // 预览
+    // ============================================================
+    async function preview() {
+        if (!currentFileData) {
+            setStatus('请先选择文件', 'status-err');
+            showToast('请先选择一个文件', 'error');
+            return;
         }
+        showLoading('解析建筑文件...');
+        setStatus('解析中...', 'status-info');
+        log('开始生成3D预览: ' + currentFileName);
 
-        // ============================================================
-        // 预览
-        // ============================================================
-        async function preview() {
-            if (!currentFileData) {
-                setStatus('请先选择文件', 'status-err');
-                showToast('请先选择一个文件', 'error');
-                return;
+        try {
+            var result = await parseBuilding(currentFileData, currentFileName);
+            currentPreviewResult = result;
+            var blockCount = result.blocks ? result.blocks.length : 0;
+
+            var maxBlocks = 50000;
+            var showBlocks = result.blocks;
+            if (showBlocks.length > maxBlocks) {
+                showBlocks = showBlocks.slice(0, maxBlocks);
             }
-            showLoading('解析建筑文件...');
-            setStatus('解析中...', 'status-info');
-            log('开始生成3D预览: ' + currentFileName);
+
+            var usedBlockIds = {};
+            for (var i = 0; i < showBlocks.length; i++) {
+                var b = showBlocks[i];
+                var bid = getBedrockId(b.id);
+                usedBlockIds[bid] = true;
+            }
+            var blockIdList = Object.keys(usedBlockIds);
+            log('建筑用到的方块类型: ' + blockIdList.length + ' 种');
+
+            var bakedTextures = {};
+            var zipData = null;
 
             try {
-                var result = await parseBuilding(currentFileData, currentFileName);
-                currentPreviewResult = result;
-                var blockCount = result.blocks ? result.blocks.length : 0;
-
-                var maxBlocks = 50000;
-                var showBlocks = result.blocks;
-                if (showBlocks.length > maxBlocks) {
-                    showBlocks = showBlocks.slice(0, maxBlocks);
+                var resp = await fetch('textures.zip');
+                if (resp.ok) {
+                    var buf = await resp.arrayBuffer();
+                    if (typeof JSZip !== 'undefined') {
+                        zipData = await JSZip.loadAsync(buf);
+                        log('textures.zip 加载成功');
+                    }
                 }
+            } catch (e) {
+                log('textures.zip 加载失败，使用颜色 fallback');
+            }
 
-                var usedBlockIds = {};
-                for (var i = 0; i < showBlocks.length; i++) {
-                    var b = showBlocks[i];
-                    var bid = getBedrockId(b.id);
-                    usedBlockIds[bid] = true;
+            function getTextureName(bid) {
+                var name = bid.split(':').pop() || bid;
+                name = name.replace(/\[.*?\]/, '');
+
+                var overrides = {
+                    'grass_block': 'grass_block_top',
+                    'farmland': 'farmland_moist',
+                    'redstone_wire': 'redstone_dust_line0',
+                    'furnace': 'furnace_front_off',
+                    'glass_pane': 'glass',
+                    'wooden_door': 'oak_door_bottom',
+                    'tallgrass': 'grass',
+                    'cauldron': 'cauldron_side',
+                    'lever': 'lever',
+                    'torch': 'torch',
+                    'water': 'water_still',
+                    'oak_log': 'oak_log',
+                    'oak_slab': 'oak_planks',
+                    'sandstone_slab': 'sandstone_bottom',
+                    'stone_slab': 'cobblestone',
+                    'wooden_slab': 'oak_planks',
+                    'oak_stairs': 'oak_planks',
+                    'trapdoor': 'oak_trapdoor',
+                    'brown_wool': 'brown_wool',
+                    'green_wool': 'green_wool',
+                    'white_wool': 'white_wool',
+                    'concrete': 'concrete',
+                    'white_concrete': 'concrete',
+                    'orange_concrete': 'concrete',
+                    'magenta_concrete': 'concrete',
+                    'light_blue_concrete': 'concrete',
+                    'yellow_concrete': 'concrete',
+                    'lime_concrete': 'concrete',
+                    'pink_concrete': 'concrete',
+                    'gray_concrete': 'concrete',
+                    'light_gray_concrete': 'concrete',
+                    'cyan_concrete': 'concrete',
+                    'purple_concrete': 'concrete',
+                    'blue_concrete': 'concrete',
+                    'brown_concrete': 'concrete',
+                    'green_concrete': 'concrete',
+                    'red_concrete': 'concrete',
+                    'black_concrete': 'concrete',
+                };
+                name = overrides[name] || name;
+
+                var candidates = [name + '.png'];
+                var suffixes = ['_top', '_side', '_bottom', '_front', '_sides', '_end', '_planks', '_log'];
+                for (var i = 0; i < suffixes.length; i++) {
+                    candidates.push(name + suffixes[i] + '.png');
                 }
-                var blockIdList = Object.keys(usedBlockIds);
-                log('建筑用到的方块类型: ' + blockIdList.length + ' 种');
-
-                var bakedTextures = {};
-                var zipData = null;
-
-                try {
-                    var resp = await fetch('textures.zip');
-                    if (resp.ok) {
-                        var buf = await resp.arrayBuffer();
-                        if (typeof JSZip !== 'undefined') {
-                            zipData = await JSZip.loadAsync(buf);
-                            log('textures.zip 加载成功');
-                        }
-                    }
-                } catch (e) {
-                    log('textures.zip 加载失败，使用颜色 fallback');
+                if (name.endsWith('_slab')) {
+                    var base = name.replace('_slab', '');
+                    candidates.push(base + '.png');
+                    candidates.push(base + '_top.png');
+                    candidates.push(base + '_planks.png');
                 }
-
-                function getTextureName(bid) {
-                    var name = bid.split(':').pop() || bid;
-                    name = name.replace(/\[.*?\]/, '');
-
-                    var overrides = {
-                        'grass_block': 'grass_block_top',
-                        'farmland': 'farmland_moist',
-                        'redstone_wire': 'redstone_dust_line0',
-                        'furnace': 'furnace_front_off',
-                        'glass_pane': 'glass',
-                        'wooden_door': 'oak_door_bottom',
-                        'tallgrass': 'grass',
-                        'cauldron': 'cauldron_side',
-                        'lever': 'lever',
-                        'torch': 'torch',
-                        'water': 'water_still',
-                        'oak_log': 'oak_log',
-                        'oak_slab': 'oak_planks',
-                        'sandstone_slab': 'sandstone_bottom',
-                        'stone_slab': 'cobblestone',
-                        'wooden_slab': 'oak_planks',
-                        'oak_stairs': 'oak_planks',
-                        'trapdoor': 'oak_trapdoor',
-                        'brown_wool': 'brown_wool',
-                        'green_wool': 'green_wool',
-                        'white_wool': 'white_wool',
-                        'concrete': 'concrete',
-                        'white_concrete': 'concrete',
-                        'orange_concrete': 'concrete',
-                        'magenta_concrete': 'concrete',
-                        'light_blue_concrete': 'concrete',
-                        'yellow_concrete': 'concrete',
-                        'lime_concrete': 'concrete',
-                        'pink_concrete': 'concrete',
-                        'gray_concrete': 'concrete',
-                        'light_gray_concrete': 'concrete',
-                        'cyan_concrete': 'concrete',
-                        'purple_concrete': 'concrete',
-                        'blue_concrete': 'concrete',
-                        'brown_concrete': 'concrete',
-                        'green_concrete': 'concrete',
-                        'red_concrete': 'concrete',
-                        'black_concrete': 'concrete',
-                    };
-                    name = overrides[name] || name;
-
-                    var candidates = [name + '.png'];
-                    var suffixes = ['_top', '_side', '_bottom', '_front', '_sides', '_end', '_planks', '_log'];
-                    for (var i = 0; i < suffixes.length; i++) {
-                        candidates.push(name + suffixes[i] + '.png');
-                    }
-                    if (name.endsWith('_slab')) {
-                        var base = name.replace('_slab', '');
-                        candidates.push(base + '.png');
-                        candidates.push(base + '_top.png');
-                        candidates.push(base + '_planks.png');
-                    }
-                    if (name.endsWith('_stairs')) {
-                        var base = name.replace('_stairs', '');
-                        candidates.push(base + '.png');
-                        candidates.push(base + '_top.png');
-                        candidates.push(base + '_planks.png');
-                    }
-                    if (name.includes('concrete')) {
-                        candidates.push('concrete.png');
-                    }
-                    candidates.push('stone.png');
-                    candidates.push('oak_planks.png');
-                    candidates.push('dirt.png');
-
-                    return candidates;
+                if (name.endsWith('_stairs')) {
+                    var base = name.replace('_stairs', '');
+                    candidates.push(base + '.png');
+                    candidates.push(base + '_top.png');
+                    candidates.push(base + '_planks.png');
                 }
+                if (name.includes('concrete')) {
+                    candidates.push('concrete.png');
+                }
+                candidates.push('stone.png');
+                candidates.push('oak_planks.png');
+                candidates.push('dirt.png');
 
-                function extractTextureFromZip(bid) {
-                    return new Promise(function(resolve) {
-                        if (!zipData) {
+                return candidates;
+            }
+
+            // 修复: 使用闭包正确捕获 bid
+            function extractTextureFromZip(bid) {
+                return new Promise(function(resolve) {
+                    if (!zipData) {
+                        resolve(null);
+                        return;
+                    }
+                    var candidates = getTextureName(bid);
+                    var tried = 0;
+
+                    function tryNext() {
+                        if (tried >= candidates.length) {
                             resolve(null);
                             return;
                         }
-                        var candidates = getTextureName(bid);
-                        var tried = 0;
-
-                        function tryNext() {
-                            if (tried >= candidates.length) {
-                                resolve(null);
-                                return;
-                            }
-                            var path = 'block/' + candidates[tried];
-                            tried++;
-                            var file = zipData.file(path);
-                            if (file) {
-                                file.async('blob').then(function(blob) {
-                                    var reader = new FileReader();
-                                    reader.onload = function() {
-                                        resolve(reader.result);
-                                    };
-                                    reader.onerror = function() {
-                                        tryNext();
-                                    };
-                                    reader.readAsDataURL(blob);
-                                }).catch(function() {
+                        var path = 'block/' + candidates[tried];
+                        tried++;
+                        var file = zipData.file(path);
+                        if (file) {
+                            file.async('blob').then(function(blob) {
+                                var reader = new FileReader();
+                                reader.onload = function() {
+                                    resolve(reader.result);
+                                };
+                                reader.onerror = function() {
                                     tryNext();
-                                });
-                            } else {
+                                };
+                                reader.readAsDataURL(blob);
+                            }).catch(function() {
                                 tryNext();
-                            }
+                            });
+                        } else {
+                            tryNext();
                         }
-                        tryNext();
-                    });
-                }
-
-                var texturePromises = [];
-                for (var i = 0; i < blockIdList.length; i++) {
-                    var bid = blockIdList[i];
-                    texturePromises.push(
-                        extractTextureFromZip(bid).then(function(data) {
-                            return { bid: bid, data: data };
-                        })
-                    );
-                }
-
-                var textureResults = await Promise.all(texturePromises);
-                for (var i = 0; i < textureResults.length; i++) {
-                    var r = textureResults[i];
-                    if (r.data) {
-                        bakedTextures[r.bid] = r.data;
                     }
+                    tryNext();
+                });
+            }
+
+            // 并行提取所有纹理
+            var texturePromises = [];
+            for (var i = 0; i < blockIdList.length; i++) {
+                var bid = blockIdList[i];
+                // 使用 IIFE 捕获 bid
+                texturePromises.push((function(bid) {
+                    return extractTextureFromZip(bid).then(function(data) {
+                        return { bid: bid, data: data };
+                    });
+                })(bid));
+            }
+
+            var textureResults = await Promise.all(texturePromises);
+            for (var i = 0; i < textureResults.length; i++) {
+                var r = textureResults[i];
+                if (r.data) {
+                    bakedTextures[r.bid] = r.data;
                 }
-
-                var textureLoadedCount = Object.keys(bakedTextures).length;
-                log('纹理烘焙完成: ' + textureLoadedCount + '/' + blockIdList.length + ' 种');
-
-                var html = generatePreviewHTMLWithBakedTextures(
-                    result,
-                    currentFileName.replace(/\.[^.]+$/, ''),
-                    bakedTextures,
-                    blockIdList
-                );
-
-                if (html) {
-                    currentPreviewHTML = html;
-                    previewDownloadBtn.style.display = 'inline-block';
-                    previewDownloadBtn.disabled = false;
-                    previewInfo.textContent = '预览已生成 (' + blockCount + ' 个方块)';
-                    previewStatus.textContent = '纹理: ' + textureLoadedCount + '/' + blockIdList.length + ' 种';
-                    prInfo.style.display = 'block';
-                    prInfo.textContent = '方块: ' + blockCount + ' | 尺寸: ' + result.width + 'x' + result.height + 'x' +
-                        result.length + ' | 纹理: ' + textureLoadedCount + '/' + blockIdList.length;
-
-                    preview3d.innerHTML =
-                        '<div style="text-align:center;color:#69db7c;font-size:18px;">预览已生成</div><div style="color:#888;font-size:13px;margin-top:8px;">' +
-                        blockCount + ' 个方块, ' + result.width + 'x' + result.height + 'x' + result.length +
-                        '<br><span style="color:#555;">纹理: ' + textureLoadedCount + '/' + blockIdList.length +
-                        ' 种 | 点击「下载预览HTML」保存后用浏览器打开</span></div>';
-
-                    showToast('3D预览HTML已生成，点击下载', 'success');
-                } else {
-                    showToast('预览生成失败', 'error');
-                }
-
-                setStatus('预览生成完成: ' + blockCount + ' 个方块', 'status-ok');
-                log('预览完成: 方块 ' + blockCount + ', 尺寸 ' + result.width + 'x' + result.height + 'x' + result.length);
-                switchTab('pr');
-            } catch (e) {
-                setStatus('预览失败: ' + e.message, 'status-err');
-                log('预览失败: ' + e.message);
-                showToast('预览失败: ' + e.message, 'error');
             }
-            hideLoading();
-        }
 
-        function downloadPreviewHTML() {
-            if (!currentPreviewHTML) {
-                showToast('请先生成预览', 'error');
-                return;
+            var textureLoadedCount = Object.keys(bakedTextures).length;
+            log('纹理烘焙完成: ' + textureLoadedCount + '/' + blockIdList.length + ' 种');
+
+            var html = generatePreviewHTMLWithBakedTextures(
+                result,
+                currentFileName.replace(/\.[^.]+$/, ''),
+                bakedTextures,
+                blockIdList
+            );
+
+            if (html) {
+                currentPreviewHTML = html;
+                previewDownloadBtn.style.display = 'inline-block';
+                previewDownloadBtn.disabled = false;
+                previewInfo.textContent = '预览已生成 (' + blockCount + ' 个方块)';
+                previewStatus.textContent = '纹理: ' + textureLoadedCount + '/' + blockIdList.length + ' 种';
+                prInfo.style.display = 'block';
+                prInfo.textContent = '方块: ' + blockCount + ' | 尺寸: ' + result.width + 'x' + result.height + 'x' +
+                    result.length + ' | 纹理: ' + textureLoadedCount + '/' + blockIdList.length;
+
+                preview3d.innerHTML =
+                    '<div style="text-align:center;color:#69db7c;font-size:18px;">预览已生成</div><div style="color:#888;font-size:13px;margin-top:8px;">' +
+                    blockCount + ' 个方块, ' + result.width + 'x' + result.height + 'x' + result.length +
+                    '<br><span style="color:#555;">纹理: ' + textureLoadedCount + '/' + blockIdList.length +
+                    ' 种 | 点击「下载预览HTML」保存后用浏览器打开</span></div>';
+
+                showToast('3D预览HTML已生成，点击下载', 'success');
+            } else {
+                showToast('预览生成失败', 'error');
             }
-            var blob = new Blob([currentPreviewHTML], { type: 'text/html;charset=utf-8' });
-            var url = URL.createObjectURL(blob);
-            var a = document.createElement('a');
-            a.href = url;
-            a.download = currentFileName.replace(/\.[^.]+$/, '') + '_3d预览.html';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            log('下载预览HTML: ' + a.download);
-            showToast('预览HTML已下载', 'success');
+
+            setStatus('预览生成完成: ' + blockCount + ' 个方块', 'status-ok');
+            log('预览完成: 方块 ' + blockCount + ', 尺寸 ' + result.width + 'x' + result.height + 'x' + result.length);
+            switchTab('pr');
+        } catch (e) {
+            setStatus('预览失败: ' + e.message, 'status-err');
+            log('预览失败: ' + e.message);
+            showToast('预览失败: ' + e.message, 'error');
         }
+        hideLoading();
+    }
 
-        // ============================================================
-        // 转换
-        // ============================================================
-        async function convert() {
-            if (!currentFileData) {
-                setStatus('请先选择文件', 'status-err');
-                showToast('请先选择一个文件', 'error');
-                return;
-            }
-            showLoading('生成指令...');
-            setStatus('转换中...', 'status-info');
-            log('开始转换: ' + currentFileName);
-
-            try {
-                var params = getParams();
-                var result = await parseBuilding(currentFileData, currentFileName);
-                currentPreviewResult = result;
-
-                var cmds = await generateCommands(result, currentFileName.replace(/\.[^.]+$/, ''), result.width, result
-                    .length, params);
-                currentCommands = cmds;
-
-                var cmdText = cmds.join('\n');
-                cmBox.textContent = cmdText;
-                cmdCountEl.textContent = cmds.length;
-                dlBtn.style.display = 'inline-block';
-                dlBtn.disabled = false;
-
-                var blockCount = result.blocks ? result.blocks.length : 0;
-                var cmdCount = cmds.filter(function(l) {
-                    return !l.startsWith('#') && l.trim().length > 0;
-                }).length;
-                setStatus('转换完成! ' + cmdCount + ' 条有效指令', 'status-ok');
-                log('转换完成: ' + cmdCount + ' 条指令, ' + blockCount + ' 个方块');
-                infoText.textContent = '指令: ' + cmdCount + ' 条 | 方块: ' + blockCount;
-                showToast('转换完成: ' + cmdCount + ' 条指令', 'success');
-                switchTab('cm');
-            } catch (e) {
-                setStatus('转换失败: ' + e.message, 'status-err');
-                log('转换失败: ' + e.message);
-                cmBox.textContent = '转换失败: ' + e.message;
-                showToast('转换失败: ' + e.message, 'error');
-            }
-            hideLoading();
+    function downloadPreviewHTML() {
+        if (!currentPreviewHTML) {
+            showToast('请先生成预览', 'error');
+            return;
         }
+        var blob = new Blob([currentPreviewHTML], { type: 'text/html;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = currentFileName.replace(/\.[^.]+$/, '') + '_3d预览.html';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        log('下载预览HTML: ' + a.download);
+        showToast('预览HTML已下载', 'success');
+    }
 
-        function downloadCommands() {
-            if (!currentCommands) return;
-            var text = currentCommands.join('\n');
-            var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-            var url = URL.createObjectURL(blob);
-            var a = document.createElement('a');
-            a.href = url;
-            a.download = currentFileName.replace(/\.[^.]+$/, '') + '_commands.txt';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            log('下载指令文件: ' + a.download);
-            showToast('指令已下载', 'success');
+    async function convert() {
+        if (!currentFileData) {
+            setStatus('请先选择文件', 'status-err');
+            showToast('请先选择一个文件', 'error');
+            return;
         }
+        showLoading('生成指令...');
+        setStatus('转换中...', 'status-info');
+        log('开始转换: ' + currentFileName);
 
-        // ============================================================
-        // 启动
-        // ============================================================
-        window.preview = preview;
-        window.convert = convert;
-        window.downloadCommands = downloadCommands;
-        window.downloadPreviewHTML = downloadPreviewHTML;
-        window.switchTab = switchTab;
-        window.clearAll = clearAll;
-        window.copyCommands = copyCommands;
+        try {
+            var params = getParams();
+            var result = await parseBuilding(currentFileData, currentFileName);
+            currentPreviewResult = result;
 
-        log('Web 版转换器 v3.6 已加载');
-        log('映射表加载中...');
-        log('点击「生成3D预览」→ 下载HTML → 本地打开查看3D模型');
+            var cmds = await generateCommands(result, currentFileName.replace(/\.[^.]+$/, ''), result.width, result
+                .length, params);
+            currentCommands = cmds;
+
+            var cmdText = cmds.join('\n');
+            cmBox.textContent = cmdText;
+            cmdCountEl.textContent = cmds.length;
+            dlBtn.style.display = 'inline-block';
+            dlBtn.disabled = false;
+
+            var blockCount = result.blocks ? result.blocks.length : 0;
+            var cmdCount = cmds.filter(function(l) {
+                return !l.startsWith('#') && l.trim().length > 0;
+            }).length;
+            setStatus('转换完成! ' + cmdCount + ' 条有效指令', 'status-ok');
+            log('转换完成: ' + cmdCount + ' 条指令, ' + blockCount + ' 个方块');
+            infoText.textContent = '指令: ' + cmdCount + ' 条 | 方块: ' + blockCount;
+            showToast('转换完成: ' + cmdCount + ' 条指令', 'success');
+            switchTab('cm');
+        } catch (e) {
+            setStatus('转换失败: ' + e.message, 'status-err');
+            log('转换失败: ' + e.message);
+            cmBox.textContent = '转换失败: ' + e.message;
+            showToast('转换失败: ' + e.message, 'error');
+        }
+        hideLoading();
+    }
+
+    function downloadCommands() {
+        if (!currentCommands) return;
+        var text = currentCommands.join('\n');
+        var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = currentFileName.replace(/\.[^.]+$/, '') + '_commands.txt';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        log('下载指令文件: ' + a.download);
+        showToast('指令已下载', 'success');
+    }
+
+    window.preview = preview;
+    window.convert = convert;
+    window.downloadCommands = downloadCommands;
+    window.downloadPreviewHTML = downloadPreviewHTML;
+    window.switchTab = switchTab;
+    window.clearAll = clearAll;
+    window.copyCommands = copyCommands;
+
+    log('Web 版转换器 v3.6 已加载');
+    log('映射表加载中...');
+    log('点击「生成3D预览」→ 下载HTML → 本地打开查看3D模型');
     </script>
 </body>
 </html>
