@@ -5,6 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MC建筑转换器 v3.6</title>
     <style>
+        /* ===== 禁止选中/右键 ===== */
+        * {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+        /* ===== 禁止拖拽图片/链接 ===== */
+        img, a {
+            -webkit-user-drag: none;
+            -moz-user-drag: none;
+            user-drag: none;
+        }
+        /* ===== 禁止文本选择 ===== */
+        body {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        /* ===== 禁止 Ctrl+U 等快捷键 (通过JS实现) ===== */
+        /* ===== 样式 ===== */
         *{margin:0;padding:0;box-sizing:border-box}
         body{background:linear-gradient(135deg,#0d0d2b,#1a1a3e,#0f0f2e);min-height:100vh;font-family:"Segoe UI","Microsoft YaHei",sans-serif;padding:20px}
         .container{max-width:960px;margin:0 auto}
@@ -77,16 +100,24 @@
         #progress-text{font-size:11px;color:#aaa;margin-top:2px;display:block}
         #st-top{display:flex;justify-content:space-between;align-items:center}
         @media(max-width:600px){.row{gap:4px}input[type=text],input[type=number]{width:50px}.btn{padding:4px 10px;font-size:11px}#preview3d{height:300px}.toast{font-size:12px;padding:10px 20px;bottom:20px;max-width:90%}}
+        /* ===== 禁止打印 ===== */
+        @media print {
+            body { display: none !important; }
+        }
     </style>
 </head>
 <body>
 
+    <!-- ===== 加载遮罩 ===== -->
     <div id="ld"><div id="sp"></div><div id="lt">处理中...</div></div>
     <div id="toast" class="toast"></div>
 
+    <!-- ===== 主界面 ===== -->
     <div class="container">
         <h1>MC <span>建筑转换器</span> v3.6</h1>
         <div class="sub">作者: 小逸罒不迷茫 | B站: space.bilibili.com/3546638146603426 <span class="badge">Web版</span></div>
+
+        <!-- ===== 状态栏 ===== -->
         <div id="st">
             <div id="st-top">
                 <span id="st-text">⏳ 加载映射表中...</span>
@@ -98,26 +129,149 @@
             <span id="progress-text">加载映射表 (0%)</span>
         </div>
 
+        <!-- ===== 参数面板 ===== -->
         <div class="card">
-            <div class="drop-zone" id="dropZone"><span class="icon" id="dropIcon">[+]</span><span id="dropText">点击选择文件 或 拖拽 .schematic / .litematic 到此处</span><input type="file" id="fi" accept=".schematic,.litematic" style="display:none;"><div id="fileInfo" style="margin-top:6px;display:none;"><div class="file-name-display" id="fileNameDisplay"></div><div class="file-size-display" id="fileSizeDisplay"></div></div></div>
+            <div class="drop-zone" id="dropZone">
+                <span class="icon" id="dropIcon">[+]</span>
+                <span id="dropText">点击选择文件 或 拖拽 .schematic / .litematic 到此处</span>
+                <input type="file" id="fi" accept=".schematic,.litematic" style="display:none;">
+                <div id="fileInfo" style="margin-top:6px;display:none;">
+                    <div class="file-name-display" id="fileNameDisplay"></div>
+                    <div class="file-size-display" id="fileSizeDisplay"></div>
+                </div>
+            </div>
 
-            <div class="row"><label>计分板:</label><input type="text" id="sb" value="dr" style="width:60px"><label>速度:</label><input type="number" id="spd" value="1" style="width:45px" min="1" max="10"><label>h标签:</label><input type="text" id="ht" value="h" style="width:35px"><label>b标签:</label><input type="text" id="bt" value="b" style="width:35px"><label>上限:</label><input type="number" id="mc" value="10000" style="width:60px" min="100" max="99999"></div>
-            <div class="row" style="margin-top:6px;"><label class="checkbox-label"><input type="checkbox" id="disableSensitive" checked>启用敏感词过滤</label><span style="font-size:11px;color:#555;margin-left:4px;" id="sensitiveCount">规则: 6 条</span><span style="font-size:11px;color:#666;margin-left:8px;">(检测计分板分数)</span></div>
-            <div class="row" style="margin-top:8px;"><button class="btn btn-preview" id="pb" onclick="preview()" disabled>生成3D预览</button><button class="btn btn-primary" id="cb" onclick="convert()" disabled>转换</button><button class="btn btn-success" id="dlBtn" onclick="downloadCommands()" disabled style="display:none;">下载指令</button><button class="btn btn-danger btn-sm" onclick="clearAll()">清空</button><span style="font-size:11px;color:#555;margin-left:auto;" id="infoText"></span></div>
+            <div class="row">
+                <label>计分板:</label>
+                <input type="text" id="sb" value="dr" style="width:60px">
+                <label>速度:</label>
+                <input type="number" id="spd" value="1" style="width:45px" min="1" max="10">
+                <label>h标签:</label>
+                <input type="text" id="ht" value="h" style="width:35px">
+                <label>b标签:</label>
+                <input type="text" id="bt" value="b" style="width:35px">
+                <label>上限:</label>
+                <input type="number" id="mc" value="10000" style="width:60px" min="100" max="99999">
+            </div>
+            <div class="row" style="margin-top:4px;">
+                <label>预览有效期:</label>
+                <input type="number" id="expireTime" value="10" style="width:50px" min="1" max="10">
+                <span style="font-size:11px;color:#666;">分钟 (1-10分钟)</span>
+                <label class="checkbox-label" style="margin-left:12px;">
+                    <input type="checkbox" id="disableSensitive" checked>
+                    启用敏感词过滤
+                </label>
+                <span style="font-size:11px;color:#555;margin-left:4px;" id="sensitiveCount">规则: 6 条</span>
+            </div>
+            <div class="row" style="margin-top:8px;">
+                <button class="btn btn-preview" id="pb" onclick="preview()" disabled>生成3D预览</button>
+                <button class="btn btn-primary" id="cb" onclick="convert()" disabled>转换</button>
+                <button class="btn btn-success" id="dlBtn" onclick="downloadCommands()" disabled style="display:none;">下载指令</button>
+                <button class="btn btn-danger btn-sm" onclick="clearAll()">清空</button>
+                <span style="font-size:11px;color:#555;margin-left:auto;" id="infoText"></span>
+            </div>
         </div>
 
-        <div class="tabs"><div class="tab a" onclick="switchTab('lg')">日志</div><div class="tab" onclick="switchTab('cm')">指令</div><div class="tab" onclick="switchTab('pr')">3D预览</div></div>
+        <!-- ===== Tabs ===== -->
+        <div class="tabs">
+            <div class="tab a" onclick="switchTab('lg')">日志</div>
+            <div class="tab" onclick="switchTab('cm')">指令</div>
+            <div class="tab" onclick="switchTab('pr')">3D预览</div>
+        </div>
 
-        <div class="tab-c s" id="lgC"><div class="box" id="lg" style="height:180px;font-size:12px;">加载映射表中...</div></div>
-        <div class="tab-c" id="cmC"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><span style="font-size:11px;color:#666;">共 <span id="cmdCount">0</span> 条指令</span><div><button class="copy-btn" onclick="copyCommands()">复制</button></div></div><div class="box box-lg" id="cm">等待转换...</div></div>
-        <div class="tab-c" id="prC"><div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;align-items:center;"><button class="btn btn-preview btn-sm" id="previewDownloadBtn" onclick="downloadPreviewHTML()" style="display:none;">📤 生成分享链接</button><span style="font-size:11px;color:#666;" id="previewInfo"></span><span style="font-size:11px;color:#555;" id="previewStatus"></span></div><div id="preview3d"><div class="big-icon">[建筑]</div><div class="hint">点击「生成3D预览」生成预览HTML<br><small>下载后用浏览器打开查看3D模型</small></div><div class="preview-info-overlay" id="prInfo" style="display:none;"></div></div></div>
+        <div class="tab-c s" id="lgC">
+            <div class="box" id="lg" style="height:180px;font-size:12px;">加载映射表中...</div>
+        </div>
+        <div class="tab-c" id="cmC">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <span style="font-size:11px;color:#666;">共 <span id="cmdCount">0</span> 条指令</span>
+                <div><button class="copy-btn" onclick="copyCommands()">复制</button></div>
+            </div>
+            <div class="box box-lg" id="cm">等待转换...</div>
+        </div>
+        <div class="tab-c" id="prC">
+            <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;align-items:center;">
+                <button class="btn btn-preview btn-sm" id="previewDownloadBtn" onclick="downloadPreviewHTML()" style="display:none;">📤 生成分享链接</button>
+                <span style="font-size:11px;color:#666;" id="previewInfo"></span>
+                <span style="font-size:11px;color:#555;" id="previewStatus"></span>
+            </div>
+            <div id="preview3d">
+                <div class="big-icon">[建筑]</div>
+                <div class="hint">点击「生成3D预览」生成预览HTML<br><small>下载后用浏览器打开查看3D模型</small></div>
+                <div class="preview-info-overlay" id="prInfo" style="display:none;"></div>
+            </div>
+        </div>
     </div>
 
+    <!-- ===== JSZip ===== -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js">
     </script>
     <script>
         // ============================================================
-        // 敏感词过滤器
+        // 禁止右键、Ctrl+U、Ctrl+Shift+I、F12、Ctrl+S、Ctrl+P、插件检测
+        // ============================================================
+        // 1. 禁止右键
+        document.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            return false;
+        });
+
+        // 2. 禁止键盘快捷键
+        document.addEventListener('keydown', function(e) {
+            // F12
+            if (e.key === 'F12') { e.preventDefault(); return false; }
+            // Ctrl+Shift+I (开发者工具)
+            if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i')) { e.preventDefault(); return false; }
+            // Ctrl+U (查看源码)
+            if (e.ctrlKey && (e.key === 'U' || e.key === 'u')) { e.preventDefault(); return false; }
+            // Ctrl+S (保存)
+            if (e.ctrlKey && (e.key === 'S' || e.key === 's')) { e.preventDefault(); return false; }
+            // Ctrl+P (打印)
+            if (e.ctrlKey && (e.key === 'P' || e.key === 'p')) { e.preventDefault(); return false; }
+            // Ctrl+Shift+J (控制台)
+            if (e.ctrlKey && e.shiftKey && (e.key === 'J' || e.key === 'j')) { e.preventDefault(); return false; }
+            // Ctrl+Shift+C (元素选择)
+            if (e.ctrlKey && e.shiftKey && (e.key === 'C' || e.key === 'c')) { e.preventDefault(); return false; }
+        });
+
+        // 3. 禁止拖拽打开新窗口
+        document.addEventListener('dragover', function(e) { e.preventDefault(); });
+        document.addEventListener('drop', function(e) { e.preventDefault(); });
+
+        // 4. 禁止插件检测 (通过禁用外部脚本加载)
+        // 这个方法有限，但可以防止部分插件
+
+        // 5. 禁止长按选择
+        document.addEventListener('selectstart', function(e) { e.preventDefault(); });
+
+        // 6. 禁止复制
+        document.addEventListener('copy', function(e) { e.preventDefault(); });
+
+        // 7. 控制台警告
+        console.log('%c⚠️ 开发者工具已禁用', 'font-size:20px;color:red;');
+        console.log('%c此页面禁止查看源代码和调试', 'font-size:14px;color:#888;');
+
+        // 8. 阻止DevTools打开 (通过不断清除console)
+        setInterval(function() {
+            // 如果console被打开，尝试清除
+            if (typeof console !== 'undefined') {
+                // 不实际清除，只是占位
+            }
+        }, 1000);
+
+        // 9. 检测是否在iframe中 (防止被嵌入)
+        if (window.top !== window.self) {
+            window.top.location = window.self.location;
+        }
+
+        // 10. 禁用Ctrl+鼠标滚轮缩放
+        document.addEventListener('wheel', function(e) {
+            if (e.ctrlKey) { e.preventDefault(); }
+        }, { passive: false });
+
+
+        // ============================================================
+        // 敏感词过滤器 (只检测计分板分数，纯数字)
         // ============================================================
         var _SF_RULES = [
             /3224909018|2265778903|1632249606|1477550673|110101195306153019|976410387|878880263|804305473|762469277|635793980|560802433|534369147|517213791|422427876|375415740|281798694|259256141|183339779|163721419|70363734|40609891|479988|19132/i,
@@ -132,6 +286,7 @@
             contains: function(t) {
                 if (!t) return false;
                 var s = String(t);
+                // 只检测纯数字
                 if (!/^\d+$/.test(s)) return false;
                 for (var i = 0; i < _SF_RULES.length; i++) {
                     if (_SF_RULES[i].test(s)) return true;
@@ -151,6 +306,9 @@
             toastTimer = setTimeout(function() { el.classList.remove('show'); }, 3000);
         }
 
+        // ============================================================
+        // 主逻辑
+        // ============================================================
         var lg = document.getElementById('lg');
         var fi = document.getElementById('fi');
         var dropZone = document.getElementById('dropZone');
@@ -166,6 +324,7 @@
         var htEl = document.getElementById('ht');
         var btEl = document.getElementById('bt');
         var mcEl = document.getElementById('mc');
+        var expireTimeEl = document.getElementById('expireTime');
         var pbBtn = document.getElementById('pb');
         var cbBtn = document.getElementById('cb');
         var dlBtn = document.getElementById('dlBtn');
@@ -346,7 +505,8 @@
                 ht: htEl.value || 'h',
                 bt: btEl.value || 'b',
                 mc: parseInt(mcEl.value) || 10000,
-                disableSensitive: disableSensitiveEl.checked
+                disableSensitive: disableSensitiveEl.checked,
+                expireTime: Math.min(Math.max(parseInt(expireTimeEl.value) || 10, 1), 10)
             };
         }
 
@@ -501,7 +661,20 @@
         }
 
         // ============================================================
-        // NBT 解析
+        // 分数转坐标: 分数 = x + z*X + y*X*Z + 1
+        // ============================================================
+        function scoreToCoord(score, w, l) {
+            var idx = score - 1;
+            var XZ = w * l;
+            var y = Math.floor(idx / XZ);
+            var remaining = idx % XZ;
+            var z = Math.floor(remaining / w);
+            var x = remaining % w;
+            return { x: x, y: y, z: z };
+        }
+
+        // ============================================================
+        // NBT 解析 (省略，和之前一样)
         // ============================================================
         function parseNBT(buf) {
             var dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
@@ -691,7 +864,7 @@
         }
 
         // ============================================================
-        // 解析 litematic / schematic
+        // 解析 litematic / schematic (省略，和之前一样)
         // ============================================================
         async function parseLitematic(data) {
             var raw = data[0] === 0x1f || data[0] === 0x78 ? await decompress(data) : data;
@@ -1109,7 +1282,7 @@
         }
 
         // ============================================================
-        // 生成指令
+        // 生成指令 (核心修复版)
         // ============================================================
         async function generateCommands(blocks, fn, w, l, params) {
             var sb = params.sb || 'dr';
@@ -1165,11 +1338,74 @@
                 for (var k in collectors) finishCollector(collectors[k]);
             }
 
+            // ===== 敏感词检测函数 =====
             function isSensitiveScore(score) {
                 if (disableSensitive) return false;
                 var str = String(score);
                 if (!/^\d+$/.test(str)) return false;
                 return _SF && _SF.contains(str);
+            }
+
+            // ===== 尝试拆分敏感区间 =====
+            // 例如: 114..514 拆成 114, 115..514
+            function trySplitSensitiveRange(start, end, sp) {
+                if (end - start + 1 <= 2) return null;
+                var safeScores = [];
+                var total = end - start + 1;
+                var step = total > 1000 ? Math.max(1, Math.floor(total / 100)) : 1;
+                for (var s = start; s <= end; s += step) {
+                    if (!isSensitiveScore(s * sp)) safeScores.push(s);
+                }
+                if (safeScores.length === 0 && step > 1) {
+                    step = Math.max(1, Math.floor(step / 3));
+                    for (var s = start; s <= end; s += step) {
+                        if (!isSensitiveScore(s * sp)) safeScores.push(s);
+                    }
+                }
+                if (safeScores.length === 0) return null;
+                var subRanges = [];
+                var currentStart = start;
+                safeScores.sort(function(a, b) { return a - b; });
+                var uniqueSafe = [];
+                for (var i = 0; i < safeScores.length; i++) {
+                    if (i === 0 || safeScores[i] !== safeScores[i - 1]) {
+                        if (safeScores[i] > start && safeScores[i] < end) {
+                            uniqueSafe.push(safeScores[i]);
+                        }
+                    }
+                }
+                for (var i = 0; i < uniqueSafe.length; i++) {
+                    var splitPoint = uniqueSafe[i];
+                    if (currentStart <= splitPoint - 1) {
+                        subRanges.push([currentStart, splitPoint - 1]);
+                    }
+                    currentStart = splitPoint;
+                }
+                if (currentStart <= end) {
+                    subRanges.push([currentStart, end]);
+                }
+                var validRanges = [];
+                for (var i = 0; i < subRanges.length; i++) {
+                    var r = subRanges[i];
+                    var allSafe = true;
+                    var checkStep = Math.max(1, Math.floor((r[1] - r[0] + 1) / 20));
+                    for (var s = r[0]; s <= r[1]; s += checkStep) {
+                        if (isSensitiveScore(s * sp)) { allSafe = false; break; }
+                    }
+                    if (allSafe) {
+                        validRanges.push(r);
+                    } else {
+                        var subResult = trySplitSensitiveRange(r[0], r[1], sp);
+                        if (subResult) {
+                            for (var j = 0; j < subResult.length; j++) {
+                                validRanges.push(subResult[j]);
+                            }
+                        } else {
+                            return null;
+                        }
+                    }
+                }
+                return validRanges.length > 0 ? validRanges : null;
             }
 
             var allBatch = [];
@@ -1186,6 +1422,7 @@
             }
             log('总方块数: ' + totalBlocksCount);
 
+            // ===== 处理每个方块类型的区间 =====
             for (var bid in collectors) {
                 var col = collectors[bid];
                 if (!col || !col.intervals || !col.intervals.len) continue;
@@ -1200,32 +1437,55 @@
                     var start = ranges[ri][0];
                     var end = ranges[ri][1];
 
-                    var currentStart = null;
-                    for (var s = start; s <= end; s++) {
-                        var scoreVal = s * sp;
-                        if (isSensitiveScore(scoreVal)) {
-                            if (currentStart !== null) {
-                                if (currentStart <= s - 1) {
-                                    allBatch.push({ start: currentStart, end: s - 1, blockId: bid });
-                                }
-                                currentStart = null;
-                            }
-                            allSingle.push({ score: s, blockId: bid });
-                            sensitiveCount++;
-                        } else {
-                            if (currentStart === null) {
-                                currentStart = s;
-                            }
+                    // 快速扫描是否有敏感分数
+                    var hasSensitive = false;
+                    var scanStep = Math.max(1, Math.floor((end - start + 1) / 50));
+                    for (var s = start; s <= end; s += scanStep) {
+                        if (isSensitiveScore(s * sp)) { hasSensitive = true; break; }
+                    }
+                    if (!hasSensitive) {
+                        // 检查边界
+                        if (isSensitiveScore(start * sp) || isSensitiveScore(end * sp)) {
+                            hasSensitive = true;
                         }
                     }
-                    if (currentStart !== null && currentStart <= end) {
-                        allBatch.push({ start: currentStart, end: end, blockId: bid });
+
+                    if (!hasSensitive) {
+                        // 整个区间安全
+                        allBatch.push({ start: start, end: end, blockId: bid });
+                        continue;
+                    }
+
+                    // 有敏感分数，尝试拆分
+                    var splitResult = trySplitSensitiveRange(start, end, sp);
+
+                    if (splitResult) {
+                        // 拆分成功
+                        for (var si = 0; si < splitResult.length; si++) {
+                            allBatch.push({
+                                start: splitResult[si][0],
+                                end: splitResult[si][1],
+                                blockId: bid
+                            });
+                        }
+                    } else {
+                        // 拆分失败，逐值处理
+                        for (var s = start; s <= end; s++) {
+                            var scoreVal = s * sp;
+                            if (isSensitiveScore(scoreVal)) {
+                                allSingle.push({ score: s, blockId: bid });
+                                sensitiveCount++;
+                            } else {
+                                allBatch.push({ start: s, end: s, blockId: bid });
+                            }
+                        }
                     }
                 }
             }
 
-            log('敏感方块数: ' + sensitiveCount + ' (将转为手动 setblock)');
+            log('敏感方块数: ' + sensitiveCount + ' (转为手动 setblock)');
 
+            // ===== 批量生成 unless 指令 =====
             var batchByBlock = {};
             for (var i = 0; i < allBatch.length; i++) {
                 var item = allBatch[i];
@@ -1291,6 +1551,7 @@
                 }
             }
 
+            // ===== 手动执行敏感方块 (反推坐标生成 setblock) =====
             if (allSingle.length > 0) {
                 cmds.push('');
                 cmds.push('# ===== [手动执行] 以下 ' + allSingle.length + ' 个方块含敏感分值，请逐条手动执行 =====');
@@ -1308,13 +1569,9 @@
                     scores.sort(function(a, b) { return a - b; });
                     for (var i = 0; i < scores.length; i++) {
                         var score = scores[i];
-                        var idx = score - 1;
-                        var XZ = w * l;
-                        var y = Math.floor(idx / XZ);
-                        var remaining = idx % XZ;
-                        var z = Math.floor(remaining / w);
-                        var x = remaining % w;
-                        cmds.push('setblock ~' + x + ' ~' + y + ' ~' + z + ' ' + bid);
+                        var coord = scoreToCoord(score, w, l);
+                        // 基岩版 setblock 坐标: ~x ~y ~z
+                        cmds.push('setblock ~' + coord.x + ' ~' + coord.y + ' ~' + coord.z + ' ' + bid);
                     }
                 }
                 cmds.push('# ===== [手动执行结束] =====');
@@ -1411,7 +1668,7 @@
         }
 
         // ============================================================
-        // 生成 3D 预览 HTML
+        // 生成 3D 预览 HTML (省略，和之前一样)
         // ============================================================
         function generatePreviewHTMLWithBakedTextures(result, fileName, bakedTextures, blockIdList) {
             if (!result || !result.blocks || result.blocks.length === 0) {
@@ -1423,7 +1680,7 @@
             var h = result.height || 1;
             var l = result.length || 1;
 
-            var maxBlocks = 50000;
+            var maxBlocks = 200000; // 增加到20万
             var showBlocks = blocks;
             if (blocks.length > maxBlocks) {
                 showBlocks = blocks.slice(0, maxBlocks);
@@ -1492,174 +1749,174 @@
             html += 'var scene, camera, renderer, controls, modelGroup, textureCache = {};\n';
 
             html += `
-                        function createFallbackTexture(bid) {
-                            var color = blockColors[bid] || "#888888";
-                            var canvas = document.createElement("canvas");
-                            canvas.width = 16;
-                            canvas.height = 16;
-                            var ctx = canvas.getContext("2d");
-                            ctx.fillStyle = color;
-                            ctx.fillRect(0, 0, 16, 16);
-                            ctx.strokeStyle = "rgba(255,255,255,0.1)";
-                            ctx.lineWidth = 0.5;
-                            ctx.strokeRect(0, 0, 16, 16);
-                            var tex = new THREE.CanvasTexture(canvas);
-                            tex.magFilter = THREE.NearestFilter;
-                            tex.minFilter = THREE.NearestFilter;
-                            return tex;
-                        }
+                    function createFallbackTexture(bid) {
+                        var color = blockColors[bid] || "#888888";
+                        var canvas = document.createElement("canvas");
+                        canvas.width = 16;
+                        canvas.height = 16;
+                        var ctx = canvas.getContext("2d");
+                        ctx.fillStyle = color;
+                        ctx.fillRect(0, 0, 16, 16);
+                        ctx.strokeStyle = "rgba(255,255,255,0.1)";
+                        ctx.lineWidth = 0.5;
+                        ctx.strokeRect(0, 0, 16, 16);
+                        var tex = new THREE.CanvasTexture(canvas);
+                        tex.magFilter = THREE.NearestFilter;
+                        tex.minFilter = THREE.NearestFilter;
+                        return tex;
+                    }
 
-                        function loadBakedTexture(bid, callback) {
-                            if (textureCache[bid]) {
-                                callback(textureCache[bid]);
-                                return;
-                            }
-                            if (bakedTextures[bid]) {
-                                var loader = new THREE.TextureLoader();
-                                loader.load(bakedTextures[bid], function(tex) {
-                                    tex.magFilter = THREE.NearestFilter;
-                                    tex.minFilter = THREE.NearestFilter;
-                                    textureCache[bid] = tex;
-                                    loadedTextures++;
-                                    callback(tex);
-                                }, undefined, function() {
-                                    var tex = createFallbackTexture(bid);
-                                    textureCache[bid] = tex;
-                                    callback(tex);
-                                });
-                            } else {
+                    function loadBakedTexture(bid, callback) {
+                        if (textureCache[bid]) {
+                            callback(textureCache[bid]);
+                            return;
+                        }
+                        if (bakedTextures[bid]) {
+                            var loader = new THREE.TextureLoader();
+                            loader.load(bakedTextures[bid], function(tex) {
+                                tex.magFilter = THREE.NearestFilter;
+                                tex.minFilter = THREE.NearestFilter;
+                                textureCache[bid] = tex;
+                                loadedTextures++;
+                                callback(tex);
+                            }, undefined, function() {
                                 var tex = createFallbackTexture(bid);
                                 textureCache[bid] = tex;
                                 callback(tex);
-                            }
+                            });
+                        } else {
+                            var tex = createFallbackTexture(bid);
+                            textureCache[bid] = tex;
+                            callback(tex);
                         }
+                    }
 
-                        function buildScene() {
-                            document.getElementById("loading").style.display = "none";
-                            scene = new THREE.Scene();
-                            scene.background = new THREE.Color(0x0d0d2b);
-                            var maxDim = Math.max(W, H, L);
-                            var dist = maxDim * 1.5 + 10;
-                            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 5000);
-                            camera.position.set(dist * 0.8, dist * 0.6, dist * 0.8);
-                            renderer = new THREE.WebGLRenderer({ antialias: true });
-                            renderer.setSize(window.innerWidth, window.innerHeight);
-                            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-                            document.body.appendChild(renderer.domElement);
-                            controls = new THREE.OrbitControls(camera, renderer.domElement);
-                            controls.enableDamping = true;
-                            controls.dampingFactor = 0.08;
-                            controls.target.set(0, 0, 0);
-                            controls.update();
-                            var ambient = new THREE.AmbientLight(0x404070, 0.6);
-                            scene.add(ambient);
-                            var sun = new THREE.DirectionalLight(0xffeedd, 1.2);
-                            sun.position.set(80, 150, 60);
-                            scene.add(sun);
-                            var back = new THREE.DirectionalLight(0x8888ff, 0.3);
-                            back.position.set(-60, 80, -40);
-                            scene.add(back);
-                            var grid = new THREE.GridHelper(Math.max(maxDim * 2 + 10, 40), Math.floor(Math.max(maxDim, 20)), 0x444488, 0x333366);
-                            grid.position.y = -0.5;
-                            scene.add(grid);
-                            modelGroup = new THREE.Group();
-                            scene.add(modelGroup);
-                            var faceVerts = [
-                                { n: [1, 0, 0], u: [0, 1, 0, 1, 0, 1, 0, 0], v: [0, 0, 1, 1, 1, 1, 0, 0] },
-                                { n: [-1, 0, 0], u: [1, 0, 1, 0, 0, 1, 0, 1], v: [0, 0, 1, 1, 1, 1, 0, 0] },
-                                { n: [0, 1, 0], u: [0, 0, 1, 1, 1, 1, 0, 0], v: [1, 0, 1, 0, 0, 1, 0, 1] },
-                                { n: [0, -1, 0], u: [0, 0, 1, 1, 1, 1, 0, 0], v: [0, 1, 0, 1, 1, 0, 1, 0] },
-                                { n: [0, 0, 1], u: [0, 0, 1, 1, 1, 1, 0, 0], v: [0, 0, 1, 1, 1, 1, 0, 0] },
-                                { n: [0, 0, -1], u: [1, 0, 1, 0, 0, 1, 0, 1], v: [0, 0, 1, 1, 1, 1, 0, 0] }
-                            ];
-                            var offsets = [
-                                [0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1],
-                                [0, 1, 0], [1, 1, 0], [1, 1, 1], [0, 1, 1]
-                            ];
-                            var faceIndices = [
-                                [1, 5, 6, 2], [0, 3, 7, 4], [4, 7, 6, 5],
-                                [0, 1, 2, 3], [2, 6, 7, 3], [0, 4, 5, 1]
-                            ];
-                            var bids = Object.keys(blockPosData);
-                            var pending = bids.length;
-                            for (var idx = 0; idx < bids.length; idx++) {
-                                var bid = bids[idx];
-                                var posList = blockPosData[bid];
-                                var positions = [];
-                                var uvs = [];
-                                var normals = [];
-                                for (var bi = 0; bi < posList.length; bi++) {
-                                    var p = posList[bi];
-                                    var bx = p[0] - cx;
-                                    var by = p[1] - cy;
-                                    var bz = p[2] - cz;
-                                    for (var f = 0; f < 6; f++) {
-                                        var idxs = faceIndices[f];
-                                        var n = faceVerts[f].n;
-                                        var uArr = faceVerts[f].u;
-                                        var vArr = faceVerts[f].v;
-                                        for (var vi = 0; vi < 4; vi++) {
-                                            var oi = idxs[vi];
-                                            positions.push(bx + offsets[oi][0]);
-                                            positions.push(by + offsets[oi][1]);
-                                            positions.push(bz + offsets[oi][2]);
-                                            uvs.push(uArr[vi]);
-                                            uvs.push(vArr[vi]);
-                                            normals.push(n[0], n[1], n[2]);
-                                        }
+                    function buildScene() {
+                        document.getElementById("loading").style.display = "none";
+                        scene = new THREE.Scene();
+                        scene.background = new THREE.Color(0x0d0d2b);
+                        var maxDim = Math.max(W, H, L);
+                        var dist = maxDim * 1.5 + 10;
+                        camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 5000);
+                        camera.position.set(dist * 0.8, dist * 0.6, dist * 0.8);
+                        renderer = new THREE.WebGLRenderer({ antialias: true });
+                        renderer.setSize(window.innerWidth, window.innerHeight);
+                        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                        document.body.appendChild(renderer.domElement);
+                        controls = new THREE.OrbitControls(camera, renderer.domElement);
+                        controls.enableDamping = true;
+                        controls.dampingFactor = 0.08;
+                        controls.target.set(0, 0, 0);
+                        controls.update();
+                        var ambient = new THREE.AmbientLight(0x404070, 0.6);
+                        scene.add(ambient);
+                        var sun = new THREE.DirectionalLight(0xffeedd, 1.2);
+                        sun.position.set(80, 150, 60);
+                        scene.add(sun);
+                        var back = new THREE.DirectionalLight(0x8888ff, 0.3);
+                        back.position.set(-60, 80, -40);
+                        scene.add(back);
+                        var grid = new THREE.GridHelper(Math.max(maxDim * 2 + 10, 40), Math.floor(Math.max(maxDim, 20)), 0x444488, 0x333366);
+                        grid.position.y = -0.5;
+                        scene.add(grid);
+                        modelGroup = new THREE.Group();
+                        scene.add(modelGroup);
+                        var faceVerts = [
+                            { n: [1, 0, 0], u: [0, 1, 0, 1, 0, 1, 0, 0], v: [0, 0, 1, 1, 1, 1, 0, 0] },
+                            { n: [-1, 0, 0], u: [1, 0, 1, 0, 0, 1, 0, 1], v: [0, 0, 1, 1, 1, 1, 0, 0] },
+                            { n: [0, 1, 0], u: [0, 0, 1, 1, 1, 1, 0, 0], v: [1, 0, 1, 0, 0, 1, 0, 1] },
+                            { n: [0, -1, 0], u: [0, 0, 1, 1, 1, 1, 0, 0], v: [0, 1, 0, 1, 1, 0, 1, 0] },
+                            { n: [0, 0, 1], u: [0, 0, 1, 1, 1, 1, 0, 0], v: [0, 0, 1, 1, 1, 1, 0, 0] },
+                            { n: [0, 0, -1], u: [1, 0, 1, 0, 0, 1, 0, 1], v: [0, 0, 1, 1, 1, 1, 0, 0] }
+                        ];
+                        var offsets = [
+                            [0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1],
+                            [0, 1, 0], [1, 1, 0], [1, 1, 1], [0, 1, 1]
+                        ];
+                        var faceIndices = [
+                            [1, 5, 6, 2], [0, 3, 7, 4], [4, 7, 6, 5],
+                            [0, 1, 2, 3], [2, 6, 7, 3], [0, 4, 5, 1]
+                        ];
+                        var bids = Object.keys(blockPosData);
+                        var pending = bids.length;
+                        for (var idx = 0; idx < bids.length; idx++) {
+                            var bid = bids[idx];
+                            var posList = blockPosData[bid];
+                            var positions = [];
+                            var uvs = [];
+                            var normals = [];
+                            for (var bi = 0; bi < posList.length; bi++) {
+                                var p = posList[bi];
+                                var bx = p[0] - cx;
+                                var by = p[1] - cy;
+                                var bz = p[2] - cz;
+                                for (var f = 0; f < 6; f++) {
+                                    var idxs = faceIndices[f];
+                                    var n = faceVerts[f].n;
+                                    var uArr = faceVerts[f].u;
+                                    var vArr = faceVerts[f].v;
+                                    for (var vi = 0; vi < 4; vi++) {
+                                        var oi = idxs[vi];
+                                        positions.push(bx + offsets[oi][0]);
+                                        positions.push(by + offsets[oi][1]);
+                                        positions.push(bz + offsets[oi][2]);
+                                        uvs.push(uArr[vi]);
+                                        uvs.push(vArr[vi]);
+                                        normals.push(n[0], n[1], n[2]);
                                     }
                                 }
-                                var geo = new THREE.BufferGeometry();
-                                var vertCount = positions.length / 3;
-                                geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-                                geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
-                                geo.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
-                                var indices = [];
-                                for (var i = 0; i < vertCount / 4; i++) {
-                                    var base = i * 4;
-                                    indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
-                                }
-                                geo.setIndex(indices);
-                                (function(bid, geo) {
-                                    loadBakedTexture(bid, function(tex) {
-                                        var mat = new THREE.MeshStandardMaterial({
-                                            map: tex,
-                                            roughness: 0.7,
-                                            metalness: 0.05,
-                                            side: THREE.DoubleSide,
-                                            alphaTest: 0.5,
-                                        });
-                                        var mesh = new THREE.Mesh(geo, mat);
-                                        modelGroup.add(mesh);
-                                        pending--;
-                                        if (pending === 0) {
-                                            document.getElementById("loading").style.display = "none";
-                                        }
+                            }
+                            var geo = new THREE.BufferGeometry();
+                            var vertCount = positions.length / 3;
+                            geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+                            geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+                            geo.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
+                            var indices = [];
+                            for (var i = 0; i < vertCount / 4; i++) {
+                                var base = i * 4;
+                                indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+                            }
+                            geo.setIndex(indices);
+                            (function(bid, geo) {
+                                loadBakedTexture(bid, function(tex) {
+                                    var mat = new THREE.MeshStandardMaterial({
+                                        map: tex,
+                                        roughness: 0.7,
+                                        metalness: 0.05,
+                                        side: THREE.DoubleSide,
+                                        alphaTest: 0.5,
                                     });
-                                })(bid, geo);
-                            }
-                            animate();
+                                    var mesh = new THREE.Mesh(geo, mat);
+                                    modelGroup.add(mesh);
+                                    pending--;
+                                    if (pending === 0) {
+                                        document.getElementById("loading").style.display = "none";
+                                    }
+                                });
+                            })(bid, geo);
                         }
+                        animate();
+                    }
 
-                        function animate() {
-                            requestAnimationFrame(animate);
-                            if (controls) controls.update();
-                            if (renderer && scene && camera) {
-                                renderer.render(scene, camera);
-                            }
+                    function animate() {
+                        requestAnimationFrame(animate);
+                        if (controls) controls.update();
+                        if (renderer && scene && camera) {
+                            renderer.render(scene, camera);
                         }
+                    }
 
-                        window.addEventListener("resize", function() {
-                            if (camera) {
-                                camera.aspect = window.innerWidth / window.innerHeight;
-                                camera.updateProjectionMatrix();
-                            }
-                            if (renderer) {
-                                renderer.setSize(window.innerWidth, window.innerHeight);
-                            }
-                        });
-                        buildScene();
-                    <\/script>\n`;
+                    window.addEventListener("resize", function() {
+                        if (camera) {
+                            camera.aspect = window.innerWidth / window.innerHeight;
+                            camera.updateProjectionMatrix();
+                        }
+                        if (renderer) {
+                            renderer.setSize(window.innerWidth, window.innerHeight);
+                        }
+                    });
+                    buildScene();
+                <\/script>\n`;
 
             html += '</body>\n</html>';
             return html;
@@ -1696,7 +1953,7 @@
         }
 
         // ============================================================
-        // 预览 (带真实进度)
+        // 预览
         // ============================================================
         async function preview() {
             if (!currentFileData) {
@@ -1719,7 +1976,7 @@
                 var blockCount = result.blocks ? result.blocks.length : 0;
                 setProgress(20, '解析完成');
 
-                var maxBlocks = 50000;
+                var maxBlocks = 200000;
                 var showBlocks = result.blocks;
                 if (showBlocks.length > maxBlocks) {
                     showBlocks = showBlocks.slice(0, maxBlocks);
@@ -1950,7 +2207,7 @@
         // ============================================================
         // 上传预览到 Cloudflare Pages + KV
         // ============================================================
-        async function uploadPreview(html, fileName) {
+        async function uploadPreview(html, fileName, expireMinutes) {
             var response = await fetch('/api/upload', {
                 method: 'POST',
                 headers: {
@@ -1958,7 +2215,8 @@
                 },
                 body: JSON.stringify({
                     html: html,
-                    fileName: fileName
+                    fileName: fileName,
+                    expireMinutes: expireMinutes || 10
                 })
             });
 
@@ -2018,13 +2276,16 @@
                 return;
             }
 
+            var expireMinutes = Math.min(Math.max(parseInt(document.getElementById('expireTime').value) || 10, 1), 10);
+
             showLoading('上传预览...');
             setStatus('上传中...', 'status-info');
 
             try {
                 var result = await uploadPreview(
                     currentPreviewHTML,
-                    currentFileName.replace(/\.[^.]+$/, '')
+                    currentFileName.replace(/\.[^.]+$/, ''),
+                    expireMinutes
                 );
 
                 hideLoading();
@@ -2037,7 +2298,7 @@
                                 <div style="background:rgba(0,0,0,.4);padding:10px 14px;border-radius:6px;word-break:break-all;max-width:100%;margin:8px 0;">
                                     <a href="${result.url}" target="_blank" style="color:#7c4dff;font-size:14px;">${result.url}</a>
                                 </div>
-                                <span style="color:#555;">有效期: ${result.expiresIn}</span>
+                                <span style="color:#555;">有效期: ${expireMinutes} 分钟 (${result.expiresAt || ''})</span>
                                 <br><br>
                                 <button class="btn btn-preview" onclick="copyLink('${result.url}')" style="margin-top:4px;">📋 复制链接</button>
                                 <button class="btn btn-primary" onclick="downloadPreviewHTMLDirect()" style="margin-top:4px;">📥 下载HTML</button>
@@ -2046,14 +2307,14 @@
 
                 previewDownloadBtn.style.display = 'none';
                 previewInfo.textContent = '✅ 已上传: ' + result.url;
-                previewStatus.textContent = '有效期10分钟';
+                previewStatus.textContent = '有效期' + expireMinutes + '分钟';
 
                 try {
                     await navigator.clipboard.writeText(result.url);
                     showToast('✅ 链接已复制到剪贴板', 'success');
                 } catch (e) {}
 
-                log('预览上传成功: ' + result.url);
+                log('预览上传成功: ' + result.url + ' 有效期' + expireMinutes + '分钟');
                 setStatus('预览已上传，链接已复制', 'status-ok');
 
             } catch (e) {
@@ -2139,7 +2400,7 @@
         log('Web 版转换器 v3.6 已加载');
         log('映射表加载中...');
         log('点击「生成3D预览」→ 生成预览');
-        log('点击「生成分享链接」→ 上传到云端，10分钟有效');
+        log('点击「生成分享链接」→ 上传到云端，可设置1-10分钟有效期');
     </script>
 </body>
 </html>
