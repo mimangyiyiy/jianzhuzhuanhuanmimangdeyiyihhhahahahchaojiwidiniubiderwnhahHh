@@ -118,6 +118,13 @@
             padding: 3px 10px;
             font-size: 11px;
         }
+        .btn-preview {
+            background: linear-gradient(135deg, #00b894, #00a381);
+        }
+        .btn-preview:hover:not(:disabled) {
+            opacity: .85;
+            transform: scale(1.02);
+        }
         #st {
             font-size: 13px;
             padding: 10px 16px;
@@ -336,12 +343,44 @@
             gap: 6px;
             align-items: center;
         }
-        .preview-html-btn {
-            background: linear-gradient(135deg, #00b894, #00a381);
+        .preview-info-overlay {
+            position: absolute;
+            bottom: 12px;
+            left: 12px;
+            background: rgba(0, 0, 0, .7);
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #aaa;
+            pointer-events: none;
+            z-index: 10;
         }
-        .preview-html-btn:hover:not(:disabled) {
-            opacity: .85;
-            transform: scale(1.02);
+        #preview3d {
+            width: 100%;
+            height: 500px;
+            border-radius: 8px;
+            background: #0d0d2b;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 12px;
+        }
+        #preview3d .big-icon {
+            font-size: 48px;
+            opacity: .3;
+        }
+        #preview3d .hint {
+            color: #555;
+            font-size: 14px;
+            text-align: center;
+            line-height: 1.6;
+        }
+        #preview3d .hint small {
+            color: #444;
+            font-size: 12px;
         }
         @media (max-width: 600px) {
             .row {
@@ -354,6 +393,9 @@
             .btn {
                 padding: 4px 10px;
                 font-size: 11px;
+            }
+            #preview3d {
+                height: 300px;
             }
             .toast {
                 font-size: 12px;
@@ -375,7 +417,7 @@
             作者: 小逸罒不迷茫 &nbsp;|&nbsp; B站: space.bilibili.com/3546638146603426
             <span class="badge">Web版</span>
         </div>
-        <div id="st">📌 就绪 — 拖拽文件到下方或点击选择</div>
+        <div id="st">📌 加载映射表...</div>
 
         <div class="card">
             <div class="drop-zone" id="dropZone">
@@ -407,9 +449,10 @@
                 </label>
                 <span style="font-size:11px;color:#555;margin-left:4px;" id="sensitiveCount">规则: 6 条</span>
                 <span style="font-size:11px;color:#666;margin-left:8px;">(纯数字不会触发)</span>
+                <span style="font-size:11px;color:#666;margin-left:8px;" id="mapStatus">映射表: 加载中...</span>
             </div>
             <div class="row" style="margin-top:8px;">
-                <button class="btn btn-secondary" id="pb" onclick="preview()" disabled>📊 生成3D预览</button>
+                <button class="btn btn-preview" id="pb" onclick="preview()" disabled>📊 生成3D预览</button>
                 <button class="btn btn-primary" id="cb" onclick="convert()" disabled>⚡ 转换</button>
                 <button class="btn btn-success" id="dlBtn" onclick="downloadCommands()" disabled style="display:none;">📥 下载指令</button>
                 <button class="btn btn-danger btn-sm" onclick="clearAll()">🗑 清空</button>
@@ -436,15 +479,18 @@
             <div class="box box-lg" id="cm">等待转换...</div>
         </div>
         <div class="tab-c" id="prC">
-            <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
-                <button class="btn btn-secondary btn-sm" id="previewDownloadBtn" onclick="downloadPreviewHTML()" disabled style="display:none;">📥 下载预览HTML</button>
-                <span style="font-size:11px;color:#666;align-self:center;" id="previewInfo"></span>
+            <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;align-items:center;">
+                <button class="btn btn-preview btn-sm" id="previewDownloadBtn" onclick="downloadPreviewHTML()" style="display:none;">📥 下载预览HTML</button>
+                <span style="font-size:11px;color:#666;" id="previewInfo"></span>
+                <span style="font-size:11px;color:#555;" id="previewStatus"></span>
             </div>
-            <div id="preview3d" style="width:100%;height:500px;border-radius:8px;background:#0d0d2b;position:relative;overflow:hidden;">
-                <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#555;font-size:14px;flex-direction:column;gap:8px;">
-                    <span id="prPlaceholder">点击「生成3D预览」生成预览HTML<br><span style="font-size:12px;color:#444;">下载后用浏览器打开查看3D模型</span></span>
+            <div id="preview3d">
+                <div class="big-icon">🏗️</div>
+                <div class="hint">
+                    点击「生成3D预览」生成预览HTML<br>
+                    <small>下载后用浏览器打开查看3D模型</small>
                 </div>
-                <div class="preview-info-overlay" id="prInfo" style="display:none;position:absolute;bottom:12px;left:12px;background:rgba(0,0,0,.7);padding:6px 14px;border-radius:6px;font-size:12px;color:#aaa;pointer-events:none;z-index:10;"></div>
+                <div class="preview-info-overlay" id="prInfo" style="display:none;"></div>
             </div>
         </div>
     </div>
@@ -466,7 +512,7 @@
         }
 
         // ============================================================
-        // 敏感词过滤器 - 严格使用你提供的6条规则
+        // 敏感词过滤器
         // ============================================================
         var _SF_RULES = [
             /3224909018|2265778903|1632249606|1477550673|110101195306153019|976410387|878880263|804305473|762469277|635793980|560802433|534369147|517213791|422427876|375415740|281798694|259256141|183339779|163721419|70363734|40609891|479988|19132/i,
@@ -490,16 +536,207 @@
         };
 
         // ============================================================
+        // 方块映射表 (从 generator_blocks.json 加载)
+        // ============================================================
+        var blockMap = {};
+        var mapLoaded = false;
+
+        function loadBlockMap() {
+            var status = document.getElementById('mapStatus');
+            status.textContent = '映射表: 加载中...';
+
+            fetch('generator_blocks.json')
+                .then(function(res) {
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    return res.json();
+                })
+                .then(function(data) {
+                    // 支持两种格式: 数组格式 (mappings) 或 对象格式
+                    var mappings = data.mappings || data;
+                    if (!Array.isArray(mappings)) {
+                        // 如果是对象格式，转换为数组
+                        var arr = [];
+                        for (var key in mappings) {
+                            if (mappings.hasOwnProperty(key)) {
+                                arr.push(mappings[key]);
+                            }
+                        }
+                        mappings = arr;
+                    }
+
+                    for (var i = 0; i < mappings.length; i++) {
+                        var entry = mappings[i];
+                        var javaState = entry.java_state || entry.java;
+                        var bedrockState = entry.bedrock_state || entry.bedrock;
+
+                        if (!javaState || !bedrockState) continue;
+
+                        var javaName = javaState.Name || javaState.name || javaState;
+                        var bedrockId = bedrockState.bedrock_identifier || bedrockState.identifier || bedrockState.id ||
+                            bedrockState;
+
+                        // 生成 key: 如果有 Properties，包含在 key 中
+                        var key = javaName;
+                        if (javaState.Properties) {
+                            var props = javaState.Properties;
+                            var propStr = [];
+                            for (var p in props) {
+                                propStr.push(p + '=' + props[p]);
+                            }
+                            propStr.sort();
+                            key = javaName + '[' + propStr.join(',') + ']';
+                        }
+
+                        // 如果有 state (基岩版状态)，组合成带状态的 ID
+                        var finalId = bedrockId;
+                        if (bedrockState.state) {
+                            var stateStr = [];
+                            for (var s in bedrockState.state) {
+                                stateStr.push(s + '=' + bedrockState.state[s]);
+                            }
+                            stateStr.sort();
+                            finalId = bedrockId + '[' + stateStr.join(',') + ']';
+                        }
+
+                        blockMap[key] = finalId;
+
+                        // 也存一份不带状态的映射作为 fallback
+                        if (!blockMap[javaName]) {
+                            blockMap[javaName] = bedrockId;
+                        }
+                    }
+
+                    mapLoaded = true;
+                    status.textContent = '映射表: 已加载 ' + Object.keys(blockMap).length + ' 条';
+                    log('✅ 映射表加载完成: ' + Object.keys(blockMap).length + ' 条');
+                    setStatus('✅ 就绪 — 映射表已加载', 'status-ok');
+                    document.getElementById('st').textContent = '✅ 就绪 — 映射表已加载，可拖拽文件';
+                })
+                .catch(function(err) {
+                    status.textContent = '映射表: 加载失败，使用内置映射';
+                    status.style.color = '#ff6b6b';
+                    log('⚠️ 映射表加载失败: ' + err.message + '，使用内置映射');
+                    setStatus('⚠️ 映射表加载失败，使用内置映射', 'status-err');
+                    // 使用内置映射作为 fallback
+                    loadFallbackMap();
+                });
+        }
+
+        // ============================================================
+        // 内置映射 (fallback)
+        // ============================================================
+        function loadFallbackMap() {
+            // 精简的内置映射，包含常用方块
+            var fallback = {
+                "minecraft:stone": "stone",
+                "minecraft:granite": "granite",
+                "minecraft:polished_granite": "polished_granite",
+                "minecraft:diorite": "diorite",
+                "minecraft:polished_diorite": "polished_diorite",
+                "minecraft:andesite": "andesite",
+                "minecraft:polished_andesite": "polished_andesite",
+                "minecraft:grass_block": "grass_block",
+                "minecraft:dirt": "dirt",
+                "minecraft:coarse_dirt": "coarse_dirt",
+                "minecraft:podzol": "podzol",
+                "minecraft:cobblestone": "cobblestone",
+                "minecraft:oak_planks": "oak_planks",
+                "minecraft:spruce_planks": "spruce_planks",
+                "minecraft:birch_planks": "birch_planks",
+                "minecraft:jungle_planks": "jungle_planks",
+                "minecraft:acacia_planks": "acacia_planks",
+                "minecraft:dark_oak_planks": "dark_oak_planks",
+                "minecraft:mangrove_planks": "mangrove_planks",
+                "minecraft:cherry_planks": "cherry_planks",
+                "minecraft:white_concrete": "concrete 0",
+                "minecraft:orange_concrete": "concrete 1",
+                "minecraft:magenta_concrete": "concrete 2",
+                "minecraft:light_blue_concrete": "concrete 3",
+                "minecraft:yellow_concrete": "concrete 4",
+                "minecraft:lime_concrete": "concrete 5",
+                "minecraft:pink_concrete": "concrete 6",
+                "minecraft:gray_concrete": "concrete 7",
+                "minecraft:light_gray_concrete": "concrete 8",
+                "minecraft:cyan_concrete": "concrete 9",
+                "minecraft:purple_concrete": "concrete 10",
+                "minecraft:blue_concrete": "concrete 11",
+                "minecraft:brown_concrete": "concrete 12",
+                "minecraft:green_concrete": "concrete 13",
+                "minecraft:red_concrete": "concrete 14",
+                "minecraft:black_concrete": "concrete 15",
+                "minecraft:oak_log": "oak_log",
+                "minecraft:spruce_log": "spruce_log",
+                "minecraft:birch_log": "birch_log",
+                "minecraft:jungle_log": "jungle_log",
+                "minecraft:acacia_log": "acacia_log",
+                "minecraft:dark_oak_log": "dark_oak_log",
+                "minecraft:bedrock": "bedrock",
+                "minecraft:glass": "glass",
+                "minecraft:water": "water",
+                "minecraft:lava": "lava",
+                "minecraft:sand": "sand",
+                "minecraft:red_sand": "red_sand",
+                "minecraft:gravel": "gravel",
+                "minecraft:clay": "clay",
+            };
+            for (var key in fallback) {
+                blockMap[key] = fallback[key];
+            }
+            mapLoaded = true;
+            document.getElementById('mapStatus').textContent = '映射表: 内置 ' + Object.keys(blockMap).length + ' 条';
+        }
+
+        // ============================================================
+        // 获取基岩版 ID (使用映射表)
+        // ============================================================
+        function getBedrockId(javaId) {
+            if (!mapLoaded) {
+                // 如果映射表还没加载，用简单的 fallback
+                return javaId.split(':').pop() || javaId;
+            }
+
+            // 直接查找
+            if (blockMap[javaId] !== undefined) {
+                return blockMap[javaId];
+            }
+
+            // 去掉 Properties 部分再查
+            var bracketIdx = javaId.indexOf('[');
+            if (bracketIdx > -1) {
+                var base = javaId.substring(0, bracketIdx);
+                if (blockMap[base] !== undefined) {
+                    return blockMap[base];
+                }
+                // 也尝试查找 base 的带状态版本
+                var props = javaId.substring(bracketIdx + 1, javaId.length - 1);
+                var propPairs = props.split(',');
+                var sortedProps = propPairs.slice().sort();
+                var key = base + '[' + sortedProps.join(',') + ']';
+                if (blockMap[key] !== undefined) {
+                    return blockMap[key];
+                }
+            }
+
+            // 尝试只取命名空间后的部分
+            var simple = javaId.split(':').pop() || javaId;
+            var simpleBracket = simple.indexOf('[');
+            if (simpleBracket > -1) {
+                simple = simple.substring(0, simpleBracket);
+            }
+            if (blockMap[simple] !== undefined) {
+                return blockMap[simple];
+            }
+
+            // 最后 fallback
+            return simple;
+        }
+
+        // ============================================================
         // 主逻辑
         // ============================================================
         var lg = document.getElementById('lg');
         var fi = document.getElementById('fi');
         var dropZone = document.getElementById('dropZone');
-        var dropIcon = document.getElementById('dropIcon');
-        var dropText = document.getElementById('dropText');
-        var fileInfo = document.getElementById('fileInfo');
-        var fileNameDisplay = document.getElementById('fileNameDisplay');
-        var fileSizeDisplay = document.getElementById('fileSizeDisplay');
         var currentFileData = null;
         var currentFileName = '';
         var currentCommands = null;
@@ -519,10 +756,11 @@
         var cmdCountEl = document.getElementById('cmdCount');
         var disableSensitiveEl = document.getElementById('disableSensitive');
         var sensitiveCountEl = document.getElementById('sensitiveCount');
-        var prPlaceholder = document.getElementById('prPlaceholder');
-        var prInfo = document.getElementById('prInfo');
         var previewDownloadBtn = document.getElementById('previewDownloadBtn');
         var previewInfo = document.getElementById('previewInfo');
+        var previewStatus = document.getElementById('previewStatus');
+        var prInfo = document.getElementById('prInfo');
+        var preview3d = document.getElementById('preview3d');
 
         sensitiveCountEl.textContent = '规则: ' + _SF.count() + ' 条';
 
@@ -568,10 +806,12 @@
             dlBtn.style.display = 'none';
             previewDownloadBtn.style.display = 'none';
             previewInfo.textContent = '';
+            previewStatus.textContent = '';
+            prInfo.style.display = 'none';
+            preview3d.innerHTML =
+                '<div class="big-icon">🏗️</div><div class="hint">点击「生成3D预览」生成预览HTML<br><small>下载后用浏览器打开查看3D模型</small></div><div class="preview-info-overlay" id="prInfo" style="display:none;"></div>';
             cmBox.textContent = '等待转换...';
             cmdCountEl.textContent = '0';
-            prPlaceholder.style.display = 'block';
-            prInfo.style.display = 'none';
             setStatus('已清空');
             log('已清空所有数据');
             infoText.textContent = '';
@@ -579,22 +819,25 @@
         }
 
         function updateFileUI(file) {
+            var fn = document.getElementById('fileNameDisplay');
+            var fs = document.getElementById('fileSizeDisplay');
+            var fi2 = document.getElementById('fileInfo');
             if (file) {
                 dropZone.classList.add('has-file');
-                fileInfo.style.display = 'block';
-                fileNameDisplay.textContent = '📄 ' + file.name;
+                fi2.style.display = 'block';
+                fn.textContent = '📄 ' + file.name;
                 var size = file.size;
-                if (size < 1024) fileSizeDisplay.textContent = size + ' B';
-                else if (size < 1024 * 1024) fileSizeDisplay.textContent = (size / 1024).toFixed(1) + ' KB';
-                else fileSizeDisplay.textContent = (size / (1024 * 1024)).toFixed(1) + ' MB';
-                dropText.textContent = '✅ 文件已选择，点击可更换';
-                dropIcon.textContent = '📄';
+                if (size < 1024) fs.textContent = size + ' B';
+                else if (size < 1024 * 1024) fs.textContent = (size / 1024).toFixed(1) + ' KB';
+                else fs.textContent = (size / (1024 * 1024)).toFixed(1) + ' MB';
+                document.getElementById('dropText').textContent = '✅ 文件已选择，点击可更换';
+                document.getElementById('dropIcon').textContent = '📄';
                 showToast('✅ 已加载: ' + file.name, 'success');
             } else {
                 dropZone.classList.remove('has-file');
-                fileInfo.style.display = 'none';
-                dropText.textContent = '点击选择文件 或 拖拽 .schematic / .litematic 到此处';
-                dropIcon.textContent = '📂';
+                fi2.style.display = 'none';
+                document.getElementById('dropText').textContent = '点击选择文件 或 拖拽 .schematic / .litematic 到此处';
+                document.getElementById('dropIcon').textContent = '📂';
             }
         }
 
@@ -680,7 +923,7 @@
         }
 
         // ============================================================
-        // NBT 解析 (完整版)
+        // NBT 解析
         // ============================================================
         function parseNBT(buf) {
             var dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
@@ -803,885 +1046,6 @@
                 } catch (e) { return data; }
             }
             return data;
-        }
-
-        // ============================================================
-        // 方块ID映射 (完整版 - 保留常用)
-        // ============================================================
-        var BEDROCK_ID_MAP = {
-            "minecraft:stone": "stone",
-            "minecraft:granite": "granite",
-            "minecraft:polished_granite": "granite 1",
-            "minecraft:diorite": "diorite",
-            "minecraft:polished_diorite": "diorite 1",
-            "minecraft:andesite": "andesite",
-            "minecraft:polished_andesite": "andesite 1",
-            "minecraft:cobblestone": "cobblestone",
-            "minecraft:bedrock": "bedrock",
-            "minecraft:mossy_cobblestone": "mossy_cobblestone",
-            "minecraft:deepslate": "deepslate",
-            "minecraft:cobbled_deepslate": "cobbled_deepslate",
-            "minecraft:tuff": "tuff",
-            "minecraft:calcite": "calcite",
-            "minecraft:dripstone_block": "dripstone_block",
-            "minecraft:dirt": "dirt",
-            "minecraft:grass_block": "grass",
-            "minecraft:coarse_dirt": "dirt 1",
-            "minecraft:podzol": "podzol",
-            "minecraft:mycelium": "mycelium",
-            "minecraft:moss_block": "moss_block",
-            "minecraft:sand": "sand",
-            "minecraft:red_sand": "sand 1",
-            "minecraft:gravel": "gravel",
-            "minecraft:clay": "clay",
-            "minecraft:coal_ore": "coal_ore",
-            "minecraft:deepslate_coal_ore": "deepslate_coal_ore",
-            "minecraft:iron_ore": "iron_ore",
-            "minecraft:deepslate_iron_ore": "deepslate_iron_ore",
-            "minecraft:gold_ore": "gold_ore",
-            "minecraft:deepslate_gold_ore": "deepslate_gold_ore",
-            "minecraft:copper_ore": "copper_ore",
-            "minecraft:deepslate_copper_ore": "deepslate_copper_ore",
-            "minecraft:redstone_ore": "redstone_ore",
-            "minecraft:deepslate_redstone_ore": "deepslate_redstone_ore",
-            "minecraft:emerald_ore": "emerald_ore",
-            "minecraft:deepslate_emerald_ore": "deepslate_emerald_ore",
-            "minecraft:lapis_ore": "lapis_ore",
-            "minecraft:deepslate_lapis_ore": "deepslate_lapis_ore",
-            "minecraft:diamond_ore": "diamond_ore",
-            "minecraft:deepslate_diamond_ore": "deepslate_diamond_ore",
-            "minecraft:nether_quartz_ore": "quartz_ore",
-            "minecraft:nether_gold_ore": "nether_gold_ore",
-            "minecraft:ancient_debris": "ancient_debris",
-            "minecraft:oak_log": "oak_log",
-            "minecraft:spruce_log": "spruce_log",
-            "minecraft:birch_log": "birch_log",
-            "minecraft:jungle_log": "jungle_log",
-            "minecraft:acacia_log": "acacia_log",
-            "minecraft:dark_oak_log": "dark_oak_log",
-            "minecraft:mangrove_log": "mangrove_log",
-            "minecraft:cherry_log": "cherry_log",
-            "minecraft:crimson_stem": "crimson_stem",
-            "minecraft:warped_stem": "warped_stem",
-            "minecraft:stripped_oak_log": "stripped_oak_log",
-            "minecraft:stripped_spruce_log": "stripped_spruce_log",
-            "minecraft:stripped_birch_log": "stripped_birch_log",
-            "minecraft:stripped_jungle_log": "stripped_jungle_log",
-            "minecraft:stripped_acacia_log": "stripped_acacia_log",
-            "minecraft:stripped_dark_oak_log": "stripped_dark_oak_log",
-            "minecraft:stripped_mangrove_log": "stripped_mangrove_log",
-            "minecraft:stripped_cherry_log": "stripped_cherry_log",
-            "minecraft:stripped_crimson_stem": "stripped_crimson_stem",
-            "minecraft:stripped_warped_stem": "stripped_warped_stem",
-            "minecraft:crimson_hyphae": "crimson_hyphae",
-            "minecraft:warped_hyphae": "warped_hyphae",
-            "minecraft:stripped_crimson_hyphae": "stripped_crimson_hyphae",
-            "minecraft:stripped_warped_hyphae": "stripped_warped_hyphae",
-            "minecraft:oak_planks": "planks",
-            "minecraft:spruce_planks": "planks 1",
-            "minecraft:birch_planks": "planks 2",
-            "minecraft:jungle_planks": "planks 3",
-            "minecraft:acacia_planks": "planks 4",
-            "minecraft:dark_oak_planks": "planks 5",
-            "minecraft:mangrove_planks": "planks 6",
-            "minecraft:cherry_planks": "planks 7",
-            "minecraft:crimson_planks": "crimson_planks",
-            "minecraft:warped_planks": "warped_planks",
-            "minecraft:bamboo_planks": "bamboo_planks",
-            "minecraft:oak_leaves": "oak_leaves",
-            "minecraft:spruce_leaves": "spruce_leaves",
-            "minecraft:birch_leaves": "birch_leaves",
-            "minecraft:jungle_leaves": "jungle_leaves",
-            "minecraft:acacia_leaves": "acacia_leaves",
-            "minecraft:dark_oak_leaves": "dark_oak_leaves",
-            "minecraft:mangrove_leaves": "mangrove_leaves",
-            "minecraft:cherry_leaves": "cherry_leaves",
-            "minecraft:azalea_leaves": "azalea_leaves",
-            "minecraft:flowering_azalea_leaves": "flowering_azalea_leaves",
-            "minecraft:stone_bricks": "stone_bricks",
-            "minecraft:mossy_stone_bricks": "mossy_stone_bricks",
-            "minecraft:cracked_stone_bricks": "cracked_stone_bricks",
-            "minecraft:chiseled_stone_bricks": "chiseled_stone_bricks",
-            "minecraft:bricks": "brick_block",
-            "minecraft:nether_bricks": "nether_brick",
-            "minecraft:red_nether_bricks": "red_nether_brick",
-            "minecraft:end_stone_bricks": "end_stone_bricks",
-            "minecraft:deepslate_tiles": "deepslate_tiles",
-            "minecraft:cracked_deepslate_tiles": "cracked_deepslate_tiles",
-            "minecraft:deepslate_bricks": "deepslate_bricks",
-            "minecraft:cracked_deepslate_bricks": "cracked_deepslate_bricks",
-            "minecraft:chiseled_deepslate": "chiseled_deepslate",
-            "minecraft:polished_deepslate": "polished_deepslate",
-            "minecraft:reinforced_deepslate": "reinforced_deepslate",
-            "minecraft:infested_deepslate": "infested_deepslate",
-            "minecraft:glass": "glass",
-            "minecraft:glass_pane": "glass_pane",
-            "minecraft:white_stained_glass": "white_stained_glass",
-            "minecraft:orange_stained_glass": "orange_stained_glass",
-            "minecraft:magenta_stained_glass": "magenta_stained_glass",
-            "minecraft:light_blue_stained_glass": "light_blue_stained_glass",
-            "minecraft:yellow_stained_glass": "yellow_stained_glass",
-            "minecraft:lime_stained_glass": "lime_stained_glass",
-            "minecraft:pink_stained_glass": "pink_stained_glass",
-            "minecraft:gray_stained_glass": "gray_stained_glass",
-            "minecraft:light_gray_stained_glass": "light_gray_stained_glass",
-            "minecraft:cyan_stained_glass": "cyan_stained_glass",
-            "minecraft:purple_stained_glass": "purple_stained_glass",
-            "minecraft:blue_stained_glass": "blue_stained_glass",
-            "minecraft:brown_stained_glass": "brown_stained_glass",
-            "minecraft:green_stained_glass": "green_stained_glass",
-            "minecraft:red_stained_glass": "red_stained_glass",
-            "minecraft:black_stained_glass": "black_stained_glass",
-            "minecraft:tinted_glass": "tinted_glass",
-            "minecraft:white_stained_glass_pane": "white_stained_glass_pane",
-            "minecraft:orange_stained_glass_pane": "orange_stained_glass_pane",
-            "minecraft:magenta_stained_glass_pane": "magenta_stained_glass_pane",
-            "minecraft:light_blue_stained_glass_pane": "light_blue_stained_glass_pane",
-            "minecraft:yellow_stained_glass_pane": "yellow_stained_glass_pane",
-            "minecraft:lime_stained_glass_pane": "lime_stained_glass_pane",
-            "minecraft:pink_stained_glass_pane": "pink_stained_glass_pane",
-            "minecraft:gray_stained_glass_pane": "gray_stained_glass_pane",
-            "minecraft:light_gray_stained_glass_pane": "light_gray_stained_glass_pane",
-            "minecraft:cyan_stained_glass_pane": "cyan_stained_glass_pane",
-            "minecraft:purple_stained_glass_pane": "purple_stained_glass_pane",
-            "minecraft:blue_stained_glass_pane": "blue_stained_glass_pane",
-            "minecraft:brown_stained_glass_pane": "brown_stained_glass_pane",
-            "minecraft:green_stained_glass_pane": "green_stained_glass_pane",
-            "minecraft:red_stained_glass_pane": "red_stained_glass_pane",
-            "minecraft:black_stained_glass_pane": "black_stained_glass_pane",
-            "minecraft:white_wool": "wool",
-            "minecraft:orange_wool": "wool 1",
-            "minecraft:magenta_wool": "wool 2",
-            "minecraft:light_blue_wool": "wool 3",
-            "minecraft:yellow_wool": "wool 4",
-            "minecraft:lime_wool": "wool 5",
-            "minecraft:pink_wool": "wool 6",
-            "minecraft:gray_wool": "wool 7",
-            "minecraft:light_gray_wool": "wool 8",
-            "minecraft:cyan_wool": "wool 9",
-            "minecraft:purple_wool": "wool 10",
-            "minecraft:blue_wool": "wool 11",
-            "minecraft:brown_wool": "wool 12",
-            "minecraft:green_wool": "wool 13",
-            "minecraft:red_wool": "wool 14",
-            "minecraft:black_wool": "wool 15",
-            "minecraft:white_carpet": "white_carpet",
-            "minecraft:orange_carpet": "orange_carpet",
-            "minecraft:magenta_carpet": "magenta_carpet",
-            "minecraft:light_blue_carpet": "light_blue_carpet",
-            "minecraft:yellow_carpet": "yellow_carpet",
-            "minecraft:lime_carpet": "lime_carpet",
-            "minecraft:pink_carpet": "pink_carpet",
-            "minecraft:gray_carpet": "gray_carpet",
-            "minecraft:light_gray_carpet": "light_gray_carpet",
-            "minecraft:cyan_carpet": "cyan_carpet",
-            "minecraft:purple_carpet": "purple_carpet",
-            "minecraft:blue_carpet": "blue_carpet",
-            "minecraft:brown_carpet": "brown_carpet",
-            "minecraft:green_carpet": "green_carpet",
-            "minecraft:red_carpet": "red_carpet",
-            "minecraft:black_carpet": "black_carpet",
-            "minecraft:coal_block": "coal_block",
-            "minecraft:iron_block": "iron_block",
-            "minecraft:gold_block": "gold_block",
-            "minecraft:diamond_block": "diamond_block",
-            "minecraft:emerald_block": "emerald_block",
-            "minecraft:redstone_block": "redstone_block",
-            "minecraft:lapis_block": "lapis_block",
-            "minecraft:copper_block": "copper_block",
-            "minecraft:exposed_copper": "exposed_copper",
-            "minecraft:weathered_copper": "weathered_copper",
-            "minecraft:oxidized_copper": "oxidized_copper",
-            "minecraft:cut_copper": "cut_copper",
-            "minecraft:exposed_cut_copper": "exposed_cut_copper",
-            "minecraft:weathered_cut_copper": "weathered_cut_copper",
-            "minecraft:oxidized_cut_copper": "oxidized_cut_copper",
-            "minecraft:raw_iron_block": "raw_iron_block",
-            "minecraft:raw_copper_block": "raw_copper_block",
-            "minecraft:raw_gold_block": "raw_gold_block",
-            "minecraft:netherite_block": "netherite_block",
-            "minecraft:netherrack": "netherrack",
-            "minecraft:soul_sand": "soul_sand",
-            "minecraft:soul_soil": "soul_soil",
-            "minecraft:basalt": "basalt",
-            "minecraft:polished_basalt": "polished_basalt",
-            "minecraft:smooth_basalt": "smooth_basalt",
-            "minecraft:blackstone": "blackstone",
-            "minecraft:gilded_blackstone": "gilded_blackstone",
-            "minecraft:polished_blackstone": "polished_blackstone",
-            "minecraft:polished_blackstone_bricks": "polished_blackstone_bricks",
-            "minecraft:cracked_polished_blackstone_bricks": "cracked_polished_blackstone_bricks",
-            "minecraft:chiseled_polished_blackstone": "chiseled_polished_blackstone",
-            "minecraft:magma_block": "magma",
-            "minecraft:glowstone": "glowstone",
-            "minecraft:shroomlight": "shroomlight",
-            "minecraft:crimson_nylium": "crimson_nylium",
-            "minecraft:warped_nylium": "warped_nylium",
-            "minecraft:end_stone": "end_stone",
-            "minecraft:purpur_block": "purpur_block",
-            "minecraft:purpur_pillar": "purpur_pillar",
-            "minecraft:purpur_stairs": "purpur_stairs",
-            "minecraft:purpur_slab": "purpur_slab",
-            "minecraft:water": "water",
-            "minecraft:lava": "lava",
-            "minecraft:ice": "ice",
-            "minecraft:packed_ice": "packed_ice",
-            "minecraft:blue_ice": "blue_ice",
-            "minecraft:snow": "snow",
-            "minecraft:snow_block": "snow_layer",
-            "minecraft:obsidian": "obsidian",
-            "minecraft:crying_obsidian": "crying_obsidian",
-            "minecraft:sponge": "sponge",
-            "minecraft:wet_sponge": "sponge 1",
-            "minecraft:slime_block": "slime",
-            "minecraft:honey_block": "honey_block",
-            "minecraft:bone_block": "bone_block",
-            "minecraft:quartz_block": "quartz_block",
-            "minecraft:quartz_pillar": "quartz_pillar",
-            "minecraft:chiseled_quartz": "chiseled_quartz_block",
-            "minecraft:amethyst_block": "amethyst_block",
-            "minecraft:budding_amethyst": "budding_amethyst",
-            "minecraft:amethyst_cluster": "amethyst_cluster",
-            "minecraft:large_amethyst_bud": "large_amethyst_bud",
-            "minecraft:medium_amethyst_bud": "medium_amethyst_bud",
-            "minecraft:small_amethyst_bud": "small_amethyst_bud",
-            "minecraft:terracotta": "terracotta",
-            "minecraft:white_terracotta": "terracotta 0",
-            "minecraft:orange_terracotta": "terracotta 1",
-            "minecraft:magenta_terracotta": "terracotta 2",
-            "minecraft:light_blue_terracotta": "terracotta 3",
-            "minecraft:yellow_terracotta": "terracotta 4",
-            "minecraft:lime_terracotta": "terracotta 5",
-            "minecraft:pink_terracotta": "terracotta 6",
-            "minecraft:gray_terracotta": "terracotta 7",
-            "minecraft:light_gray_terracotta": "terracotta 8",
-            "minecraft:cyan_terracotta": "terracotta 9",
-            "minecraft:purple_terracotta": "terracotta 10",
-            "minecraft:blue_terracotta": "terracotta 11",
-            "minecraft:brown_terracotta": "terracotta 12",
-            "minecraft:green_terracotta": "terracotta 13",
-            "minecraft:red_terracotta": "terracotta 14",
-            "minecraft:black_terracotta": "terracotta 15",
-            "minecraft:white_glazed_terracotta": "white_glazed_terracotta",
-            "minecraft:orange_glazed_terracotta": "orange_glazed_terracotta",
-            "minecraft:magenta_glazed_terracotta": "magenta_glazed_terracotta",
-            "minecraft:light_blue_glazed_terracotta": "light_blue_glazed_terracotta",
-            "minecraft:yellow_glazed_terracotta": "yellow_glazed_terracotta",
-            "minecraft:lime_glazed_terracotta": "lime_glazed_terracotta",
-            "minecraft:pink_glazed_terracotta": "pink_glazed_terracotta",
-            "minecraft:gray_glazed_terracotta": "gray_glazed_terracotta",
-            "minecraft:light_gray_glazed_terracotta": "light_gray_glazed_terracotta",
-            "minecraft:cyan_glazed_terracotta": "cyan_glazed_terracotta",
-            "minecraft:purple_glazed_terracotta": "purple_glazed_terracotta",
-            "minecraft:blue_glazed_terracotta": "blue_glazed_terracotta",
-            "minecraft:brown_glazed_terracotta": "brown_glazed_terracotta",
-            "minecraft:green_glazed_terracotta": "green_glazed_terracotta",
-            "minecraft:red_glazed_terracotta": "red_glazed_terracotta",
-            "minecraft:black_glazed_terracotta": "black_glazed_terracotta",
-            "minecraft:concrete": "concrete",
-            "minecraft:white_concrete": "concrete 0",
-            "minecraft:orange_concrete": "concrete 1",
-            "minecraft:magenta_concrete": "concrete 2",
-            "minecraft:light_blue_concrete": "concrete 3",
-            "minecraft:yellow_concrete": "concrete 4",
-            "minecraft:lime_concrete": "concrete 5",
-            "minecraft:pink_concrete": "concrete 6",
-            "minecraft:gray_concrete": "concrete 7",
-            "minecraft:light_gray_concrete": "concrete 8",
-            "minecraft:cyan_concrete": "concrete 9",
-            "minecraft:purple_concrete": "concrete 10",
-            "minecraft:blue_concrete": "concrete 11",
-            "minecraft:brown_concrete": "concrete 12",
-            "minecraft:green_concrete": "concrete 13",
-            "minecraft:red_concrete": "concrete 14",
-            "minecraft:black_concrete": "concrete 15",
-            "minecraft:white_concrete_powder": "white_concrete_powder",
-            "minecraft:orange_concrete_powder": "orange_concrete_powder",
-            "minecraft:magenta_concrete_powder": "magenta_concrete_powder",
-            "minecraft:light_blue_concrete_powder": "light_blue_concrete_powder",
-            "minecraft:yellow_concrete_powder": "yellow_concrete_powder",
-            "minecraft:lime_concrete_powder": "lime_concrete_powder",
-            "minecraft:pink_concrete_powder": "pink_concrete_powder",
-            "minecraft:gray_concrete_powder": "gray_concrete_powder",
-            "minecraft:light_gray_concrete_powder": "light_gray_concrete_powder",
-            "minecraft:cyan_concrete_powder": "cyan_concrete_powder",
-            "minecraft:purple_concrete_powder": "purple_concrete_powder",
-            "minecraft:blue_concrete_powder": "blue_concrete_powder",
-            "minecraft:brown_concrete_powder": "brown_concrete_powder",
-            "minecraft:green_concrete_powder": "green_concrete_powder",
-            "minecraft:red_concrete_powder": "red_concrete_powder",
-            "minecraft:black_concrete_powder": "black_concrete_powder",
-            "minecraft:oak_stairs": "oak_stairs",
-            "minecraft:spruce_stairs": "spruce_stairs",
-            "minecraft:birch_stairs": "birch_stairs",
-            "minecraft:jungle_stairs": "jungle_stairs",
-            "minecraft:acacia_stairs": "acacia_stairs",
-            "minecraft:dark_oak_stairs": "dark_oak_stairs",
-            "minecraft:mangrove_stairs": "mangrove_stairs",
-            "minecraft:cherry_stairs": "cherry_stairs",
-            "minecraft:bamboo_stairs": "bamboo_stairs",
-            "minecraft:crimson_stairs": "crimson_stairs",
-            "minecraft:warped_stairs": "warped_stairs",
-            "minecraft:stone_stairs": "stone_stairs",
-            "minecraft:cobblestone_stairs": "cobblestone_stairs",
-            "minecraft:mossy_cobblestone_stairs": "mossy_cobblestone_stairs",
-            "minecraft:stone_brick_stairs": "stone_brick_stairs",
-            "minecraft:mossy_stone_brick_stairs": "mossy_stone_brick_stairs",
-            "minecraft:andesite_stairs": "andesite_stairs",
-            "minecraft:polished_andesite_stairs": "polished_andesite_stairs",
-            "minecraft:diorite_stairs": "diorite_stairs",
-            "minecraft:polished_diorite_stairs": "polished_diorite_stairs",
-            "minecraft:granite_stairs": "granite_stairs",
-            "minecraft:polished_granite_stairs": "polished_granite_stairs",
-            "minecraft:sandstone_stairs": "sandstone_stairs",
-            "minecraft:smooth_sandstone_stairs": "smooth_sandstone_stairs",
-            "minecraft:red_sandstone_stairs": "red_sandstone_stairs",
-            "minecraft:smooth_red_sandstone_stairs": "smooth_red_sandstone_stairs",
-            "minecraft:brick_stairs": "brick_stairs",
-            "minecraft:mud_brick_stairs": "mud_brick_stairs",
-            "minecraft:nether_brick_stairs": "nether_brick_stairs",
-            "minecraft:red_nether_brick_stairs": "red_nether_brick_stairs",
-            "minecraft:quartz_stairs": "quartz_stairs",
-            "minecraft:smooth_quartz_stairs": "smooth_quartz_stairs",
-            "minecraft:prismarine_stairs": "prismarine_stairs",
-            "minecraft:prismarine_brick_stairs": "prismarine_brick_stairs",
-            "minecraft:dark_prismarine_stairs": "dark_prismarine_stairs",
-            "minecraft:blackstone_stairs": "blackstone_stairs",
-            "minecraft:polished_blackstone_stairs": "polished_blackstone_stairs",
-            "minecraft:polished_blackstone_brick_stairs": "polished_blackstone_brick_stairs",
-            "minecraft:end_stone_brick_stairs": "end_stone_brick_stairs",
-            "minecraft:deepslate_tile_stairs": "deepslate_tile_stairs",
-            "minecraft:deepslate_brick_stairs": "deepslate_brick_stairs",
-            "minecraft:cobbled_deepslate_stairs": "cobbled_deepslate_stairs",
-            "minecraft:polished_deepslate_stairs": "polished_deepslate_stairs",
-            "minecraft:cut_copper_stairs": "cut_copper_stairs",
-            "minecraft:exposed_cut_copper_stairs": "exposed_cut_copper_stairs",
-            "minecraft:weathered_cut_copper_stairs": "weathered_cut_copper_stairs",
-            "minecraft:oxidized_cut_copper_stairs": "oxidized_cut_copper_stairs",
-            "minecraft:waxed_cut_copper_stairs": "waxed_cut_copper_stairs",
-            "minecraft:waxed_exposed_cut_copper_stairs": "waxed_exposed_cut_copper_stairs",
-            "minecraft:waxed_weathered_cut_copper_stairs": "waxed_weathered_cut_copper_stairs",
-            "minecraft:waxed_oxidized_cut_copper_stairs": "waxed_oxidized_cut_copper_stairs",
-            "minecraft:bamboo_mosaic_stairs": "bamboo_mosaic_stairs",
-            "minecraft:oak_slab": "oak_slab",
-            "minecraft:spruce_slab": "spruce_slab",
-            "minecraft:birch_slab": "birch_slab",
-            "minecraft:jungle_slab": "jungle_slab",
-            "minecraft:acacia_slab": "acacia_slab",
-            "minecraft:dark_oak_slab": "dark_oak_slab",
-            "minecraft:mangrove_slab": "mangrove_slab",
-            "minecraft:cherry_slab": "cherry_slab",
-            "minecraft:bamboo_slab": "bamboo_slab",
-            "minecraft:crimson_slab": "crimson_slab",
-            "minecraft:warped_slab": "warped_slab",
-            "minecraft:stone_slab": "stone_slab",
-            "minecraft:cobblestone_slab": "cobblestone_slab",
-            "minecraft:mossy_cobblestone_slab": "mossy_cobblestone_slab",
-            "minecraft:stone_brick_slab": "stone_brick_slab",
-            "minecraft:mossy_stone_brick_slab": "mossy_stone_brick_slab",
-            "minecraft:andesite_slab": "andesite_slab",
-            "minecraft:polished_andesite_slab": "polished_andesite_slab",
-            "minecraft:diorite_slab": "diorite_slab",
-            "minecraft:polished_diorite_slab": "polished_diorite_slab",
-            "minecraft:granite_slab": "granite_slab",
-            "minecraft:polished_granite_slab": "polished_granite_slab",
-            "minecraft:sandstone_slab": "sandstone_slab",
-            "minecraft:cut_sandstone_slab": "cut_sandstone_slab",
-            "minecraft:smooth_sandstone_slab": "smooth_sandstone_slab",
-            "minecraft:red_sandstone_slab": "red_sandstone_slab",
-            "minecraft:cut_red_sandstone_slab": "cut_red_sandstone_slab",
-            "minecraft:smooth_red_sandstone_slab": "smooth_red_sandstone_slab",
-            "minecraft:brick_slab": "brick_slab",
-            "minecraft:mud_brick_slab": "mud_brick_slab",
-            "minecraft:nether_brick_slab": "nether_brick_slab",
-            "minecraft:red_nether_brick_slab": "red_nether_brick_slab",
-            "minecraft:quartz_slab": "quartz_slab",
-            "minecraft:smooth_quartz_slab": "smooth_quartz_slab",
-            "minecraft:prismarine_slab": "prismarine_slab",
-            "minecraft:prismarine_brick_slab": "prismarine_brick_slab",
-            "minecraft:dark_prismarine_slab": "dark_prismarine_slab",
-            "minecraft:blackstone_slab": "blackstone_slab",
-            "minecraft:polished_blackstone_slab": "polished_blackstone_slab",
-            "minecraft:polished_blackstone_brick_slab": "polished_blackstone_brick_slab",
-            "minecraft:end_stone_brick_slab": "end_stone_brick_slab",
-            "minecraft:deepslate_tile_slab": "deepslate_tile_slab",
-            "minecraft:deepslate_brick_slab": "deepslate_brick_slab",
-            "minecraft:cobbled_deepslate_slab": "cobbled_deepslate_slab",
-            "minecraft:polished_deepslate_slab": "polished_deepslate_slab",
-            "minecraft:cut_copper_slab": "cut_copper_slab",
-            "minecraft:exposed_cut_copper_slab": "exposed_cut_copper_slab",
-            "minecraft:weathered_cut_copper_slab": "weathered_cut_copper_slab",
-            "minecraft:oxidized_cut_copper_slab": "oxidized_cut_copper_slab",
-            "minecraft:waxed_cut_copper_slab": "waxed_cut_copper_slab",
-            "minecraft:waxed_exposed_cut_copper_slab": "waxed_exposed_cut_copper_slab",
-            "minecraft:waxed_weathered_cut_copper_slab": "waxed_weathered_cut_copper_slab",
-            "minecraft:waxed_oxidized_cut_copper_slab": "waxed_oxidized_cut_copper_slab",
-            "minecraft:bamboo_mosaic_slab": "bamboo_mosaic_slab",
-            "minecraft:oak_fence": "oak_fence",
-            "minecraft:spruce_fence": "spruce_fence",
-            "minecraft:birch_fence": "birch_fence",
-            "minecraft:jungle_fence": "jungle_fence",
-            "minecraft:acacia_fence": "acacia_fence",
-            "minecraft:dark_oak_fence": "dark_oak_fence",
-            "minecraft:mangrove_fence": "mangrove_fence",
-            "minecraft:cherry_fence": "cherry_fence",
-            "minecraft:bamboo_fence": "bamboo_fence",
-            "minecraft:crimson_fence": "crimson_fence",
-            "minecraft:warped_fence": "warped_fence",
-            "minecraft:nether_brick_fence": "nether_brick_fence",
-            "minecraft:oak_fence_gate": "oak_fence_gate",
-            "minecraft:spruce_fence_gate": "spruce_fence_gate",
-            "minecraft:birch_fence_gate": "birch_fence_gate",
-            "minecraft:jungle_fence_gate": "jungle_fence_gate",
-            "minecraft:acacia_fence_gate": "acacia_fence_gate",
-            "minecraft:dark_oak_fence_gate": "dark_oak_fence_gate",
-            "minecraft:mangrove_fence_gate": "mangrove_fence_gate",
-            "minecraft:cherry_fence_gate": "cherry_fence_gate",
-            "minecraft:bamboo_fence_gate": "bamboo_fence_gate",
-            "minecraft:crimson_fence_gate": "crimson_fence_gate",
-            "minecraft:warped_fence_gate": "warped_fence_gate",
-            "minecraft:cobblestone_wall": "cobblestone_wall",
-            "minecraft:mossy_cobblestone_wall": "mossy_cobblestone_wall",
-            "minecraft:stone_brick_wall": "stone_brick_wall",
-            "minecraft:mossy_stone_brick_wall": "mossy_stone_brick_wall",
-            "minecraft:andesite_wall": "andesite_wall",
-            "minecraft:diorite_wall": "diorite_wall",
-            "minecraft:granite_wall": "granite_wall",
-            "minecraft:sandstone_wall": "sandstone_wall",
-            "minecraft:red_sandstone_wall": "red_sandstone_wall",
-            "minecraft:brick_wall": "brick_wall",
-            "minecraft:mud_brick_wall": "mud_brick_wall",
-            "minecraft:nether_brick_wall": "nether_brick_wall",
-            "minecraft:red_nether_brick_wall": "red_nether_brick_wall",
-            "minecraft:end_stone_brick_wall": "end_stone_brick_wall",
-            "minecraft:prismarine_wall": "prismarine_wall",
-            "minecraft:blackstone_wall": "blackstone_wall",
-            "minecraft:polished_blackstone_wall": "polished_blackstone_wall",
-            "minecraft:polished_blackstone_brick_wall": "polished_blackstone_brick_wall",
-            "minecraft:deepslate_tile_wall": "deepslate_tile_wall",
-            "minecraft:deepslate_brick_wall": "deepslate_brick_wall",
-            "minecraft:cobbled_deepslate_wall": "cobbled_deepslate_wall",
-            "minecraft:polished_deepslate_wall": "polished_deepslate_wall",
-            "minecraft:oak_door": "oak_door",
-            "minecraft:spruce_door": "spruce_door",
-            "minecraft:birch_door": "birch_door",
-            "minecraft:jungle_door": "jungle_door",
-            "minecraft:acacia_door": "acacia_door",
-            "minecraft:dark_oak_door": "dark_oak_door",
-            "minecraft:mangrove_door": "mangrove_door",
-            "minecraft:cherry_door": "cherry_door",
-            "minecraft:bamboo_door": "bamboo_door",
-            "minecraft:crimson_door": "crimson_door",
-            "minecraft:warped_door": "warped_door",
-            "minecraft:iron_door": "iron_door",
-            "minecraft:oak_trapdoor": "trapdoor",
-            "minecraft:spruce_trapdoor": "trapdoor",
-            "minecraft:birch_trapdoor": "trapdoor",
-            "minecraft:jungle_trapdoor": "trapdoor",
-            "minecraft:acacia_trapdoor": "trapdoor",
-            "minecraft:dark_oak_trapdoor": "trapdoor",
-            "minecraft:mangrove_trapdoor": "trapdoor",
-            "minecraft:cherry_trapdoor": "trapdoor",
-            "minecraft:bamboo_trapdoor": "bamboo_trapdoor",
-            "minecraft:crimson_trapdoor": "trapdoor",
-            "minecraft:warped_trapdoor": "trapdoor",
-            "minecraft:iron_trapdoor": "iron_trapdoor",
-            "minecraft:oak_button": "oak_button",
-            "minecraft:spruce_button": "spruce_button",
-            "minecraft:birch_button": "birch_button",
-            "minecraft:jungle_button": "jungle_button",
-            "minecraft:acacia_button": "acacia_button",
-            "minecraft:dark_oak_button": "dark_oak_button",
-            "minecraft:mangrove_button": "mangrove_button",
-            "minecraft:cherry_button": "cherry_button",
-            "minecraft:bamboo_button": "bamboo_button",
-            "minecraft:crimson_button": "crimson_button",
-            "minecraft:warped_button": "warped_button",
-            "minecraft:stone_button": "stone_button",
-            "minecraft:polished_blackstone_button": "polished_blackstone_button",
-            "minecraft:oak_pressure_plate": "oak_pressure_plate",
-            "minecraft:spruce_pressure_plate": "spruce_pressure_plate",
-            "minecraft:birch_pressure_plate": "birch_pressure_plate",
-            "minecraft:jungle_pressure_plate": "jungle_pressure_plate",
-            "minecraft:acacia_pressure_plate": "acacia_pressure_plate",
-            "minecraft:dark_oak_pressure_plate": "dark_oak_pressure_plate",
-            "minecraft:mangrove_pressure_plate": "mangrove_pressure_plate",
-            "minecraft:cherry_pressure_plate": "cherry_pressure_plate",
-            "minecraft:bamboo_pressure_plate": "bamboo_pressure_plate",
-            "minecraft:crimson_pressure_plate": "crimson_pressure_plate",
-            "minecraft:warped_pressure_plate": "warped_pressure_plate",
-            "minecraft:stone_pressure_plate": "stone_pressure_plate",
-            "minecraft:polished_blackstone_pressure_plate": "polished_blackstone_pressure_plate",
-            "minecraft:light_weighted_pressure_plate": "light_weighted_pressure_plate",
-            "minecraft:heavy_weighted_pressure_plate": "heavy_weighted_pressure_plate",
-            "minecraft:redstone_torch": "redstone_torch",
-            "minecraft:redstone_wall_torch": "redstone_torch",
-            "minecraft:redstone_lamp": "redstone_lamp",
-            "minecraft:piston": "piston",
-            "minecraft:sticky_piston": "sticky_piston",
-            "minecraft:dispenser": "dispenser",
-            "minecraft:dropper": "dropper",
-            "minecraft:observer": "observer",
-            "minecraft:hopper": "hopper",
-            "minecraft:repeater": "repeater",
-            "minecraft:comparator": "comparator",
-            "minecraft:note_block": "noteblock",
-            "minecraft:tnt": "tnt",
-            "minecraft:lever": "lever",
-            "minecraft:daylight_detector": "daylight_detector",
-            "minecraft:tripwire_hook": "tripwire_hook",
-            "minecraft:target": "target",
-            "minecraft:sculk_sensor": "sculk_sensor",
-            "minecraft:calibrated_sculk_sensor": "calibrated_sculk_sensor",
-            "minecraft:torch": "torch",
-            "minecraft:wall_torch": "torch",
-            "minecraft:soul_torch": "soul_torch",
-            "minecraft:soul_wall_torch": "soul_torch",
-            "minecraft:lantern": "lantern",
-            "minecraft:soul_lantern": "soul_lantern",
-            "minecraft:sea_lantern": "sea_lantern",
-            "minecraft:jack_o_lantern": "jack_o_lantern",
-            "minecraft:campfire": "campfire",
-            "minecraft:soul_campfire": "soul_campfire",
-            "minecraft:candle": "candle",
-            "minecraft:white_candle": "white_candle",
-            "minecraft:end_rod": "end_rod",
-            "minecraft:froglight": "verdant_froglight",
-            "minecraft:pearlescent_froglight": "pearlescent_froglight",
-            "minecraft:verdant_froglight": "verdant_froglight",
-            "minecraft:ochre_froglight": "ochre_froglight",
-            "minecraft:grass": "grass",
-            "minecraft:tall_grass": "tallgrass",
-            "minecraft:fern": "fern",
-            "minecraft:large_fern": "large_fern",
-            "minecraft:dead_bush": "deadbush",
-            "minecraft:dandelion": "dandelion",
-            "minecraft:poppy": "poppy",
-            "minecraft:blue_orchid": "blue_orchid",
-            "minecraft:allium": "allium",
-            "minecraft:azure_bluet": "azure_bluet",
-            "minecraft:red_tulip": "red_tulip",
-            "minecraft:orange_tulip": "orange_tulip",
-            "minecraft:white_tulip": "white_tulip",
-            "minecraft:pink_tulip": "pink_tulip",
-            "minecraft:oxeye_daisy": "oxeye_daisy",
-            "minecraft:cornflower": "cornflower",
-            "minecraft:lily_of_the_valley": "lily_of_the_valley",
-            "minecraft:wither_rose": "wither_rose",
-            "minecraft:sunflower": "sunflower",
-            "minecraft:lilac": "lilac",
-            "minecraft:rose_bush": "rose_bush",
-            "minecraft:peony": "peony",
-            "minecraft:lily_pad": "waterlily",
-            "minecraft:vine": "vine",
-            "minecraft:weeping_vines": "weeping_vines",
-            "minecraft:twisting_vines": "twisting_vines",
-            "minecraft:cactus": "cactus",
-            "minecraft:sugar_cane": "reeds",
-            "minecraft:bamboo": "bamboo",
-            "minecraft:bamboo_sapling": "bamboo_sapling",
-            "minecraft:brown_mushroom": "brown_mushroom",
-            "minecraft:red_mushroom": "red_mushroom",
-            "minecraft:brown_mushroom_block": "brown_mushroom_block",
-            "minecraft:red_mushroom_block": "red_mushroom_block",
-            "minecraft:mushroom_stem": "mushroom_stem",
-            "minecraft:crimson_fungus": "crimson_fungus",
-            "minecraft:warped_fungus": "warped_fungus",
-            "minecraft:crimson_roots": "crimson_roots",
-            "minecraft:warped_roots": "warped_roots",
-            "minecraft:nether_sprouts": "nether_sprouts",
-            "minecraft:nether_wart": "nether_wart",
-            "minecraft:nether_wart_block": "nether_wart_block",
-            "minecraft:warped_wart_block": "warped_wart_block",
-            "minecraft:azalea": "azalea",
-            "minecraft:flowering_azalea": "flowering_azalea",
-            "minecraft:moss_carpet": "moss_carpet",
-            "minecraft:big_dripleaf": "big_dripleaf",
-            "minecraft:small_dripleaf": "small_dripleaf",
-            "minecraft:spore_blossom": "spore_blossom",
-            "minecraft:hanging_roots": "hanging_roots",
-            "minecraft:glow_lichen": "glow_lichen",
-            "minecraft:pink_petals": "pink_petals",
-            "minecraft:oak_sapling": "oak_sapling",
-            "minecraft:spruce_sapling": "spruce_sapling",
-            "minecraft:birch_sapling": "birch_sapling",
-            "minecraft:jungle_sapling": "jungle_sapling",
-            "minecraft:acacia_sapling": "acacia_sapling",
-            "minecraft:dark_oak_sapling": "dark_oak_sapling",
-            "minecraft:mangrove_propagule": "mangrove_propagule",
-            "minecraft:cherry_sapling": "cherry_sapling",
-            "minecraft:sandstone": "sandstone",
-            "minecraft:chiseled_sandstone": "chiseled_sandstone",
-            "minecraft:cut_sandstone": "cut_sandstone",
-            "minecraft:smooth_sandstone": "smooth_sandstone",
-            "minecraft:red_sandstone": "red_sandstone",
-            "minecraft:chiseled_red_sandstone": "chiseled_red_sandstone",
-            "minecraft:cut_red_sandstone": "cut_red_sandstone",
-            "minecraft:smooth_red_sandstone": "smooth_red_sandstone",
-            "minecraft:prismarine": "prismarine",
-            "minecraft:prismarine_bricks": "prismarine_bricks",
-            "minecraft:dark_prismarine": "dark_prismarine",
-            "minecraft:coral_block": "coral_block",
-            "minecraft:tube_coral_block": "tube_coral_block",
-            "minecraft:brain_coral_block": "brain_coral_block",
-            "minecraft:bubble_coral_block": "bubble_coral_block",
-            "minecraft:fire_coral_block": "fire_coral_block",
-            "minecraft:horn_coral_block": "horn_coral_block",
-            "minecraft:tube_coral": "tube_coral",
-            "minecraft:brain_coral": "brain_coral",
-            "minecraft:bubble_coral": "bubble_coral",
-            "minecraft:fire_coral": "fire_coral",
-            "minecraft:horn_coral": "horn_coral",
-            "minecraft:tube_coral_fan": "tube_coral_fan",
-            "minecraft:brain_coral_fan": "brain_coral_fan",
-            "minecraft:bubble_coral_fan": "bubble_coral_fan",
-            "minecraft:fire_coral_fan": "fire_coral_fan",
-            "minecraft:horn_coral_fan": "horn_coral_fan",
-            "minecraft:dead_tube_coral_block": "dead_tube_coral_block",
-            "minecraft:dead_brain_coral_block": "dead_brain_coral_block",
-            "minecraft:dead_bubble_coral_block": "dead_bubble_coral_block",
-            "minecraft:dead_fire_coral_block": "dead_fire_coral_block",
-            "minecraft:dead_horn_coral_block": "dead_horn_coral_block",
-            "minecraft:dried_kelp_block": "dried_kelp_block",
-            "minecraft:mud": "mud",
-            "minecraft:mud_bricks": "mud_bricks",
-            "minecraft:packed_mud": "packed_mud",
-            "minecraft:mangrove_roots": "mangrove_roots",
-            "minecraft:muddy_mangrove_roots": "muddy_mangrove_roots",
-            "minecraft:bamboo_block": "bamboo_block",
-            "minecraft:stripped_bamboo_block": "stripped_bamboo_block",
-            "minecraft:bamboo_mosaic": "bamboo_mosaic",
-            "minecraft:bamboo_wall_sign": "bamboo_wall_sign",
-            "minecraft:bookshelf": "bookshelf",
-            "minecraft:brick_block": "brick_block",
-            "minecraft:crafting_table": "crafting_table",
-            "minecraft:furnace": "furnace",
-            "minecraft:blast_furnace": "blast_furnace",
-            "minecraft:smoker": "smoker",
-            "minecraft:barrel": "barrel",
-            "minecraft:chest": "chest",
-            "minecraft:trapped_chest": "trapped_chest",
-            "minecraft:ender_chest": "ender_chest",
-            "minecraft:shulker_box": "shulker_box",
-            "minecraft:white_shulker_box": "white_shulker_box",
-            "minecraft:orange_shulker_box": "orange_shulker_box",
-            "minecraft:magenta_shulker_box": "magenta_shulker_box",
-            "minecraft:light_blue_shulker_box": "light_blue_shulker_box",
-            "minecraft:yellow_shulker_box": "yellow_shulker_box",
-            "minecraft:lime_shulker_box": "lime_shulker_box",
-            "minecraft:pink_shulker_box": "pink_shulker_box",
-            "minecraft:gray_shulker_box": "gray_shulker_box",
-            "minecraft:light_gray_shulker_box": "light_gray_shulker_box",
-            "minecraft:cyan_shulker_box": "cyan_shulker_box",
-            "minecraft:purple_shulker_box": "purple_shulker_box",
-            "minecraft:blue_shulker_box": "blue_shulker_box",
-            "minecraft:brown_shulker_box": "brown_shulker_box",
-            "minecraft:green_shulker_box": "green_shulker_box",
-            "minecraft:red_shulker_box": "red_shulker_box",
-            "minecraft:black_shulker_box": "black_shulker_box",
-            "minecraft:enchanting_table": "enchanting_table",
-            "minecraft:anvil": "anvil",
-            "minecraft:chipped_anvil": "chipped_anvil",
-            "minecraft:damaged_anvil": "damaged_anvil",
-            "minecraft:jukebox": "jukebox",
-            "minecraft:lodestone": "lodestone",
-            "minecraft:respawn_anchor": "respawn_anchor",
-            "minecraft:beacon": "beacon",
-            "minecraft:conduit": "conduit",
-            "minecraft:scaffolding": "scaffolding",
-            "minecraft:ladder": "ladder",
-            "minecraft:pointed_dripstone": "pointed_dripstone",
-            "minecraft:chain": "chain",
-            "minecraft:iron_bars": "iron_bars",
-            "minecraft:lightning_rod": "lightning_rod",
-            "minecraft:bell": "bell",
-            "minecraft:grindstone": "grindstone",
-            "minecraft:stonecutter": "stonecutter",
-            "minecraft:loom": "loom",
-            "minecraft:cartography_table": "cartography_table",
-            "minecraft:fletching_table": "fletching_table",
-            "minecraft:smithing_table": "smithing_table",
-            "minecraft:cauldron": "cauldron",
-            "minecraft:composter": "composter",
-            "minecraft:beehive": "beehive",
-            "minecraft:bee_nest": "bee_nest",
-            "minecraft:hay_block": "hay_block",
-            "minecraft:melon": "melon_block",
-            "minecraft:pumpkin": "pumpkin",
-            "minecraft:carved_pumpkin": "carved_pumpkin",
-            "minecraft:lectern": "lectern",
-            "minecraft:structure_block": "structure_block",
-            "minecraft:structure_void": "structure_void",
-            "minecraft:barrier": "barrier",
-            "minecraft:command_block": "command_block",
-            "minecraft:chain_command_block": "chain_command_block",
-            "minecraft:repeating_command_block": "repeating_command_block",
-            "minecraft:end_portal": "end_portal",
-            "minecraft:end_portal_frame": "end_portal_frame",
-            "minecraft:portal": "portal",
-            "minecraft:spawner": "mob_spawner",
-            "minecraft:brewing_stand": "brewing_stand",
-            "minecraft:flower_pot": "flower_pot",
-            "minecraft:skull": "skull",
-            "minecraft:skeleton_skull": "skeleton_skull",
-            "minecraft:wither_skeleton_skull": "wither_skeleton_skull",
-            "minecraft:player_head": "player_head",
-            "minecraft:zombie_head": "zombie_head",
-            "minecraft:creeper_head": "creeper_head",
-            "minecraft:dragon_head": "dragon_head",
-            "minecraft:skull_wall": "skull_wall"
-        };
-
-        var LEGACY_ALIASES = {
-            "minecraft:wooden_slab": "oak_slab",
-            "minecraft:tallgrass": "tallgrass",
-            "minecraft:reeds": "reeds",
-            "minecraft:snow_layer": "snow_layer",
-            "minecraft:wall_sign": "wall_sign",
-            "minecraft:standing_sign": "standing_sign",
-            "minecraft:bed": "bed",
-            "minecraft:monster_egg": "monster_egg",
-            "minecraft:red_flower": "poppy",
-            "minecraft:activator_rail": "activator_rail",
-            "minecraft:detector_rail": "detector_rail",
-            "minecraft:rail": "rail",
-            "minecraft:waterlily": "waterlily",
-            "minecraft:web": "web",
-            "minecraft:wooden_button": "wooden_button",
-            "minecraft:melon_block": "melon_block",
-            "minecraft:skull": "skull",
-            "minecraft:brewing_stand": "brewing_stand",
-            "minecraft:redstone_wire": "redstone_wire",
-            "minecraft:nether_brick": "nether_brick",
-            "minecraft:red_nether_brick": "red_nether_brick",
-            "minecraft:hardened_clay": "hardened_clay",
-            "minecraft:portal": "portal",
-            "minecraft:double_plant": "double_plant",
-            "minecraft:tripwire": "tripwire",
-            "minecraft:flower_pot": "flower_pot",
-            "minecraft:end_portal_frame": "end_portal_frame",
-            "minecraft:end_portal": "end_portal",
-            "minecraft:structure_block": "structure_block",
-            "minecraft:structure_void": "structure_void",
-            "minecraft:lit_redstone_lamp": "redstone_lamp",
-            "minecraft:barrier": "barrier",
-            "minecraft:powered_repeater": "repeater",
-            "minecraft:unlit_redstone_torch": "redstone_torch",
-            "minecraft:command_block": "command_block",
-            "minecraft:chain_command_block": "chain_command_block",
-            "minecraft:repeating_command_block": "repeating_command_block",
-            "minecraft:weighted_pressure_plate_heavy": "heavy_weighted_pressure_plate",
-            "minecraft:weighted_pressure_plate_light": "light_weighted_pressure_plate",
-            "minecraft:carrot": "carrot",
-            "minecraft:potato": "potato",
-            "minecraft:cake": "cake",
-            "minecraft:grass_path": "grass_path",
-            "minecraft:deadbush": "deadbush",
-            "minecraft:wooden_pressure_plate": "wooden_pressure_plate",
-            "minecraft:stone_pressure_plate": "stone_pressure_plate",
-            "minecraft:wooden_door": "wooden_door",
-            "minecraft:iron_door": "iron_door",
-            "minecraft:oak_door": "oak_door",
-            "minecraft:spruce_door": "spruce_door",
-            "minecraft:birch_door": "birch_door",
-            "minecraft:jungle_door": "jungle_door",
-            "minecraft:acacia_door": "acacia_door",
-            "minecraft:dark_oak_door": "dark_oak_door",
-            "minecraft:mangrove_door": "mangrove_door",
-            "minecraft:cherry_door": "cherry_door",
-            "minecraft:crimson_door": "crimson_door",
-            "minecraft:warped_door": "warped_door",
-            "minecraft:oak_fence": "oak_fence",
-            "minecraft:spruce_fence": "spruce_fence",
-            "minecraft:birch_fence": "birch_fence",
-            "minecraft:jungle_fence": "jungle_fence",
-            "minecraft:acacia_fence": "acacia_fence",
-            "minecraft:dark_oak_fence": "dark_oak_fence",
-            "minecraft:mangrove_fence": "mangrove_fence",
-            "minecraft:cherry_fence": "cherry_fence",
-            "minecraft:nether_brick_fence": "nether_brick_fence",
-            "minecraft:crimson_fence": "crimson_fence",
-            "minecraft:warped_fence": "warped_fence",
-            "minecraft:oak_fence_gate": "oak_fence_gate",
-            "minecraft:spruce_fence_gate": "spruce_fence_gate",
-            "minecraft:birch_fence_gate": "birch_fence_gate",
-            "minecraft:jungle_fence_gate": "jungle_fence_gate",
-            "minecraft:acacia_fence_gate": "acacia_fence_gate",
-            "minecraft:dark_oak_fence_gate": "dark_oak_fence_gate",
-            "minecraft:mangrove_fence_gate": "mangrove_fence_gate",
-            "minecraft:crimson_fence_gate": "crimson_fence_gate",
-            "minecraft:warped_fence_gate": "warped_fence_gate",
-            "minecraft:oak_trapdoor": "trapdoor",
-            "minecraft:spruce_trapdoor": "trapdoor",
-            "minecraft:birch_trapdoor": "trapdoor",
-            "minecraft:jungle_trapdoor": "trapdoor",
-            "minecraft:acacia_trapdoor": "trapdoor",
-            "minecraft:dark_oak_trapdoor": "trapdoor",
-            "minecraft:mangrove_trapdoor": "trapdoor",
-            "minecraft:iron_trapdoor": "iron_trapdoor",
-            "minecraft:crimson_trapdoor": "trapdoor",
-            "minecraft:warped_trapdoor": "trapdoor",
-            "minecraft:birch_button": "birch_button",
-            "minecraft:jungle_button": "jungle_button",
-            "minecraft:acacia_button": "acacia_button",
-            "minecraft:dark_oak_button": "dark_oak_button",
-            "minecraft:mangrove_button": "mangrove_button",
-            "minecraft:cherry_button": "cherry_button",
-            "minecraft:crimson_button": "crimson_button",
-            "minecraft:warped_button": "warped_button",
-            "minecraft:polished_blackstone_button": "polished_blackstone_button",
-            "minecraft:powered_rail": "powered_rail",
-            "minecraft:crafting_table": "crafting_table",
-            "minecraft:enchanting_table": "enchanting_table",
-            "minecraft:furnace": "furnace",
-            "minecraft:lit_furnace": "furnace",
-            "minecraft:blast_furnace": "blast_furnace",
-            "minecraft:smoker": "smoker",
-            "minecraft:anvil": "anvil",
-            "minecraft:chipped_anvil": "anvil",
-            "minecraft:damaged_anvil": "anvil",
-            "minecraft:grindstone": "grindstone",
-            "minecraft:stonecutter": "stonecutter",
-            "minecraft:lectern": "lectern",
-            "minecraft:cartography_table": "cartography_table",
-            "minecraft:fletching_table": "fletching_table",
-            "minecraft:smithing_table": "smithing_table",
-            "minecraft:loom": "loom",
-            "minecraft:composter": "composter",
-            "minecraft:barrel": "barrel",
-            "minecraft:cauldron": "cauldron",
-            "minecraft:brewing_stand": "brewing_stand",
-            "minecraft:beacon": "beacon",
-            "minecraft:conduit": "conduit",
-            "minecraft:ender_chest": "ender_chest",
-            "minecraft:shulker_box": "shulker_box",
-            "minecraft:white_shulker_box": "white_shulker_box",
-            "minecraft:orange_shulker_box": "orange_shulker_box",
-            "minecraft:magenta_shulker_box": "magenta_shulker_box",
-            "minecraft:light_blue_shulker_box": "light_blue_shulker_box",
-            "minecraft:yellow_shulker_box": "yellow_shulker_box",
-            "minecraft:lime_shulker_box": "lime_shulker_box",
-            "minecraft:pink_shulker_box": "pink_shulker_box",
-            "minecraft:gray_shulker_box": "gray_shulker_box",
-            "minecraft:cyan_shulker_box": "cyan_shulker_box",
-            "minecraft:purple_shulker_box": "purple_shulker_box",
-            "minecraft:blue_shulker_box": "blue_shulker_box",
-            "minecraft:brown_shulker_box": "brown_shulker_box",
-            "minecraft:green_shulker_box": "green_shulker_box",
-            "minecraft:red_shulker_box": "red_shulker_box",
-            "minecraft:black_shulker_box": "black_shulker_box",
-            "minecraft:mob_spawner": "mob_spawner",
-            "minecraft:spawner": "mob_spawner"
-        };
-
-        function getBedrockId(javaId) {
-            if (BEDROCK_ID_MAP[javaId] !== undefined) return BEDROCK_ID_MAP[javaId];
-            var sp = javaId.indexOf('[');
-            var base = sp > -1 ? javaId.slice(0, sp) : javaId;
-            if (BEDROCK_ID_MAP[base] !== undefined) return BEDROCK_ID_MAP[base];
-            if (LEGACY_ALIASES[javaId] !== undefined) return LEGACY_ALIASES[javaId];
-            if (LEGACY_ALIASES[base] !== undefined) return LEGACY_ALIASES[base];
-            return base.split(':').pop() || base;
         }
 
         // ============================================================
@@ -2047,7 +1411,7 @@
         }
 
         // ============================================================
-        // 生成指令
+        // 生成指令 (完整版)
         // ============================================================
         async function generateCommands(blocks, fn, w, l, params) {
             var sb = params.sb || 'dr';
@@ -2333,7 +1697,7 @@
         }
 
         // ============================================================
-        // 生成 3D 预览 HTML (独立文件，贴图嵌入)
+        // 生成 3D 预览 HTML
         // ============================================================
         function generatePreviewHTML(result, fileName) {
             if (!result || !result.blocks || result.blocks.length === 0) {
@@ -2345,15 +1709,12 @@
             var h = result.height || 1;
             var l = result.length || 1;
 
-            // 限制显示数量
             var maxBlocks = 50000;
             var showBlocks = blocks;
             if (blocks.length > maxBlocks) {
                 showBlocks = blocks.slice(0, maxBlocks);
-                log('⚠️ 方块过多 (' + blocks.length + ')，预览仅显示前 ' + maxBlocks + ' 个');
             }
 
-            // 按方块类型分组
             var groupMap = {};
             for (var i = 0; i < showBlocks.length; i++) {
                 var b = showBlocks[i];
@@ -2362,7 +1723,6 @@
                 groupMap[bid].push(b);
             }
 
-            // 构建方块数据用于JS
             var blockData = {};
             for (var bid in groupMap) {
                 var list = groupMap[bid];
@@ -2371,13 +1731,13 @@
                     var b = list[j];
                     positions.push([b.x, b.y, b.z]);
                 }
-                // 生成一个颜色
                 var hash = 0;
                 for (var ci = 0; ci < bid.length; ci++) hash = (hash * 31 + bid.charCodeAt(ci)) & 0xFFFFFF;
                 var color = '#' + (0x404040 + (hash & 0x7F7F7F)).toString(16).padStart(6, '0');
                 blockData[bid] = {
                     positions: positions,
-                    color: color
+                    color: color,
+                    name: bid
                 };
             }
 
@@ -2528,16 +1888,21 @@
                 currentPreviewResult = result;
                 var blockCount = result.blocks ? result.blocks.length : 0;
 
-                // 生成预览HTML
                 var html = generatePreviewHTML(result, currentFileName.replace(/\.[^.]+$/, ''));
                 if (html) {
                     currentPreviewHTML = html;
                     previewDownloadBtn.style.display = 'inline-block';
-                    previewInfo.textContent = '✅ 预览已生成，点击下载';
-                    prPlaceholder.style.display = 'none';
+                    previewDownloadBtn.disabled = false;
+                    previewInfo.textContent = '✅ 预览已生成 (' + blockCount + ' 个方块)';
+                    previewStatus.textContent = '点击下载按钮保存HTML';
                     prInfo.style.display = 'block';
                     prInfo.textContent = '方块: ' + blockCount + ' | 尺寸: ' + result.width + '×' + result.height + '×' +
                         result.length;
+                    preview3d.innerHTML =
+                        '<div style="text-align:center;color:#69db7c;font-size:18px;">✅ 预览已生成</div><div style="color:#888;font-size:13px;margin-top:8px;">' +
+                        blockCount + ' 个方块, ' + result.width + '×' + result.height + '×' + result.length +
+                        '<br><span style="color:#555;">点击「下载预览HTML」保存后用浏览器打开</span></div><div class="preview-info-overlay" id="prInfo" style="display:block;position:absolute;bottom:12px;left:12px;background:rgba(0,0,0,.7);padding:6px 14px;border-radius:6px;font-size:12px;color:#aaa;pointer-events:none;z-index:10;">方块: ' +
+                        blockCount + ' | 尺寸: ' + result.width + '×' + result.height + '×' + result.length + '</div>';
                     showToast('✅ 3D预览HTML已生成，点击下载', 'success');
                 } else {
                     showToast('❌ 预览生成失败', 'error');
@@ -2630,7 +1995,7 @@
         }
 
         // ============================================================
-        // 暴露全局
+        // 启动 - 加载映射表
         // ============================================================
         window.preview = preview;
         window.convert = convert;
@@ -2640,9 +2005,11 @@
         window.clearAll = clearAll;
         window.copyCommands = copyCommands;
 
-        log('Web 版转换器已加载，敏感词规则: ' + _SF.count() + ' 条 (来自敏感词库lite.json)');
-        log('拖拽 .schematic 或 .litematic 文件到页面开始');
-        log('⚠️ 纯数字不会触发敏感词检测');
+        // 加载映射表
+        loadBlockMap();
+
+        log('Web 版转换器已加载');
+        log('💡 正在加载 generator_blocks.json 映射表...');
         log('💡 点击「生成3D预览」→ 下载HTML → 本地打开查看3D模型');
     </script>
 </body>
