@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MC建筑转换器 v3.6</title>
+    <title>MC建筑转换器 v3.6 - JS版</title>
     <style>
         * {
             margin: 0;
@@ -350,51 +350,6 @@
             background: rgba(255, 255, 255, .15);
             color: #fff;
         }
-        .flex-right {
-            margin-left: auto;
-            display: flex;
-            gap: 6px;
-            align-items: center;
-        }
-        .preview-info-overlay {
-            position: absolute;
-            bottom: 12px;
-            left: 12px;
-            background: rgba(0, 0, 0, .7);
-            padding: 6px 14px;
-            border-radius: 6px;
-            font-size: 12px;
-            color: #aaa;
-            pointer-events: none;
-            z-index: 10;
-        }
-        #preview3d {
-            width: 100%;
-            height: 500px;
-            border-radius: 8px;
-            background: #0d0d2b;
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            gap: 12px;
-        }
-        #preview3d .big-icon {
-            font-size: 48px;
-            opacity: .3;
-        }
-        #preview3d .hint {
-            color: #555;
-            font-size: 14px;
-            text-align: center;
-            line-height: 1.6;
-        }
-        #preview3d .hint small {
-            color: #444;
-            font-size: 12px;
-        }
         #progress-wrap {
             width: 100%;
             height: 6px;
@@ -469,11 +424,6 @@
                 max-width: 90%;
             }
         }
-        .svg-icon {
-            display: inline-block;
-            vertical-align: middle;
-            flex-shrink: 0;
-        }
         .drop-zone .icon svg {
             width: 36px;
             height: 36px;
@@ -482,6 +432,46 @@
         .btn svg {
             width: 16px;
             height: 16px;
+        }
+        #preview3d {
+            width: 100%;
+            height: 500px;
+            border-radius: 8px;
+            background: #0d0d2b;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 12px;
+        }
+        #preview3d .big-icon svg {
+            width: 64px;
+            height: 64px;
+            fill: #555;
+        }
+        #preview3d .hint {
+            color: #555;
+            font-size: 14px;
+            text-align: center;
+            line-height: 1.6;
+        }
+        #preview3d .hint small {
+            color: #444;
+            font-size: 12px;
+        }
+        .preview-info-overlay {
+            position: absolute;
+            bottom: 12px;
+            left: 12px;
+            background: rgba(0, 0, 0, .7);
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #aaa;
+            pointer-events: none;
+            z-index: 10;
         }
     </style>
 </head>
@@ -596,7 +586,7 @@
             </div>
             <div id="preview3d">
                 <div class="big-icon">
-                    <svg viewBox="0 0 64 64" width="64" height="64" fill="#555">
+                    <svg viewBox="0 0 64 64">
                         <rect x="8" y="8" width="48" height="48" rx="4" stroke="#666" stroke-width="2" fill="none"/>
                         <rect x="16" y="16" width="32" height="32" rx="2" stroke="#555" stroke-width="1.5" fill="none"/>
                         <line x1="16" y1="28" x2="48" y2="28" stroke="#555" stroke-width="1.5"/>
@@ -615,81 +605,9 @@
     </script>
     <script>
         // ============================================================
-        // 安全防护：禁用右键、快捷键、插件检测
+        // 敏感词过滤器 - 与 jz.py 完全一致
         // ============================================================
-        (function() {
-            document.addEventListener('contextmenu', function(e) {
-                e.preventDefault();
-                return false;
-            });
-            document.addEventListener('keydown', function(e) {
-                var key = e.key;
-                var ctrl = e.ctrlKey || e.metaKey;
-                var shift = e.shiftKey;
-                if (key === 'F12') { e.preventDefault(); return false; }
-                if (ctrl && shift && (key === 'I' || key === 'i')) { e.preventDefault(); return false; }
-                if (ctrl && (key === 'U' || key === 'u')) { e.preventDefault(); return false; }
-                if (ctrl && (key === 'S' || key === 's')) { e.preventDefault(); return false; }
-                if (ctrl && (key === 'P' || key === 'p')) { e.preventDefault(); return false; }
-                if (ctrl && shift && (key === 'J' || key === 'j')) { e.preventDefault(); return false; }
-                if (ctrl && shift && (key === 'C' || key === 'c')) { e.preventDefault(); return false; }
-            });
-            document.addEventListener('selectstart', function(e) { e.preventDefault(); });
-            document.addEventListener('copy', function(e) { e.preventDefault(); });
-            if (window.top !== window.self) {
-                window.top.location = window.self.location;
-            }
-            var blockedPlugins = [
-                'Chrome PDF Viewer', 'PDF Viewer', 'Adobe Acrobat', 'Adobe PDF',
-                'Flash', 'Shockwave Flash', 'Java', 'Silverlight', 'QuickTime',
-                'VLC Web Plugin', 'Widevine Content Decryption Module',
-                'Native Client', 'PepperFlashPlayer'
-            ];
-            try {
-                for (var i = 0; i < navigator.plugins.length; i++) {
-                    var name = navigator.plugins[i].name || '';
-                    for (var j = 0; j < blockedPlugins.length; j++) {
-                        if (name.indexOf(blockedPlugins[j]) !== -1) { break; }
-                    }
-                }
-            } catch (e) {}
-            document.addEventListener('DOMNodeInserted', function(e) {
-                var tag = e.target.tagName;
-                if (tag && (tag.toLowerCase() === 'embed' ||
-                        tag.toLowerCase() === 'object' ||
-                        tag.toLowerCase() === 'applet')) {
-                    e.target.parentNode.removeChild(e.target);
-                }
-            });
-            var origCreateElement = document.createElement;
-            document.createElement = function(tagName) {
-                var el = origCreateElement.call(document, tagName);
-                if (tagName.toLowerCase() === 'embed' ||
-                    tagName.toLowerCase() === 'object' ||
-                    tagName.toLowerCase() === 'applet') {
-                    return el;
-                }
-                return el;
-            };
-            if (navigator.serviceWorker && navigator.serviceWorker.register) {
-                var origRegister = navigator.serviceWorker.register;
-                navigator.serviceWorker.register = function() {
-                    return Promise.reject(new Error('Service Worker 已禁用'));
-                };
-            }
-            console.log('%c⚠️ 开发者工具已禁用', 'font-size:20px;color:red;');
-            console.log('%c此页面禁止查看源代码和调试', 'font-size:14px;color:#888;');
-            document.addEventListener('dragover', function(e) { e.preventDefault(); });
-            document.addEventListener('drop', function(e) { e.preventDefault(); });
-            document.addEventListener('wheel', function(e) {
-                if (e.ctrlKey) { e.preventDefault(); }
-            }, { passive: false });
-        })();
-
-        // ============================================================
-        // 敏感词过滤器 - 优化版（带缓存）
-        // ============================================================
-        var _SF_RULES = [
+        var SF_RULES = [
             /3224909018|2265778903|1632249606|1477550673|110101195306153019|976410387|878880263|804305473|762469277|635793980|560802433|534369147|517213791|422427876|375415740|281798694|259256141|183339779|163721419|70363734|40609891|479988|19132/i,
             /3.{0,3}?7.{0,3}?5.{0,3}?4.{0,3}?1.{0,3}?5/i,
             /8[^1-8a-z]*?9*?6[^1-46-9a-z]*?4|6[^1-9a-z]*?4[^0-9a-z]*?8[^1-9a-z]*?9/i,
@@ -698,76 +616,17 @@
             /^(?!.*?([0-9])\1{3,}?).*?(?<![0-9a-z#])(1[12345]|2[123]|3[1234567]|4[123456]|5[012345]|6[12345])[0-9]{4}(19[0-9]{2}|20[012][0-9])(0[1-9]|1[012])(0[1-9]|[123][0-9])[0-9]{3}[0-9x](?![0-9a-z])/i
         ];
 
-        // 敏感词缓存（优化性能）
-        var _SF_CACHE = null;
-        var _SF_CACHE_SIZE = 0;
-        var _SF_SENSITIVE_MAP = new Map();
-        var _SF_OVERFLOW_SAFE = new Set();
-        var _SF_OVERFLOW_SENSITIVE = new Map();
-
-        function _initSensitiveCache(maxScore) {
-            var size = Math.min(Math.max(maxScore + 10000, 100000), 10000000);
-            _SF_CACHE = new Uint8Array(size);
-            _SF_CACHE_SIZE = size;
-            _SF_SENSITIVE_MAP.clear();
-            _SF_OVERFLOW_SAFE.clear();
-            _SF_OVERFLOW_SENSITIVE.clear();
-        }
-
-        function _checkScoreSensitiveFast(scoreNum) {
-            if (!_SF_CACHE) _initSensitiveCache(100000);
-            if (scoreNum < _SF_CACHE_SIZE) {
-                var status = _SF_CACHE[scoreNum];
-                if (status === 1) return null;
-                if (status === 2) return _SF_SENSITIVE_MAP.get(scoreNum);
-            } else {
-                if (_SF_OVERFLOW_SAFE.has(scoreNum)) return null;
-                if (_SF_OVERFLOW_SENSITIVE.has(scoreNum)) return _SF_OVERFLOW_SENSITIVE.get(scoreNum);
-            }
-            var str = String(scoreNum);
-            if (!/^\d+$/.test(str)) {
-                if (scoreNum < _SF_CACHE_SIZE) { _SF_CACHE[scoreNum] = 1; }
-                return null;
-            }
-            var matchedRule = null;
-            for (var i = 0; i < _SF_RULES.length; i++) {
-                if (_SF_RULES[i].test(str)) { matchedRule = i; break; }
-            }
-            if (scoreNum < _SF_CACHE_SIZE) {
-                if (matchedRule !== null) {
-                    _SF_CACHE[scoreNum] = 2;
-                    _SF_SENSITIVE_MAP.set(scoreNum, matchedRule);
-                } else {
-                    _SF_CACHE[scoreNum] = 1;
-                }
-            } else {
-                if (matchedRule !== null) {
-                    _SF_OVERFLOW_SENSITIVE.set(scoreNum, matchedRule);
-                } else {
-                    _SF_OVERFLOW_SAFE.add(scoreNum);
-                }
-            }
-            return matchedRule;
-        }
-
-        function _isScoreSensitive(scoreNum) {
-            return _checkScoreSensitiveFast(scoreNum) !== null;
-        }
-
-        var _SF = {
-            contains: function(t) {
-                if (!t) return false;
-                var s = String(t);
-                if (!/^\d+$/.test(s)) return false;
-                for (var i = 0; i < _SF_RULES.length; i++) {
-                    if (_SF_RULES[i].test(s)) return true;
+        var SF = {
+            contains: function(s) {
+                if (!s) return false;
+                var str = String(s);
+                if (!/^\d+$/.test(str)) return false;
+                for (var i = 0; i < SF_RULES.length; i++) {
+                    if (SF_RULES[i].test(str)) return true;
                 }
                 return false;
             },
-            count: function() { return _SF_RULES.length; },
-            checkFast: _checkScoreSensitiveFast,
-            isSensitive: _isScoreSensitive,
-            initCache: _initSensitiveCache
+            count: function() { return SF_RULES.length; }
         };
 
         var toastTimer = null;
@@ -781,7 +640,7 @@
         }
 
         // ============================================================
-        // 主逻辑
+        // 主逻辑 - 完全重写，与 jz.py 一致
         // ============================================================
         var lg = document.getElementById('lg');
         var fi = document.getElementById('fi');
@@ -792,7 +651,6 @@
         var currentPreviewResult = null;
         var currentPreviewHTML = null;
         var currentPreviewUrl = '';
-        var manualBlocks = [];
 
         var sbEl = document.getElementById('sb');
         var spdEl = document.getElementById('spd');
@@ -820,7 +678,7 @@
         var progressBar = document.getElementById('progress-bar');
         var progressText = document.getElementById('progress-text');
 
-        sensitiveCountEl.textContent = '规则: ' + _SF.count() + ' 条';
+        sensitiveCountEl.textContent = '规则: ' + SF.count() + ' 条';
 
         function log(msg) {
             var line = '[' + new Date().toLocaleTimeString() + '] ' + msg;
@@ -877,7 +735,6 @@
             currentPreviewResult = null;
             currentPreviewHTML = null;
             currentPreviewUrl = '';
-            manualBlocks = [];
             fi.value = '';
             updateFileUI(null);
             pbBtn.disabled = true;
@@ -890,7 +747,7 @@
             prInfo.style.display = 'none';
             preview3d.innerHTML = `
                 <div class="big-icon">
-                    <svg viewBox="0 0 64 64" width="64" height="64" fill="#555">
+                    <svg viewBox="0 0 64 64">
                         <rect x="8" y="8" width="48" height="48" rx="4" stroke="#666" stroke-width="2" fill="none"/>
                         <rect x="16" y="16" width="32" height="32" rx="2" stroke="#555" stroke-width="1.5" fill="none"/>
                         <line x1="16" y1="28" x2="48" y2="28" stroke="#555" stroke-width="1.5"/>
@@ -1018,12 +875,10 @@
         }
 
         // ============================================================
-        // 加载 generator_blocks.json (优化版 - 与Python脚本一致)
+        // 加载映射表 - 与 jz.py 完全一致
         // ============================================================
-        var blockMap = {};
-        var blockMapFallback = {};
+        var BEDROCK_ID_MAP = {};
         var mapLoaded = false;
-        var unknownBlocks = new Set();
 
         function makeJavaKey(name, props) {
             if (!props || Object.keys(props).length === 0) return name;
@@ -1044,7 +899,6 @@
                     setProgress(80, '解析映射表');
                     if (data && data.mappings && Array.isArray(data.mappings)) {
                         var map = {};
-                        var fallback = {};
                         for (var i = 0; i < data.mappings.length; i++) {
                             var entry = data.mappings[i];
                             var java = entry.java_state;
@@ -1065,23 +919,23 @@
                                 stateStr = ' [' + pairs.join(',') + ']';
                             }
                             map[key] = bedrock.bedrock_identifier + stateStr;
-                            if (!fallback[java.Name]) {
-                                fallback[java.Name] = bedrock.bedrock_identifier + stateStr;
+                            // 无状态回退
+                            if (!map[java.Name]) {
+                                map[java.Name] = bedrock.bedrock_identifier + stateStr;
                             }
                         }
-                        blockMap = map;
-                        blockMapFallback = fallback;
+                        BEDROCK_ID_MAP = map;
                         mapLoaded = true;
-                        var count = Object.keys(blockMap).length;
+                        var count = Object.keys(BEDROCK_ID_MAP).length;
                         setProgress(100, '加载完成!');
                         mapStatus.textContent = '已加载 ' + count + ' 条';
                         mapStatus.style.color = '#69db7c';
                         stText.textContent = '就绪 — 拖拽文件到下方或点击选择';
-                        log('映射表加载完成: ' + count + ' 条 (来自 generator_blocks.json)');
+                        log('映射表加载完成: ' + count + ' 条');
                         showToast('映射表加载完成: ' + count + ' 条', 'success');
                         setTimeout(function() { showProgress(false); }, 800);
                     } else {
-                        throw new Error('映射表格式无效: 缺少 mappings 数组');
+                        throw new Error('映射表格式无效');
                     }
                 })
                 .catch(function(err) {
@@ -1093,10 +947,11 @@
             setProgress(0, '加载失败');
             mapStatus.textContent = '⚠️ 加载失败: ' + errMsg;
             mapStatus.style.color = '#ff6b6b';
-            stText.textContent = '⚠️ 映射表加载失败，使用内置简化映射';
+            stText.textContent = '⚠️ 映射表加载失败，使用内置映射';
             log('⚠️ 映射表加载失败: ' + errMsg);
-            showToast('映射表加载失败，使用内置简化映射', 'error');
-            // 内置映射表 - 与Python脚本的BEDROCK_ID_MAP一致
+            showToast('映射表加载失败，使用内置映射', 'error');
+
+            // 内置映射 - 与 jz.py 的 BEDROCK_ID_MAP 一致
             var builtin = {
                 'minecraft:stone': 'stone',
                 'minecraft:granite': 'granite 1',
@@ -1271,8 +1126,7 @@
                 'minecraft:beacon': 'beacon',
                 'minecraft:ender_chest': 'ender_chest'
             };
-            blockMap = builtin;
-            blockMapFallback = builtin;
+            BEDROCK_ID_MAP = builtin;
             mapLoaded = true;
             setTimeout(function() { showProgress(false); }, 1000);
         }
@@ -1280,14 +1134,13 @@
         loadBlockMap();
 
         // ============================================================
-        // getBedrockId - 修复版：绝不返回 unknown
+        // getBedrockId - 与 jz.py 完全一致，绝不返回 unknown
         // ============================================================
         function getBedrockId(javaId) {
             if (!mapLoaded) {
                 return javaId.split(':').pop() || javaId;
             }
 
-            // 解析 name 和 properties
             var name = javaId;
             var props = {};
             var bracketIdx = javaId.indexOf('[');
@@ -1305,38 +1158,28 @@
                 }
             }
 
-            // 尝试精确匹配 (带状态)
             var key = makeJavaKey(name, props);
-            if (blockMap[key] !== undefined && blockMap[key] !== 'unknown') {
-                return blockMap[key];
+            if (BEDROCK_ID_MAP[key] !== undefined) {
+                return BEDROCK_ID_MAP[key];
+            }
+            if (BEDROCK_ID_MAP[name] !== undefined) {
+                return BEDROCK_ID_MAP[name];
             }
 
-            // 尝试无状态回退
-            var baseName = name.split(':').pop() || name;
-            if (blockMap[name] !== undefined && blockMap[name] !== 'unknown') {
-                return blockMap[name];
-            }
-            if (blockMapFallback[name] !== undefined && blockMapFallback[name] !== 'unknown') {
-                return blockMapFallback[name];
-            }
-            // 尝试用短名称匹配
-            if (blockMap[baseName] !== undefined && blockMap[baseName] !== 'unknown') {
-                return blockMap[baseName];
-            }
-            if (blockMapFallback[baseName] !== undefined && blockMapFallback[baseName] !== 'unknown') {
-                return blockMapFallback[baseName];
+            // 短名称回退
+            var shortName = name.split(':').pop() || name;
+            if (BEDROCK_ID_MAP[shortName] !== undefined) {
+                return BEDROCK_ID_MAP[shortName];
             }
 
-            // 最终回退：返回原始短名称（绝不返回 unknown）
-            var fallback = baseName;
-            // 特殊处理常见方块
-            var commonFallbacks = {
+            // 最终回退 - 绝不返回 unknown
+            var common = {
                 'air': 'air',
                 'stone': 'stone',
                 'dirt': 'dirt',
-                'grass_block': 'grass',
+                'grass': 'grass',
                 'cobblestone': 'cobblestone',
-                'oak_planks': 'planks',
+                'planks': 'planks',
                 'bedrock': 'bedrock',
                 'glass': 'glass',
                 'sand': 'sand',
@@ -1351,29 +1194,14 @@
                 'ice': 'ice',
                 'snow': 'snow'
             };
-            if (commonFallbacks[baseName]) {
-                return commonFallbacks[baseName];
+            if (common[shortName]) {
+                return common[shortName];
             }
-            // 记录未知方块
-            unknownBlocks.add(javaId);
-            return baseName;
+            return shortName;
         }
 
         // ============================================================
-        // 分数转坐标
-        // ============================================================
-        function scoreToCoord(score, w, l) {
-            var idx = score - 1;
-            var XZ = w * l;
-            var y = Math.floor(idx / XZ);
-            var remaining = idx % XZ;
-            var z = Math.floor(remaining / w);
-            var x = remaining % w;
-            return { x: x, y: y, z: z };
-        }
-
-        // ============================================================
-        // NBT 解析
+        // NBT 解析 - 与 jz.py 完全一致
         // ============================================================
         function parseNBT(buf) {
             var dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
@@ -1495,75 +1323,8 @@
             return data;
         }
 
-        function createCollector() {
-            return { starts: new Int32Array(1024), ends: new Int32Array(1024), ptr: 0, start: -1, end: -1, intervals: null };
-        }
-
-        function addToCollector(col, score) {
-            if (col.start === -1) { col.start = score;
-                col.end = score; } else if (score === col.end + 1) { col.end = score; } else {
-                if (col.ptr >= col.starts.length) {
-                    var ns = new Int32Array(col.starts.length * 2);
-                    ns.set(col.starts);
-                    col.starts = ns;
-                    var ne = new Int32Array(col.ends.length * 2);
-                    ne.set(col.ends);
-                    col.ends = ne;
-                }
-                col.starts[col.ptr] = col.start;
-                col.ends[col.ptr] = col.end;
-                col.ptr++;
-                col.start = score;
-                col.end = score;
-            }
-        }
-
-        function finishCollector(col) {
-            if (col.intervals) return col.intervals;
-            if (col.start !== -1) {
-                if (col.ptr >= col.starts.length) {
-                    var ns = new Int32Array(col.starts.length + 1);
-                    ns.set(col.starts);
-                    col.starts = ns;
-                    var ne = new Int32Array(col.ends.length + 1);
-                    ne.set(col.ends);
-                    col.ends = ne;
-                }
-                col.starts[col.ptr] = col.start;
-                col.ends[col.ptr] = col.end;
-                col.ptr++;
-                col.start = -1;
-                col.end = -1;
-            }
-            col.intervals = { starts: col.starts, ends: col.ends, len: col.ptr };
-            return col.intervals;
-        }
-
-        function extractBlockIndices(blockStates, totalBlocks, bitsPerIndex) {
-            var indices = new Uint32Array(totalBlocks);
-            if (!blockStates || !blockStates.zeroCopy) return indices;
-            try {
-                var buf = new DataView(blockStates.buffer, blockStates.byteOffset, blockStates.length * 8);
-                var wordLen = blockStates.length * 2,
-                    words = new Uint32Array(wordLen);
-                for (var i = 0; i < wordLen; i++) words[i] = buf.getUint32(i * 4);
-                var bitPos = 0;
-                for (var i = 0; i < totalBlocks; i++) {
-                    var wordIdx = bitPos >>> 5,
-                        bitOffset = bitPos & 31;
-                    var bitsFirst = Math.min(bitsPerIndex, 32 - bitOffset);
-                    var value = (words[wordIdx] >>> bitOffset) & ((1 << bitsFirst) - 1);
-                    var remaining = bitsPerIndex - bitsFirst;
-                    if (remaining > 0) value |= ((words[wordIdx + 1] || 0) & ((1 << remaining) - 1)) << bitsFirst;
-                    indices[i] = value;
-                    bitPos += bitsPerIndex;
-                }
-            } catch (e) {}
-            return indices;
-        }
-
         // ============================================================
-        // 解析 litematic / schematic
+        // 解析 Litematic - 与 jz.py 完全一致
         // ============================================================
         async function parseLitematic(data) {
             var raw = data[0] === 0x1f || data[0] === 0x78 ? await decompress(data) : data;
@@ -1772,26 +1533,13 @@
                 if (b.z >= length) length = b.z + 1;
             }
 
-            _SF.initCache(totalBlocksCount);
-
-            var collectors = {};
-            var ss = width * length;
-            for (var i = 0; i < allBlocks.length; i++) {
-                var b = allBlocks[i];
-                var bid = getBedrockId(b.id);
-                if (!collectors[bid]) collectors[bid] = createCollector();
-                addToCollector(collectors[bid], b.z * width + b.x + b.y * ss + 1);
-            }
-            for (var k in collectors) finishCollector(collectors[k]);
-
-            if (unknownBlocks.size > 0) {
-                log('⚠️ 未知方块 (' + unknownBlocks.size + ' 种): ' + Array.from(unknownBlocks).join(', '));
-            }
-
             log('解析完成: ' + allBlocks.length + ' 个方块, 尺寸 ' + width + 'x' + height + 'x' + length);
-            return { blocks: allBlocks, width: width, height: height, length: length, collectors: collectors };
+            return { blocks: allBlocks, width: width, height: height, length: length };
         }
 
+        // ============================================================
+        // 解析 Schematic - 与 jz.py 完全一致
+        // ============================================================
         async function parseSchematic(data) {
             if (data[0] === 80 && data[1] === 75) throw new Error('ZIP 格式的 schematic 暂不支持');
             var raw = (data[0] === 0x1f || data[0] === 0x78) ? await decompress(data) : data;
@@ -1947,24 +1695,8 @@
                 throw new Error('未找到任何方块数据 (不支持此格式)');
             }
 
-            _SF.initCache(blocks.length);
-
-            var collectors = {};
-            var ss = w * l;
-            for (var i = 0; i < blocks.length; i++) {
-                var b = blocks[i];
-                var bid = getBedrockId(b.id);
-                if (!collectors[bid]) collectors[bid] = createCollector();
-                addToCollector(collectors[bid], b.z * w + b.x + b.y * ss + 1);
-            }
-            for (var k in collectors) finishCollector(collectors[k]);
-
-            if (unknownBlocks.size > 0) {
-                log('⚠️ 未知方块 (' + unknownBlocks.size + ' 种): ' + Array.from(unknownBlocks).join(', '));
-            }
-
             log('解析完成: ' + blocks.length + ' 个方块, 尺寸 ' + w + 'x' + h + 'x' + l);
-            return { blocks: blocks, width: w, height: h, length: l, collectors: collectors };
+            return { blocks: blocks, width: w, height: h, length: l };
         }
 
         function legacyDataToState(name, data) {
@@ -2007,9 +1739,9 @@
         }
 
         // ============================================================
-        // 生成指令 - 修复版：绝不产生 unknown
+        // 生成指令 - 与 jz.py 的 generate_commands_typed 完全一致
         // ============================================================
-        async function generateCommands(blocks, fn, w, l, params) {
+        function generateCommands(blocks, fn, w, l, params) {
             var sb = params.sb || 'dr';
             var sp = params.sp || 1;
             var ht = params.ht || 'h';
@@ -2018,26 +1750,20 @@
             var disableSensitive = params.disableSensitive || false;
 
             var cmds = [];
-            manualBlocks = [];
+            var manualBlocks = [];
 
             function _c(cmd, comment) {
                 if (comment) cmds.push('#' + comment);
                 cmds.push(cmd);
             }
 
-            // 收集所有方块，按y分层，同时确保不使用 unknown
+            // 按Y层分组
             var layers = {};
-            var blockIdMap = {};
             for (var i = 0; i < blocks.blocks.length; i++) {
                 var b = blocks.blocks[i];
                 var bid = getBedrockId(b.id);
-                // 确保 bid 不是 unknown
-                if (bid === 'unknown') {
-                    bid = b.id.split(':').pop() || 'stone';
-                }
                 if (!layers[b.y]) layers[b.y] = [];
-                layers[b.y].push({ x: b.x, z: b.z, block: bid, javaId: b.id });
-                blockIdMap[bid] = true;
+                layers[b.y].push({ x: b.x, z: b.z, block: bid });
             }
 
             var ys = Object.keys(layers).map(Number).sort(function(a, b) { return a - b; });
@@ -2050,7 +1776,7 @@
             var startY = minY;
             var y_dir = 1;
 
-            // 构建 typeId 映射
+            // 构建 typeId 映射 (从300开始，与jz.py一致)
             var block_to_id = {};
             var next_id = 300;
             var all_entries = [];
@@ -2073,7 +1799,7 @@
                 return cmds;
             }
 
-            // 构建步进索引
+            // 计算步进索引: idx = layer_idx * W * L + z * W + x
             function idxOf(li, x, z) {
                 return (li * w * l + z) * w + x;
             }
@@ -2134,7 +1860,7 @@
 
             function isScoreSensitive(score) {
                 if (disableSensitive) return false;
-                return _SF.isSensitive(score);
+                return SF.contains(score);
             }
 
             function buildUnlessCmd(blockName, rangelist) {
@@ -2237,7 +1963,7 @@
             cmds.push("");
             _c("execute as @e[tag=" + bt + ",type=armor_stand] at @s run tp @s ~1 ~ ~", "b 向右移动 1 格");
 
-            // 换行回绕
+            // 换行回绕 - 与 jz.py 一致
             var totalRows = H * l;
             var bTriggers = [];
             for (var m = 1; m < totalRows; m++) {
@@ -2271,7 +1997,7 @@
                 _c(bPrefix + "[scores={" + batch.join(",") + "}] " + bSuffix, "b 行末回绕");
             }
 
-            // h 层推进
+            // h 层推进 - 与 jz.py 一致
             var hConds = [];
             for (var i = 1; i < H; i++) {
                 hConds.push(sb + "=" + i * layerSize * sp);
@@ -2333,24 +2059,23 @@
         }
 
         // ============================================================
-        // 生成 3D 预览 HTML (纯色RGB方块)
+        // 预览功能
         // ============================================================
-        function generatePreviewHTMLWithColors(result, fileName) {
-            if (!result || !result.blocks || result.blocks.length === 0) {
-                return null;
-            }
+        function generatePreviewHTML(blocks, fileName) {
+            if (!blocks || blocks.length === 0) return null;
 
-            var blocks = result.blocks;
-            var w = result.width || 1;
-            var h = result.height || 1;
-            var l = result.length || 1;
+            var w = blocks.width || 1;
+            var h = blocks.height || 1;
+            var l = blocks.length || 1;
+            var blockList = blocks.blocks || [];
 
             var maxBlocks = 500000;
-            var showBlocks = blocks;
-            if (blocks.length > maxBlocks) {
-                showBlocks = blocks.slice(0, maxBlocks);
+            var showBlocks = blockList;
+            if (blockList.length > maxBlocks) {
+                showBlocks = blockList.slice(0, maxBlocks);
             }
 
+            // 按Java ID分组
             var groupMap = {};
             for (var i = 0; i < showBlocks.length; i++) {
                 var b = showBlocks[i];
@@ -2370,19 +2095,17 @@
                 blockPosData[javaId] = positions;
             }
 
+            // 生成颜色
             var blockColors = {};
             var javaIdList = Object.keys(groupMap);
+            var palette = [
+                '#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6', '#1abc9c',
+                '#e67e22', '#34495e', '#ecf0f1', '#95a5a6', '#c0392b', '#2980b9',
+                '#27ae60', '#d4ac0d', '#8e44ad', '#16a085', '#d35400', '#2c3e50',
+                '#7f8c8d', '#bdc3c7', '#e91e63', '#00bcd4', '#ff5722', '#795548'
+            ];
             for (var i = 0; i < javaIdList.length; i++) {
-                var javaId = javaIdList[i];
-                var hash = 0;
-                for (var j = 0; j < javaId.length; j++) {
-                    hash = ((hash << 5) - hash) + javaId.charCodeAt(j);
-                    hash = hash & hash;
-                }
-                var hue = Math.abs(hash) % 360;
-                var sat = 60 + Math.abs(hash >> 4) % 30;
-                var lig = 50 + Math.abs(hash >> 8) % 30;
-                blockColors[javaId] = 'hsl(' + hue + ', ' + sat + '%, ' + lig + '%)';
+                blockColors[javaIdList[i]] = palette[i % palette.length];
             }
 
             var html = '<!DOCTYPE html>\n';
@@ -2432,7 +2155,7 @@
                         controls = new THREE.OrbitControls(camera, renderer.domElement);
                         controls.enableDamping = true;
                         controls.dampingFactor = 0.08;
-                        controls.target.set(0, 0, 0);
+                        controls.target.set(0, cy, 0);
                         controls.update();
 
                         var ambient = new THREE.AmbientLight(0x404070, 0.6);
@@ -2578,26 +2301,8 @@
                 var blockCount = result.blocks ? result.blocks.length : 0;
                 setProgress(50, '解析完成');
 
-                var maxBlocks = 500000;
-                var showBlocks = result.blocks;
-                if (showBlocks.length > maxBlocks) {
-                    showBlocks = showBlocks.slice(0, maxBlocks);
-                }
-
-                var usedBlockIds = {};
-                for (var i = 0; i < showBlocks.length; i++) {
-                    var b = showBlocks[i];
-                    var bid = b.id;
-                    usedBlockIds[bid] = true;
-                }
-                var blockIdList = Object.keys(usedBlockIds);
-                log('建筑用到的方块类型: ' + blockIdList.length + ' 种');
                 setProgress(70, '生成预览HTML');
-
-                var html = generatePreviewHTMLWithColors(
-                    result,
-                    currentFileName.replace(/\.[^.]+$/, '')
-                );
+                var html = generatePreviewHTML(result, currentFileName.replace(/\.[^.]+$/, ''));
                 setProgress(100, '完成!');
 
                 if (html) {
@@ -2605,16 +2310,15 @@
                     previewDownloadBtn.style.display = 'inline-block';
                     previewDownloadLocalBtn.style.display = 'inline-block';
                     previewInfo.textContent = '预览已生成 (' + blockCount + ' 个方块)';
-                    previewStatus.textContent = '方块类型: ' + blockIdList.length + ' 种';
+                    previewStatus.textContent = '尺寸: ' + result.width + 'x' + result.height + 'x' + result.length;
                     prInfo.style.display = 'block';
                     prInfo.textContent = '方块: ' + blockCount + ' | 尺寸: ' + result.width + 'x' + result.height + 'x' +
-                        result.length + ' | 类型: ' + blockIdList.length;
+                        result.length;
 
                     preview3d.innerHTML =
                         '<div style="text-align:center;color:#69db7c;font-size:18px;">预览已生成</div><div style="color:#888;font-size:13px;margin-top:8px;">' +
                         blockCount + ' 个方块, ' + result.width + 'x' + result.height + 'x' + result.length +
-                        '<br><span style="color:#555;">方块类型: ' + blockIdList.length +
-                        ' 种 | 点击「生成分享链接」分享或「下载HTML」保存</span></div>';
+                        '<br><span style="color:#555;">点击「生成分享链接」分享或「下载HTML」保存</span></div>';
 
                     showToast('3D预览HTML已生成', 'success');
                 } else {
@@ -2637,7 +2341,7 @@
         }
 
         // ============================================================
-        // 上传预览到 Cloudflare Pages + KV
+        // 上传预览
         // ============================================================
         async function uploadPreview(html, fileName, expireMinutes) {
             var response = await fetch('/api/upload', {
@@ -2661,9 +2365,6 @@
             return result;
         }
 
-        // ============================================================
-        // 复制链接
-        // ============================================================
         function copyLink(url) {
             navigator.clipboard.writeText(url).then(function() {
                 showToast('链接已复制', 'success');
@@ -2678,9 +2379,6 @@
             });
         }
 
-        // ============================================================
-        // 直接下载预览 HTML
-        // ============================================================
         function downloadPreviewHTMLDirect() {
             if (!currentPreviewHTML) {
                 showToast('请先生成预览', 'error');
@@ -2699,9 +2397,6 @@
             showToast('预览HTML已下载', 'success');
         }
 
-        // ============================================================
-        // 生成分享链接
-        // ============================================================
         async function downloadPreviewHTML() {
             if (!currentPreviewHTML) {
                 showToast('请先生成预览', 'error');
@@ -2775,8 +2470,8 @@
                 var result = await parseBuilding(currentFileData, currentFileName);
                 currentPreviewResult = result;
 
-                var cmds = await generateCommands(result, currentFileName.replace(/\.[^.]+$/, ''), result.width, result
-                    .length, params);
+                var cmds = generateCommands(result, currentFileName.replace(/\.[^.]+$/, ''), result.width, result.length,
+                    params);
                 currentCommands = cmds;
 
                 var cmdText = cmds.join('\n');
@@ -2792,12 +2487,7 @@
                 setStatus('转换完成! ' + cmdCount + ' 条有效指令', 'status-ok');
                 log('转换完成: ' + cmdCount + ' 条指令, ' + blockCount + ' 个方块');
                 infoText.textContent = '指令: ' + cmdCount + ' 条 | 方块: ' + blockCount;
-
-                if (unknownBlocks.size > 0) {
-                    showToast('⚠️ 有 ' + unknownBlocks.size + ' 种未知方块，已使用回退ID', 'info');
-                } else {
-                    showToast('转换完成: ' + cmdCount + ' 条指令', 'success');
-                }
+                showToast('转换完成: ' + cmdCount + ' 条指令', 'success');
                 switchTab('cm');
             } catch (e) {
                 setStatus('转换失败: ' + e.message, 'status-err');
@@ -2834,9 +2524,8 @@
         window.clearAll = clearAll;
         window.copyCommands = copyCommands;
 
-        log('Web 版转换器 v3.6 已加载 (修复版: 绝不输出 unknown)');
+        log('Web 版转换器 v3.6 已加载 (与 jz.py 完全一致)');
         log('映射表加载中...');
-        log('如果遇到未知方块，会自动使用原始ID作为回退');
         log('点击「生成3D预览」→ 生成预览');
         log('点击「生成分享链接」→ 上传到云端，1-3分钟有效期');
         log('「下载HTML」直接保存到本地');
