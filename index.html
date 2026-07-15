@@ -78,10 +78,19 @@
             font-size: 13px;
             cursor: pointer;
             color: #fff;
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
             text-decoration: none;
             transition: .15s;
             font-weight: 500;
+        }
+        .btn svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+            flex-shrink: 0;
         }
         .btn-primary {
             background: linear-gradient(135deg, #7c4dff, #5e35e0);
@@ -281,7 +290,6 @@
             background: rgba(255, 212, 59, .06);
         }
         .drop-zone .icon {
-            font-size: 32px;
             display: block;
             margin-bottom: 4px;
         }
@@ -461,6 +469,21 @@
                 max-width: 90%;
             }
         }
+        /* SVG 图标占位 */
+        .svg-icon {
+            display: inline-block;
+            vertical-align: middle;
+            flex-shrink: 0;
+        }
+        .drop-zone .icon svg {
+            width: 36px;
+            height: 36px;
+            fill: #666;
+        }
+        .btn svg {
+            width: 16px;
+            height: 16px;
+        }
     </style>
 </head>
 <body>
@@ -485,7 +508,9 @@
 
         <div class="card">
             <div class="drop-zone" id="dropZone">
-                <span class="icon" id="dropIcon">[+]</span>
+                <span class="icon" id="dropIcon">
+                    <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+                </span>
                 <span id="dropText">点击选择文件 或 拖拽 .schematic / .litematic 到此处</span>
                 <input type="file" id="fi" accept=".schematic,.litematic" style="display:none;">
                 <div id="fileInfo" style="margin-top:6px;display:none;">
@@ -517,10 +542,22 @@
                 <span style="font-size:11px;color:#555;margin-left:4px;" id="sensitiveCount">规则: 6 条</span>
             </div>
             <div class="row" style="margin-top:8px;">
-                <button class="btn btn-preview" id="pb" onclick="preview()" disabled>生成3D预览</button>
-                <button class="btn btn-primary" id="cb" onclick="convert()" disabled>转换</button>
-                <button class="btn btn-success" id="dlBtn" onclick="downloadCommands()" disabled style="display:none;">下载指令</button>
-                <button class="btn btn-danger btn-sm" onclick="clearAll()">清空</button>
+                <button class="btn btn-preview" id="pb" onclick="preview()" disabled>
+                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+                    生成3D预览
+                </button>
+                <button class="btn btn-primary" id="cb" onclick="convert()" disabled>
+                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                    转换
+                </button>
+                <button class="btn btn-success" id="dlBtn" onclick="downloadCommands()" disabled style="display:none;">
+                    <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                    下载指令
+                </button>
+                <button class="btn btn-danger btn-sm" onclick="clearAll()">
+                    <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                    清空
+                </button>
                 <span style="font-size:11px;color:#555;margin-left:auto;" id="infoText"></span>
             </div>
         </div>
@@ -544,8 +581,14 @@
         <div class="tab-c" id="prC">
             <div style="margin-bottom:6px;">
                 <div class="preview-actions">
-                    <button class="btn btn-preview btn-lg" id="previewDownloadBtn" onclick="downloadPreviewHTML()" style="display:none;">📤 生成分享链接</button>
-                    <button class="btn btn-secondary btn-lg" id="previewDownloadLocalBtn" onclick="downloadPreviewHTMLDirect()" style="display:none;">📥 下载HTML</button>
+                    <button class="btn btn-preview btn-lg" id="previewDownloadBtn" onclick="downloadPreviewHTML()" style="display:none;">
+                        <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                        生成分享链接
+                    </button>
+                    <button class="btn btn-secondary btn-lg" id="previewDownloadLocalBtn" onclick="downloadPreviewHTMLDirect()" style="display:none;">
+                        <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                        下载HTML
+                    </button>
                 </div>
                 <div style="margin-top:4px;">
                     <span style="font-size:11px;color:#666;" id="previewInfo"></span>
@@ -553,7 +596,16 @@
                 </div>
             </div>
             <div id="preview3d">
-                <div class="big-icon">[建筑]</div>
+                <div class="big-icon">
+                    <svg viewBox="0 0 64 64" width="64" height="64" fill="#555">
+                        <rect x="8" y="8" width="48" height="48" rx="4" stroke="#666" stroke-width="2" fill="none"/>
+                        <rect x="16" y="16" width="32" height="32" rx="2" stroke="#555" stroke-width="1.5" fill="none"/>
+                        <line x1="16" y1="28" x2="48" y2="28" stroke="#555" stroke-width="1.5"/>
+                        <line x1="16" y1="36" x2="48" y2="36" stroke="#555" stroke-width="1.5"/>
+                        <line x1="28" y1="16" x2="28" y2="48" stroke="#555" stroke-width="1.5"/>
+                        <line x1="36" y1="16" x2="36" y2="48" stroke="#555" stroke-width="1.5"/>
+                    </svg>
+                </div>
                 <div class="hint">点击「生成3D预览」生成预览HTML<br><small>下载后用浏览器打开查看3D模型</small></div>
                 <div class="preview-info-overlay" id="prInfo" style="display:none;"></div>
             </div>
@@ -776,8 +828,20 @@
             previewInfo.textContent = '';
             previewStatus.textContent = '';
             prInfo.style.display = 'none';
-            preview3d.innerHTML =
-                '<div class="big-icon">[建筑]</div><div class="hint">点击「生成3D预览」生成预览HTML<br><small>下载后用浏览器打开查看3D模型</small></div><div class="preview-info-overlay" id="prInfo" style="display:none;"></div>';
+            preview3d.innerHTML = `
+                <div class="big-icon">
+                    <svg viewBox="0 0 64 64" width="64" height="64" fill="#555">
+                        <rect x="8" y="8" width="48" height="48" rx="4" stroke="#666" stroke-width="2" fill="none"/>
+                        <rect x="16" y="16" width="32" height="32" rx="2" stroke="#555" stroke-width="1.5" fill="none"/>
+                        <line x1="16" y1="28" x2="48" y2="28" stroke="#555" stroke-width="1.5"/>
+                        <line x1="16" y1="36" x2="48" y2="36" stroke="#555" stroke-width="1.5"/>
+                        <line x1="28" y1="16" x2="28" y2="48" stroke="#555" stroke-width="1.5"/>
+                        <line x1="36" y1="16" x2="36" y2="48" stroke="#555" stroke-width="1.5"/>
+                    </svg>
+                </div>
+                <div class="hint">点击「生成3D预览」生成预览HTML<br><small>下载后用浏览器打开查看3D模型</small></div>
+                <div class="preview-info-overlay" id="prInfo" style="display:none;"></div>
+            `;
             cmBox.textContent = '等待转换...';
             cmdCountEl.textContent = '0';
             setStatus('已清空');
@@ -799,13 +863,13 @@
                 else if (sz < 1024 * 1024) fs.textContent = (sz / 1024).toFixed(1) + ' KB';
                 else fs.textContent = (sz / (1024 * 1024)).toFixed(1) + ' MB';
                 document.getElementById('dropText').textContent = '文件已选择，点击可更换';
-                document.getElementById('dropIcon').textContent = '[文件]';
+                document.getElementById('dropIcon').innerHTML = `<svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>`;
                 showToast('已加载: ' + file.name, 'success');
             } else {
                 dropZone.classList.remove('has-file');
                 fi2.style.display = 'none';
                 document.getElementById('dropText').textContent = '点击选择文件 或 拖拽 .schematic / .litematic 到此处';
-                document.getElementById('dropIcon').textContent = '[+]';
+                document.getElementById('dropIcon').innerHTML = `<svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>`;
             }
         }
 
@@ -1027,7 +1091,6 @@
                     return blockMap[key];
                 }
             }
-            // 返回原始 ID 而不是 unknown
             return javaId.split(':').pop() || javaId;
         }
 
@@ -2045,9 +2108,9 @@
         }
 
         // ============================================================
-        // 生成 3D 预览 HTML
+        // 生成 3D 预览 HTML (纯色RGB方块，无纹理)
         // ============================================================
-        function generatePreviewHTMLWithBakedTextures(result, fileName, bakedTextures, blockIdList) {
+        function generatePreviewHTMLWithColors(result, fileName) {
             if (!result || !result.blocks || result.blocks.length === 0) {
                 return null;
             }
@@ -2084,29 +2147,20 @@
                 blockBedrockMap[javaId] = getBedrockId(javaId);
             }
 
+            // 生成基于方块ID的稳定颜色
             var blockColors = {};
-            var colorPalette = [
-                '#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6', '#1abc9c',
-                '#e67e22', '#34495e', '#ecf0f1', '#95a5a6', '#c0392b', '#2980b9',
-                '#27ae60', '#d4ac0d', '#8e44ad', '#16a085', '#d35400', '#2c3e50',
-                '#7f8c8d', '#bdc3c7', '#e91e63', '#00bcd4', '#ff5722', '#795548'
-            ];
-            var colorIdx = 0;
             var javaIdList = Object.keys(groupMap);
             for (var i = 0; i < javaIdList.length; i++) {
                 var javaId = javaIdList[i];
-                blockColors[javaId] = colorPalette[colorIdx % colorPalette.length];
-                colorIdx++;
-            }
-
-            var texData = {};
-            for (var javaId in groupMap) {
-                var bedrockId = blockBedrockMap[javaId];
-                if (bakedTextures[bedrockId]) {
-                    texData[javaId] = bakedTextures[bedrockId];
-                } else if (bakedTextures[javaId]) {
-                    texData[javaId] = bakedTextures[javaId];
+                var hash = 0;
+                for (var j = 0; j < javaId.length; j++) {
+                    hash = ((hash << 5) - hash) + javaId.charCodeAt(j);
+                    hash = hash & hash;
                 }
+                var hue = Math.abs(hash) % 360;
+                var sat = 60 + Math.abs(hash >> 4) % 30;
+                var lig = 50 + Math.abs(hash >> 8) % 30;
+                blockColors[javaId] = 'hsl(' + hue + ', ' + sat + '%, ' + lig + '%)';
             }
 
             var html = '<!DOCTYPE html>\n';
@@ -2121,7 +2175,7 @@
             html += '@keyframes spin{to{transform:rotate(360deg);}}\n';
             html += '</style>\n';
             html += '</head>\n<body>\n';
-            html += '<div id="loading"><div class="spinner"></div>加载纹理...</div>\n';
+            html += '<div id="loading"><div class="spinner"></div>加载中...</div>\n';
             html += '<div id="info">' + fileName + ' | 方块: ' + showBlocks.length + ' | 尺寸: ' + w + 'x' + h + 'x' + l +
                 ' | 拖拽旋转/滚轮缩放</div>\n';
 
@@ -2132,63 +2186,9 @@
             html += '<script>\n';
             html += 'var blockPosData = ' + JSON.stringify(blockPosData) + ';\n';
             html += 'var blockColors = ' + JSON.stringify(blockColors) + ';\n';
-            html += 'var bakedTextures = ' + JSON.stringify(texData) + ';\n';
-            html += 'var totalTextures = ' + Object.keys(texData).length + ';\n';
-            html += 'var loadedTextures = 0;\n';
             html += 'var W = ' + w + ', H = ' + h + ', L = ' + l + ';\n';
             html += 'var cx = W/2, cy = H/2, cz = L/2;\n';
             html += 'var scene, camera, renderer, controls, modelGroup;\n';
-            html += 'var textureCache = {};\n';
-
-            html += `
-                    function createFallbackTexture(javaId) {
-                        var color = blockColors[javaId] || '#888888';
-                        var canvas = document.createElement('canvas');
-                        canvas.width = 32;
-                        canvas.height = 32;
-                        var ctx = canvas.getContext('2d');
-                        ctx.fillStyle = color;
-                        ctx.fillRect(0, 0, 32, 32);
-                        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-                        ctx.lineWidth = 0.5;
-                        ctx.strokeRect(0.5, 0.5, 31, 31);
-                        var grad = ctx.createLinearGradient(0, 0, 32, 32);
-                        grad.addColorStop(0, 'rgba(255,255,255,0.2)');
-                        grad.addColorStop(0.5, 'rgba(255,255,255,0)');
-                        grad.addColorStop(1, 'rgba(0,0,0,0.2)');
-                        ctx.fillStyle = grad;
-                        ctx.fillRect(0, 0, 32, 32);
-                        var tex = new THREE.CanvasTexture(canvas);
-                        tex.magFilter = THREE.NearestFilter;
-                        tex.minFilter = THREE.NearestFilter;
-                        return tex;
-                    }
-
-                    function loadBakedTexture(javaId, callback) {
-                        if (textureCache[javaId]) {
-                            callback(textureCache[javaId]);
-                            return;
-                        }
-                        if (bakedTextures[javaId]) {
-                            var loader = new THREE.TextureLoader();
-                            loader.load(bakedTextures[javaId], function(tex) {
-                                tex.magFilter = THREE.NearestFilter;
-                                tex.minFilter = THREE.NearestFilter;
-                                textureCache[javaId] = tex;
-                                loadedTextures++;
-                                callback(tex);
-                            }, undefined, function() {
-                                var tex = createFallbackTexture(javaId);
-                                textureCache[javaId] = tex;
-                                callback(tex);
-                            });
-                        } else {
-                            var tex = createFallbackTexture(javaId);
-                            textureCache[javaId] = tex;
-                            callback(tex);
-                        }
-                    }
-                `;
 
             html += `
                     function buildScene() {
@@ -2249,11 +2249,11 @@
                         ];
 
                         var bids = Object.keys(blockPosData);
-                        var pending = bids.length;
 
                         for (var idx = 0; idx < bids.length; idx++) {
                             var javaId = bids[idx];
                             var posList = blockPosData[javaId];
+                            var color = blockColors[javaId] || '#888888';
 
                             var positions = [];
                             var uvs = [];
@@ -2294,24 +2294,17 @@
                             }
                             geo.setIndex(indices);
 
-                            (function(javaId, geo) {
-                                loadBakedTexture(javaId, function(tex) {
-                                    var mat = new THREE.MeshStandardMaterial({
-                                        map: tex,
-                                        roughness: 0.7,
-                                        metalness: 0.05,
-                                        side: THREE.DoubleSide,
-                                        alphaTest: 0.5,
-                                    });
-                                    var mesh = new THREE.Mesh(geo, mat);
-                                    modelGroup.add(mesh);
-                                    pending--;
-                                    if (pending === 0) {
-                                        document.getElementById('loading').style.display = 'none';
-                                    }
-                                });
-                            })(javaId, geo);
+                            var mat = new THREE.MeshStandardMaterial({
+                                color: new THREE.Color(color),
+                                roughness: 0.8,
+                                metalness: 0.05,
+                                side: THREE.DoubleSide,
+                            });
+                            var mesh = new THREE.Mesh(geo, mat);
+                            modelGroup.add(mesh);
                         }
+
+                        document.getElementById('loading').style.display = 'none';
                         animate();
                     }
 
@@ -2340,37 +2333,7 @@
         }
 
         // ============================================================
-        // 加载 textures.zip
-        // ============================================================
-        function loadTexturesZipWithProgress(onProgress, onComplete) {
-            var xhr = new XMLHttpRequest();
-            xhr.open('GET', 'textures.zip', true);
-            xhr.responseType = 'arraybuffer';
-
-            xhr.onprogress = function(event) {
-                if (event.lengthComputable) {
-                    var pct = Math.round(event.loaded / event.total * 100);
-                    if (onProgress) onProgress(pct, '加载纹理包');
-                }
-            };
-
-            xhr.onload = function() {
-                if (xhr.status === 200) {
-                    if (onComplete) onComplete(null, xhr.response);
-                } else {
-                    if (onComplete) onComplete(new Error('HTTP ' + xhr.status), null);
-                }
-            };
-
-            xhr.onerror = function() {
-                if (onComplete) onComplete(new Error('网络错误'), null);
-            };
-
-            xhr.send();
-        }
-
-        // ============================================================
-        // 预览
+        // 预览 - 使用纯色RGB方块，无纹理
         // ============================================================
         async function preview() {
             if (!currentFileData) {
@@ -2391,7 +2354,7 @@
                 var result = await parseBuilding(currentFileData, currentFileName);
                 currentPreviewResult = result;
                 var blockCount = result.blocks ? result.blocks.length : 0;
-                setProgress(20, '解析完成');
+                setProgress(50, '解析完成');
 
                 var maxBlocks = 500000;
                 var showBlocks = result.blocks;
@@ -2407,178 +2370,11 @@
                 }
                 var blockIdList = Object.keys(usedBlockIds);
                 log('建筑用到的方块类型: ' + blockIdList.length + ' 种');
-                setProgress(25, '收集方块类型');
+                setProgress(70, '生成预览HTML');
 
-                var bakedTextures = {};
-                var zipData = null;
-
-                setProgress(30, '加载纹理包');
-
-                try {
-                    var zipLoaded = await new Promise(function(resolve, reject) {
-                        loadTexturesZipWithProgress(
-                            function(pct, label) {
-                                var progress = 30 + pct * 0.4;
-                                setProgress(progress, label);
-                            },
-                            function(err, data) {
-                                if (err) { reject(err); } else { resolve(data); }
-                            }
-                        );
-                    });
-
-                    setProgress(70, '解压纹理包');
-                    if (typeof JSZip !== 'undefined') {
-                        zipData = await JSZip.loadAsync(zipLoaded);
-                        log('textures.zip 加载成功，文件数: ' + Object.keys(zipData.files).length);
-                    } else {
-                        throw new Error('JSZip 未加载');
-                    }
-                    setProgress(75, '解压完成');
-
-                } catch (e) {
-                    log('textures.zip 加载失败: ' + e.message + '，使用颜色 fallback');
-                    setProgress(75, '纹理包加载失败，使用颜色');
-                }
-
-                setProgress(75, '提取纹理');
-
-                function getTextureName(javaId) {
-                    var name = javaId.split(':').pop() || javaId;
-                    name = name.replace(/\[.*?\]/, '');
-                    var overrides = {
-                        'grass_block': 'grass_block_top',
-                        'farmland': 'farmland_moist',
-                        'redstone_wire': 'redstone_dust_line0',
-                        'furnace': 'furnace_front_off',
-                        'glass_pane': 'glass',
-                        'wooden_door': 'oak_door_bottom',
-                        'tallgrass': 'grass',
-                        'cauldron': 'cauldron_side',
-                        'lever': 'lever',
-                        'torch': 'torch',
-                        'water': 'water_still',
-                        'oak_log': 'oak_log',
-                        'oak_slab': 'oak_planks',
-                        'sandstone_slab': 'sandstone_bottom',
-                        'stone_slab': 'cobblestone',
-                        'wooden_slab': 'oak_planks',
-                        'oak_stairs': 'oak_planks',
-                        'trapdoor': 'oak_trapdoor',
-                        'brown_wool': 'brown_wool',
-                        'green_wool': 'green_wool',
-                        'white_wool': 'white_wool',
-                        'concrete': 'concrete',
-                        'white_concrete': 'concrete',
-                        'orange_concrete': 'concrete',
-                        'magenta_concrete': 'concrete',
-                        'light_blue_concrete': 'concrete',
-                        'yellow_concrete': 'concrete',
-                        'lime_concrete': 'concrete',
-                        'pink_concrete': 'concrete',
-                        'gray_concrete': 'concrete',
-                        'light_gray_concrete': 'concrete',
-                        'cyan_concrete': 'concrete',
-                        'purple_concrete': 'concrete',
-                        'blue_concrete': 'concrete',
-                        'brown_concrete': 'concrete',
-                        'green_concrete': 'concrete',
-                        'red_concrete': 'concrete',
-                        'black_concrete': 'concrete',
-                    };
-                    name = overrides[name] || name;
-                    var candidates = [name + '.png'];
-                    var suffixes = ['_top', '_side', '_bottom', '_front', '_sides', '_end', '_planks', '_log'];
-                    for (var i = 0; i < suffixes.length; i++) {
-                        candidates.push(name + suffixes[i] + '.png');
-                    }
-                    if (name.endsWith('_slab')) {
-                        var base = name.replace('_slab', '');
-                        candidates.push(base + '.png');
-                        candidates.push(base + '_top.png');
-                        candidates.push(base + '_planks.png');
-                    }
-                    if (name.endsWith('_stairs')) {
-                        var base = name.replace('_stairs', '');
-                        candidates.push(base + '.png');
-                        candidates.push(base + '_top.png');
-                        candidates.push(base + '_planks.png');
-                    }
-                    candidates.push('stone.png');
-                    candidates.push('oak_planks.png');
-                    candidates.push('dirt.png');
-                    return candidates;
-                }
-
-                function extractTextureFromZip(javaId) {
-                    return new Promise(function(resolve) {
-                        if (!zipData) {
-                            resolve(null);
-                            return;
-                        }
-                        var candidates = getTextureName(javaId);
-                        var tried = 0;
-
-                        function tryNext() {
-                            if (tried >= candidates.length) {
-                                resolve(null);
-                                return;
-                            }
-                            var path = 'block/' + candidates[tried];
-                            tried++;
-                            var file = zipData.file(path);
-                            if (file) {
-                                file.async('blob').then(function(blob) {
-                                    var reader = new FileReader();
-                                    reader.onload = function() { resolve(reader.result); };
-                                    reader.onerror = function() { tryNext(); };
-                                    reader.readAsDataURL(blob);
-                                }).catch(function() { tryNext(); });
-                            } else {
-                                tryNext();
-                            }
-                        }
-                        tryNext();
-                    });
-                }
-
-                var totalTextures = blockIdList.length;
-                var loadedTextures = 0;
-                var texturePromises = [];
-
-                for (var i = 0; i < blockIdList.length; i++) {
-                    var javaId = blockIdList[i];
-                    texturePromises.push(
-                        (function(javaId) {
-                            return extractTextureFromZip(javaId).then(function(data) {
-                                loadedTextures++;
-                                var pct = 75 + (loadedTextures / totalTextures) * 15;
-                                setProgress(pct, '提取纹理 ' + loadedTextures + '/' + totalTextures);
-                                return { javaId: javaId, data: data };
-                            });
-                        })(javaId)
-                    );
-                }
-
-                var textureResults = await Promise.all(texturePromises);
-                setProgress(90, '纹理提取完成');
-
-                for (var i = 0; i < textureResults.length; i++) {
-                    var r = textureResults[i];
-                    if (r.data) {
-                        bakedTextures[r.javaId] = r.data;
-                    }
-                }
-
-                var textureLoadedCount = Object.keys(bakedTextures).length;
-                log('纹理烘焙完成: ' + textureLoadedCount + '/' + blockIdList.length + ' 种');
-
-                setProgress(92, '生成预览HTML');
-                var html = generatePreviewHTMLWithBakedTextures(
+                var html = generatePreviewHTMLWithColors(
                     result,
-                    currentFileName.replace(/\.[^.]+$/, ''),
-                    bakedTextures,
-                    blockIdList
+                    currentFileName.replace(/\.[^.]+$/, '')
                 );
                 setProgress(100, '完成!');
 
@@ -2587,15 +2383,15 @@
                     previewDownloadBtn.style.display = 'inline-block';
                     previewDownloadLocalBtn.style.display = 'inline-block';
                     previewInfo.textContent = '预览已生成 (' + blockCount + ' 个方块)';
-                    previewStatus.textContent = '纹理: ' + textureLoadedCount + '/' + blockIdList.length + ' 种';
+                    previewStatus.textContent = '方块类型: ' + blockIdList.length + ' 种';
                     prInfo.style.display = 'block';
                     prInfo.textContent = '方块: ' + blockCount + ' | 尺寸: ' + result.width + 'x' + result.height + 'x' +
-                        result.length + ' | 纹理: ' + textureLoadedCount + '/' + blockIdList.length;
+                        result.length + ' | 类型: ' + blockIdList.length;
 
                     preview3d.innerHTML =
                         '<div style="text-align:center;color:#69db7c;font-size:18px;">预览已生成</div><div style="color:#888;font-size:13px;margin-top:8px;">' +
                         blockCount + ' 个方块, ' + result.width + 'x' + result.height + 'x' + result.length +
-                        '<br><span style="color:#555;">纹理: ' + textureLoadedCount + '/' + blockIdList.length +
+                        '<br><span style="color:#555;">方块类型: ' + blockIdList.length +
                         ' 种 | 点击「生成分享链接」分享或「下载HTML」保存</span></div>';
 
                     showToast('3D预览HTML已生成', 'success');
@@ -2648,7 +2444,7 @@
         // ============================================================
         function copyLink(url) {
             navigator.clipboard.writeText(url).then(function() {
-                showToast('✅ 链接已复制', 'success');
+                showToast('链接已复制', 'success');
             }).catch(function() {
                 var ta = document.createElement('textarea');
                 ta.value = url;
@@ -2656,7 +2452,7 @@
                 ta.select();
                 document.execCommand('copy');
                 document.body.removeChild(ta);
-                showToast('✅ 链接已复制', 'success');
+                showToast('链接已复制', 'success');
             });
         }
 
@@ -2707,25 +2503,25 @@
                 currentPreviewUrl = result.url;
 
                 preview3d.innerHTML = `
-                                <div style="text-align:center;color:#69db7c;font-size:18px;">✅ 预览已上传</div>
+                                <div style="text-align:center;color:#69db7c;font-size:18px;">预览已上传</div>
                                 <div style="color:#888;font-size:13px;margin-top:8px;">
                                     <div style="background:rgba(0,0,0,.4);padding:10px 14px;border-radius:6px;word-break:break-all;max-width:100%;margin:8px 0;">
                                         <a href="${result.url}" target="_blank" style="color:#7c4dff;font-size:14px;">${result.url}</a>
                                     </div>
                                     <span style="color:#555;">有效期: ${expireMinutes} 分钟</span>
                                     <br><br>
-                                    <button class="btn btn-preview" onclick="copyLink('${result.url}')" style="margin-top:4px;">📋 复制链接</button>
-                                    <button class="btn btn-primary" onclick="downloadPreviewHTMLDirect()" style="margin-top:4px;">📥 下载HTML</button>
+                                    <button class="btn btn-preview" onclick="copyLink('${result.url}')" style="margin-top:4px;">复制链接</button>
+                                    <button class="btn btn-primary" onclick="downloadPreviewHTMLDirect()" style="margin-top:4px;">下载HTML</button>
                                 </div>
                             `;
 
                 previewDownloadBtn.style.display = 'none';
-                previewInfo.textContent = '✅ 已上传: ' + result.url;
+                previewInfo.textContent = '已上传: ' + result.url;
                 previewStatus.textContent = '有效期' + expireMinutes + '分钟';
 
                 try {
                     await navigator.clipboard.writeText(result.url);
-                    showToast('✅ 链接已复制到剪贴板', 'success');
+                    showToast('链接已复制到剪贴板', 'success');
                 } catch (e) {}
 
                 log('预览上传成功: ' + result.url + ' 有效期' + expireMinutes + '分钟');
