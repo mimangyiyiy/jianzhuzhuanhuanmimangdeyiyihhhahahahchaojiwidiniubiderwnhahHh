@@ -1305,7 +1305,7 @@
     }
 
     // ============================================================
-    // 生成指令
+    // 生成指令 (完整修复版)
     // ============================================================
     async function generateCommands(blocks, fn, w, l, params) {
         var sb = params.sb || 'dr';
@@ -1314,14 +1314,14 @@
         var bt = params.bt || 'b';
         var mc = params.mc || 10000;
         var disableSensitive = params.disableSensitive || false;
-
+    
         var cmds = [];
-
+    
         function _c(cmd, comment) {
             if (comment) cmds.push('#' + comment);
             cmds.push(cmd);
         }
-
+    
         var maxY = 0,
             minY = Infinity;
         for (var i = 0; i < blocks.blocks.length; i++) {
@@ -1330,7 +1330,7 @@
             if (b.y < minY) minY = b.y;
         }
         var totalHeight = maxY - minY + 1;
-
+    
         cmds.push('# [脉冲] [无条件] [红石控制] 一次性执行');
         _c('scoreboard objectives add ' + sb + ' dummy', '创建 ' + sb + ' 计分板');
         _c('summon armor_stand ~ ~ ~', '召唤 h 高度扫描器');
@@ -1347,7 +1347,7 @@
         _c('scoreboard players add @e[tag=' + bt + ',type=armor_stand] ' + sb + ' ' + sp, 'b 计数 +' + sp);
         cmds.push('');
         cmds.push('# [连锁] [无条件] [保持开启]');
-
+    
         var collectors = blocks.collectors;
         if (!collectors) {
             collectors = {};
@@ -1360,7 +1360,340 @@
             }
             for (var k in collectors) finishCollector(collectors[k]);
         }
-
+    
+        // ===== 敏感词检测 =====
+        function isSensitiveScore(score) {
+            if (disableSensitive) return false;
+            var str = String(score);
+            if (!/^\d+$/.test(str)) return false;
+            return _SF && _SF.contains(str);
+        }
+    
+        // ===== 尝试拆分敏感区间 =====
+        function trySplitSensitiveRange(start, end, sp) {
+            if (end - start + 1 <= 2) return null;
+            var safeScores = [];
+            var total = end - start + 1;
+            var step = total > 1000 ? Math.max(1, Math.floor(total / 100)) : 1;
+            for (var s = start; s <= end; s += step) {
+                if (!isSensitiveScore(s * sp)) safeScores.push(s);
+            }
+            if (safeScores.length === 0 && step > 1) {
+                step = Math.max(1, Math.floor(step / 3));
+                for (var s = start; s <= end; s += step) {
+                    if (!isSensitiveScore(s * sp)) safeScores.push(s);
+                }
+            }
+            if (safeScores.length === 0) return null;
+            var subRanges = [];
+            var currentStart = start;
+            safeScores.sort(function(a, b) { return a - b; });
+            var uniqueSafe = [];
+            for (var i = 0; i < safeScores.length; i++) {
+                if (i === 0 || safeScores[i] !== safeScores[i - 1]) {
+                    if (safeScores[i] > start && safeScores[i] < end) {
+                        uniqueSafe.push(safeScores[i]);
+                    }
+                }
+            }
+            for (var i = 0; i < uniqueSafe.length; i++) {
+                var splitPoint = uniqueSafe[i];
+                if (currentStart <= splitPoint - 1) {
+                    subRanges.push([currentStart, splitPoint - 1]);
+                }
+                currentStart = splitPoint;
+            }
+            if (currentStart <= end) {
+                subRanges.push([currentStart, end]);
+            }
+            var validRanges = [];
+            for (var i = 0; i < subRanges.length; i++) {
+                var r = subRanges[i];
+                var allSafe = true;
+                var checkStep = Math.max(1, Math.floor((r[1] - r[0] + 1) / 20));
+                for (var s = r[0]; s <= r[1]; s += checkStep) {
+                    if (isSensitiveScore(s * sp)) { allSafe = false; break; }
+                }
+                if (allSafe) {
+                    validRanges.push(r);
+                } else {
+                    var subResult = trySplitSensitiveRange(r[0], r[1], sp);
+                    if (subResult) {
+                        for (var j = 0; j < subResult.length; j++) {
+                            validRanges.push(subResult[j]);
+                        }
+                    } else {
+                        return null;
+                    }
+                }
+            }
+            return validRanges.length > 0 ? validRanges : null;
+        }
+    
+        var allBatch = [];
+        var allSingle = [];
+        var totalBlocksCount = 0;
+        var sensitiveCount = 0;
+    
+        for (var bid in collectors) {
+            var col = collectors[bid];
+            if (!col || !col.intervals || !col.intervals.len) continue;
+            for (var ii = 0; ii < col.intervals.len; ii++) {
+                totalBlocksCount += col.intervals.ends[ii] - col.intervals.starts[ii] + 1;
+            }
+        }
+        log('总方块数: ' + totalBlocksCount);
+    
+        // ===== 处理每个方块类型的区间 =====
+        for (var bid in collectors) {
+            var col = collectors[bid];
+            if (!col || !col.intervals || !col.intervals.len) continue;
+    
+            var itv = col.intervals;
+            var ranges = [];
+            for (var ii = 0; ii < itv.len; ii++) {
+                ranges.push([itv.starts[ii], itv.ends[ii]]);
+            }
+    
+            for (var ri = 0; ri < ranges.length; ri++) {
+                var start = ranges[ri][0];
+                var end = ranges[ri][1];
+    
+                var hasSensitive = false;
+                var scanStep = Math.max(1, Math.floor((end - start + 1) / 50));
+                for (var s = start; s <= end; s += scanStep) {
+                    if (isSensitiveScore(s * sp)) { hasSensitive = true; break; }
+                }
+                if (!hasSensitive) {
+                    if (isSensitiveScore(start * sp) || isSensitiveScore(end * sp)) {
+                        hasSensitive = true;
+                    }
+                }
+    
+                if (!hasSensitive) {
+                    allBatch.push({ start: start, end: end, blockId: bid });
+                    continue;
+                }
+    
+                var splitResult = trySplitSensitiveRange(start, end, sp);
+    
+                if (splitResult) {
+                    for (var si = 0; si < splitResult.length; si++) {
+                        allBatch.push({
+                            start: splitResult[si][0],
+                            end: splitResult[si][1],
+                            blockId: bid
+                        });
+                    }
+                } else {
+                    for (var s = start; s <= end; s++) {
+                        var scoreVal = s * sp;
+                        if (isSensitiveScore(scoreVal)) {
+                            allSingle.push({ score: s, blockId: bid });
+                            sensitiveCount++;
+                        } else {
+                            allBatch.push({ start: s, end: s, blockId: bid });
+                        }
+                    }
+                }
+            }
+        }
+    
+        log('敏感方块数: ' + sensitiveCount + ' (转为手动 setblock)');
+    
+        // ===== 批量生成 unless 指令 =====
+        var batchByBlock = {};
+        for (var i = 0; i < allBatch.length; i++) {
+            var item = allBatch[i];
+            if (!batchByBlock[item.blockId]) batchByBlock[item.blockId] = [];
+            batchByBlock[item.blockId].push([item.start, item.end]);
+        }
+    
+        function formatScoreRange(start, end, sp, sb) {
+            var s = start * sp;
+            var e = end * sp;
+            if (s === e) {
+                return sb + '=!' + s;
+            } else {
+                return sb + '=!' + s + '..' + e;
+            }
+        }
+    
+        for (var bid in batchByBlock) {
+            var ranges2 = batchByBlock[bid];
+            ranges2.sort(function(a, b) { return a[0] - b[0]; });
+    
+            var merged = [];
+            for (var i = 0; i < ranges2.length; i++) {
+                if (merged.length === 0) {
+                    merged.push([ranges2[i][0], ranges2[i][1]]);
+                } else {
+                    var last = merged[merged.length - 1];
+                    if (ranges2[i][0] <= last[1] + 1) {
+                        if (ranges2[i][1] > last[1]) {
+                            last[1] = ranges2[i][1];
+                        }
+                    } else {
+                        merged.push([ranges2[i][0], ranges2[i][1]]);
+                    }
+                }
+            }
+    
+            var temp = [];
+            for (var i = 0; i < merged.length; i++) {
+                var test = temp.concat([merged[i]]);
+                var testStr = test.map(function(x) {
+                    return formatScoreRange(x[0], x[1], sp, sb);
+                }).join(',');
+    
+                if (testStr.length > mc && temp.length > 0) {
+                    var tempStr = temp.map(function(x) {
+                        return formatScoreRange(x[0], x[1], sp, sb);
+                    }).join(',');
+                    cmds.push('execute as @e[tag=' + bt + ',type=armor_stand] at @s unless entity @s[scores={' +
+                        tempStr + '}] run setblock ~ ~ ~ ' + bid);
+                    temp = [];
+                    temp.push(merged[i]);
+                } else {
+                    temp.push(merged[i]);
+                }
+            }
+            if (temp.length > 0) {
+                var tempStr = temp.map(function(x) {
+                    return formatScoreRange(x[0], x[1], sp, sb);
+                }).join(',');
+                cmds.push('execute as @e[tag=' + bt + ',type=armor_stand] at @s unless entity @s[scores={' +
+                    tempStr + '}] run setblock ~ ~ ~ ' + bid);
+            }
+        }
+    
+        // ===== 手动执行敏感方块 =====
+        if (allSingle.length > 0) {
+            cmds.push('');
+            cmds.push('# ===== [手动执行] 以下 ' + allSingle.length + ' 个方块含敏感分值，请逐条手动执行 =====');
+            cmds.push('# 站在盔甲架起始位置，逐条输入以下 setblock 指令');
+    
+            var singleByBlock = {};
+            for (var i = 0; i < allSingle.length; i++) {
+                var item = allSingle[i];
+                if (!singleByBlock[item.blockId]) singleByBlock[item.blockId] = [];
+                singleByBlock[item.blockId].push(item.score);
+            }
+    
+            for (var bid in singleByBlock) {
+                var scores = singleByBlock[bid];
+                scores.sort(function(a, b) { return a - b; });
+                for (var i = 0; i < scores.length; i++) {
+                    var score = scores[i];
+                    var coord = scoreToCoord(score, w, l);
+                    cmds.push('setblock ~' + coord.x + ' ~' + coord.y + ' ~' + coord.z + ' ' + bid);
+                }
+            }
+            cmds.push('# ===== [手动执行结束] =====');
+        }
+    
+        cmds.push('');
+        cmds.push('# ===== b 移动 =====');
+        _c('execute as @e[tag=' + bt + ',type=armor_stand] at @s run tp @s ~1 ~ ~', 'b 向右移动 1 格');
+        cmds.push('');
+    
+        // ============================================================
+        // 换行/换层 (合并指令版)
+        // ============================================================
+        cmds.push('# ===== 换行/换层 (合并指令) =====');
+    
+        // --- 换行: b 行末回绕 ---
+        var wrapScores = [];
+        for (var i = 1; i < l; i++) {
+            wrapScores.push(i * w * sp);
+        }
+        if (wrapScores.length > 0) {
+            var wrapMerged = [];
+            for (var i = 0; i < wrapScores.length; i++) {
+                if (wrapMerged.length === 0 || wrapScores[i] > wrapMerged[wrapMerged.length - 1][1] + 1) {
+                    wrapMerged.push([wrapScores[i], wrapScores[i]]);
+                } else {
+                    wrapMerged[wrapMerged.length - 1][1] = wrapScores[i];
+                }
+            }
+            var tempRanges = [];
+            for (var i = 0; i < wrapMerged.length; i++) {
+                var s = wrapMerged[i][0];
+                var e = wrapMerged[i][1];
+                var rangeStr = (s === e) ? (sb + '=' + s + '..' + s) : (sb + '=' + s + '..' + e);
+                var test = tempRanges.concat([rangeStr]);
+                if (test.join(',').length > 8000) {
+                    cmds.push('execute as @e[tag=' + bt + ',type=armor_stand] if entity @s[scores={' + tempRanges.join(',') + '}] run tp @s ~-' + w + ' ~ ~1');
+                    tempRanges = [rangeStr];
+                } else {
+                    tempRanges.push(rangeStr);
+                }
+            }
+            if (tempRanges.length > 0) {
+                cmds.push('execute as @e[tag=' + bt + ',type=armor_stand] if entity @s[scores={' + tempRanges.join(',') + '}] run tp @s ~-' + w + ' ~ ~1');
+            }
+        }
+    
+        // --- 换层: h 层推进 ---
+        var totalBlocks = w * l;
+        var layerScores = [];
+        for (var i = 1; i < totalHeight; i++) {
+            layerScores.push(i * totalBlocks * sp);
+        }
+        if (layerScores.length > 0) {
+            var layerMerged = [];
+            for (var i = 0; i < layerScores.length; i++) {
+                if (layerMerged.length === 0 || layerScores[i] > layerMerged[layerMerged.length - 1][1] + 1) {
+                    layerMerged.push([layerScores[i], layerScores[i]]);
+                } else {
+                    layerMerged[layerMerged.length - 1][1] = layerScores[i];
+                }
+            }
+            var tempRanges = [];
+            for (var i = 0; i < layerMerged.length; i++) {
+                var s = layerMerged[i][0];
+                var e = layerMerged[i][1];
+                var rangeStr = (s === e) ? (sb + '=' + s + '..' + s) : (sb + '=' + s + '..' + e);
+                var test = tempRanges.concat([rangeStr]);
+                if (test.join(',').length > 8000) {
+                    cmds.push('execute as @e[tag=' + ht + ',type=armor_stand] if entity @s[scores={' + tempRanges.join(',') + '}] run tp @s ~ ~1 ~');
+                    cmds.push('execute as @e[tag=' + ht + ',type=armor_stand] if entity @s[scores={' + tempRanges.join(',') + '}] at @s run tp @e[tag=' + bt + ',type=armor_stand] ~ ~ ~');
+                    tempRanges = [rangeStr];
+                } else {
+                    tempRanges.push(rangeStr);
+                }
+            }
+            if (tempRanges.length > 0) {
+                cmds.push('execute as @e[tag=' + ht + ',type=armor_stand] if entity @s[scores={' + tempRanges.join(',') + '}] run tp @s ~ ~1 ~');
+                cmds.push('execute as @e[tag=' + ht + ',type=armor_stand] if entity @s[scores={' + tempRanges.join(',') + '}] at @s run tp @e[tag=' + bt + ',type=armor_stand] ~ ~ ~');
+            }
+        }
+    
+        cmds.push('');
+        _c('titleraw @a actionbar {"rawtext":[{"text":"文件 ' + fn + ' 加载完成"}]}', '加载完成提示');
+        cmds.push('');
+    
+        cmds.push('# ===== 重置 =====');
+        _c('scoreboard players set @e[tag=' + ht + ',type=armor_stand] ' + sb + ' 0', 'h 计数归零');
+        _c('scoreboard players set @e[tag=' + bt + ',type=armor_stand] ' + sb + ' 0', 'b 计数归零');
+        _c('tp @e[tag=' + ht + ',type=armor_stand] ~ ~0 ~', '传送 h 回 y=0');
+        _c('tp @e[tag=' + bt + ',type=armor_stand] ~ ~0 ~', '传送 b 回 y=0');
+        _c('kill @e[tag=' + ht + ',type=armor_stand]', '移除 h');
+        _c('kill @e[tag=' + bt + ',type=armor_stand]', '移除 b');
+        cmds.push('');
+    
+        cmds.push('# ===== 使用说明 =====');
+        cmds.push('# 1. 在命令方块中(按顺序)粘贴以上指令');
+        cmds.push('# 2. [脉冲]一次性执行 -> [循环]保持开启 -> [连锁]保持开启');
+        cmds.push('# 3. 确保建筑区域已清空再运行');
+        if (allSingle.length > 0) {
+            cmds.push('# 4. ' + allSingle.length + ' 个敏感方块已转为手动 setblock，请执行');
+        } else {
+            cmds.push('# 4. 无敏感方块，全部自动执行');
+        }
+    
+        return cmds;
+    }
         function isSensitiveScore(score) {
             if (disableSensitive) return false;
             var str = String(score);
