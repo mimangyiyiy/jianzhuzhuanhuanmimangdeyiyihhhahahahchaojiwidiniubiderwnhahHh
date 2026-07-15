@@ -687,7 +687,7 @@
         })();
 
         // ============================================================
-        // 敏感词过滤器
+        // 敏感词过滤器 - 优化版（带缓存）
         // ============================================================
         var _SF_RULES = [
             /3224909018|2265778903|1632249606|1477550673|110101195306153019|976410387|878880263|804305473|762469277|635793980|560802433|534369147|517213791|422427876|375415740|281798694|259256141|183339779|163721419|70363734|40609891|479988|19132/i,
@@ -697,6 +697,62 @@
             /(?<![a-z0-9])19890?60?4(?![a-z0-9])|(?<![0-9])98753210?(?![0-9])/i,
             /^(?!.*?([0-9])\1{3,}?).*?(?<![0-9a-z#])(1[12345]|2[123]|3[1234567]|4[123456]|5[012345]|6[12345])[0-9]{4}(19[0-9]{2}|20[012][0-9])(0[1-9]|1[012])(0[1-9]|[123][0-9])[0-9]{3}[0-9x](?![0-9a-z])/i
         ];
+
+        // 敏感词缓存（优化性能）
+        var _SF_CACHE = null;
+        var _SF_CACHE_SIZE = 0;
+        var _SF_SENSITIVE_MAP = new Map();
+        var _SF_OVERFLOW_SAFE = new Set();
+        var _SF_OVERFLOW_SENSITIVE = new Map();
+
+        function _initSensitiveCache(maxScore) {
+            var size = Math.min(Math.max(maxScore + 10000, 100000), 10000000);
+            _SF_CACHE = new Uint8Array(size);
+            _SF_CACHE_SIZE = size;
+            _SF_SENSITIVE_MAP.clear();
+            _SF_OVERFLOW_SAFE.clear();
+            _SF_OVERFLOW_SENSITIVE.clear();
+        }
+
+        function _checkScoreSensitiveFast(scoreNum) {
+            if (!_SF_CACHE) _initSensitiveCache(100000);
+            if (scoreNum < _SF_CACHE_SIZE) {
+                var status = _SF_CACHE[scoreNum];
+                if (status === 1) return null;
+                if (status === 2) return _SF_SENSITIVE_MAP.get(scoreNum);
+            } else {
+                if (_SF_OVERFLOW_SAFE.has(scoreNum)) return null;
+                if (_SF_OVERFLOW_SENSITIVE.has(scoreNum)) return _SF_OVERFLOW_SENSITIVE.get(scoreNum);
+            }
+            var str = String(scoreNum);
+            if (!/^\d+$/.test(str)) {
+                if (scoreNum < _SF_CACHE_SIZE) { _SF_CACHE[scoreNum] = 1; }
+                return null;
+            }
+            var matchedRule = null;
+            for (var i = 0; i < _SF_RULES.length; i++) {
+                if (_SF_RULES[i].test(str)) { matchedRule = i; break; }
+            }
+            if (scoreNum < _SF_CACHE_SIZE) {
+                if (matchedRule !== null) {
+                    _SF_CACHE[scoreNum] = 2;
+                    _SF_SENSITIVE_MAP.set(scoreNum, matchedRule);
+                } else {
+                    _SF_CACHE[scoreNum] = 1;
+                }
+            } else {
+                if (matchedRule !== null) {
+                    _SF_OVERFLOW_SENSITIVE.set(scoreNum, matchedRule);
+                } else {
+                    _SF_OVERFLOW_SAFE.add(scoreNum);
+                }
+            }
+            return matchedRule;
+        }
+
+        function _isScoreSensitive(scoreNum) {
+            return _checkScoreSensitiveFast(scoreNum) !== null;
+        }
 
         var _SF = {
             contains: function(t) {
@@ -708,7 +764,10 @@
                 }
                 return false;
             },
-            count: function() { return _SF_RULES.length; }
+            count: function() { return _SF_RULES.length; },
+            checkFast: _checkScoreSensitiveFast,
+            isSensitive: _isScoreSensitive,
+            initCache: _initSensitiveCache
         };
 
         var toastTimer = null;
@@ -733,6 +792,7 @@
         var currentPreviewResult = null;
         var currentPreviewHTML = null;
         var currentPreviewUrl = '';
+        var manualBlocks = [];
 
         var sbEl = document.getElementById('sb');
         var spdEl = document.getElementById('spd');
@@ -817,6 +877,7 @@
             currentPreviewResult = null;
             currentPreviewHTML = null;
             currentPreviewUrl = '';
+            manualBlocks = [];
             fi.value = '';
             updateFileUI(null);
             pbBtn.disabled = true;
@@ -957,10 +1018,17 @@
         }
 
         // ============================================================
-        // 加载 generator_blocks.json (替代 block_map.js)
+        // 加载 generator_blocks.json (优化版)
         // ============================================================
         var blockMap = {};
+        var blockMapFallback = {};
         var mapLoaded = false;
+
+        function makeJavaKey(name, props) {
+            if (!props || Object.keys(props).length === 0) return name;
+            var sorted = Object.keys(props).sort().map(function(k) { return k + '=' + props[k]; }).join(',');
+            return name + '::' + sorted;
+        }
 
         function loadBlockMap() {
             showProgress(true);
@@ -973,8 +1041,35 @@
                 })
                 .then(function(data) {
                     setProgress(80, '解析映射表');
-                    if (data && typeof data === 'object') {
-                        blockMap = data;
+                    if (data && data.mappings && Array.isArray(data.mappings)) {
+                        var map = {};
+                        var fallback = {};
+                        for (var i = 0; i < data.mappings.length; i++) {
+                            var entry = data.mappings[i];
+                            var java = entry.java_state;
+                            if (!java || !java.Name) continue;
+                            var bedrock = entry.bedrock_state;
+                            if (!bedrock || !bedrock.bedrock_identifier) continue;
+                            var props = java.Properties || {};
+                            var key = makeJavaKey(java.Name, props);
+                            var stateStr = '';
+                            if (bedrock.state && Object.keys(bedrock.state).length > 0) {
+                                var sortedKeys = Object.keys(bedrock.state).sort();
+                                var pairs = [];
+                                for (var j = 0; j < sortedKeys.length; j++) {
+                                    var k = sortedKeys[j];
+                                    var v = bedrock.state[k];
+                                    pairs.push(k + '=' + (typeof v === 'string' ? '"' + v + '"' : v));
+                                }
+                                stateStr = ' [' + pairs.join(',') + ']';
+                            }
+                            map[key] = bedrock.bedrock_identifier + stateStr;
+                            if (!fallback[java.Name]) {
+                                fallback[java.Name] = bedrock.bedrock_identifier + stateStr;
+                            }
+                        }
+                        blockMap = map;
+                        blockMapFallback = fallback;
                         mapLoaded = true;
                         var count = Object.keys(blockMap).length;
                         setProgress(100, '加载完成!');
@@ -985,7 +1080,7 @@
                         showToast('映射表加载完成: ' + count + ' 条', 'success');
                         setTimeout(function() { showProgress(false); }, 800);
                     } else {
-                        throw new Error('映射表数据格式无效');
+                        throw new Error('映射表格式无效: 缺少 mappings 数组');
                     }
                 })
                 .catch(function(err) {
@@ -1036,6 +1131,7 @@
                 'minecraft:acacia_log': 'acacia_log',
                 'minecraft:dark_oak_log': 'dark_oak_log'
             };
+            blockMapFallback = blockMap;
             mapLoaded = true;
             setTimeout(function() { showProgress(false); }, 1000);
         }
@@ -1043,30 +1139,47 @@
         loadBlockMap();
 
         // ============================================================
-        // getBedrockId (修复版 - 不返回 unknown)
+        // getBedrockId (优化版 - 支持状态属性)
         // ============================================================
         function getBedrockId(javaId) {
             if (!mapLoaded) {
                 return javaId.split(':').pop() || javaId;
             }
-            if (blockMap[javaId] !== undefined) {
-                return blockMap[javaId];
-            }
-            var bracket = javaId.indexOf('[');
-            if (bracket > -1) {
-                var base = javaId.substring(0, bracket);
-                if (blockMap[base] !== undefined) {
-                    return blockMap[base];
+
+            // 解析 name 和 properties
+            var name = javaId;
+            var props = {};
+            var bracketIdx = javaId.indexOf('[');
+            if (bracketIdx > -1) {
+                name = javaId.substring(0, bracketIdx);
+                var propStr = javaId.substring(bracketIdx + 1, javaId.length - 1);
+                if (propStr) {
+                    var pairs = propStr.split(',');
+                    for (var i = 0; i < pairs.length; i++) {
+                        var pair = pairs[i].split('=');
+                        if (pair.length === 2) {
+                            props[pair[0]] = pair[1];
+                        }
+                    }
                 }
-                var props = javaId.substring(bracket + 1, javaId.length - 1);
-                var propPairs = props.split(',');
-                var sortedProps = propPairs.slice().sort();
-                var key = base + '[' + sortedProps.join(',') + ']';
-                if (blockMap[key] !== undefined) {
-                    return blockMap[key];
-                }
             }
-            return javaId.split(':').pop() || javaId;
+
+            // 尝试精确匹配 (带状态)
+            var key = makeJavaKey(name, props);
+            if (blockMap[key] !== undefined) {
+                return blockMap[key];
+            }
+
+            // 尝试无状态回退
+            if (blockMap[name] !== undefined) {
+                return blockMap[name];
+            }
+            if (blockMapFallback[name] !== undefined) {
+                return blockMapFallback[name];
+            }
+
+            // 最终回退
+            return name.split(':').pop() || name;
         }
 
         // ============================================================
@@ -1273,7 +1386,7 @@
         }
 
         // ============================================================
-        // 解析 litematic / schematic
+        // 解析 litematic / schematic (优化版)
         // ============================================================
         async function parseLitematic(data) {
             var raw = data[0] === 0x1f || data[0] === 0x78 ? await decompress(data) : data;
@@ -1323,6 +1436,7 @@
             var minX = Infinity,
                 minY = Infinity,
                 minZ = Infinity;
+            var totalBlocksCount = 0;
 
             for (var rname in regions) {
                 var region = regions[rname];
@@ -1381,6 +1495,7 @@
                 var bits = Math.max(2, Math.ceil(Math.log2(psize)));
                 var mask = (1 << bits) - 1;
                 var totalBlocks = sx * sy * sz;
+                totalBlocksCount += totalBlocks;
 
                 var indices = new Uint32Array(totalBlocks);
                 var bitPos = 0;
@@ -1405,12 +1520,23 @@
                 for (var pi = 0; pi < psize; pi++) {
                     var entry = palette[pi];
                     var name = '';
+                    var props = {};
                     if (typeof entry === 'string') {
                         name = entry;
                     } else if (entry && entry.Name) {
                         name = entry.Name;
+                        if (entry.Properties) {
+                            for (var pk in entry.Properties) {
+                                props[pk] = entry.Properties[pk];
+                            }
+                        }
                     } else if (entry && entry.name) {
                         name = entry.name;
+                        if (entry.properties) {
+                            for (var pk in entry.properties) {
+                                props[pk] = entry.properties[pk];
+                            }
+                        }
                     } else if (entry && entry.id) {
                         name = entry.id;
                     }
@@ -1418,17 +1544,18 @@
                         palCache.push(null);
                         continue;
                     }
-                    if (entry && entry.Properties) {
-                        var props = entry.Properties;
-                        var stateStr = [];
-                        for (var pk in props) {
-                            stateStr.push(pk + '=' + props[pk]);
+                    // 构建带状态的 Java ID
+                    var stateStr = '';
+                    var sortedProps = Object.keys(props).sort();
+                    if (sortedProps.length > 0) {
+                        var pairs = [];
+                        for (var i = 0; i < sortedProps.length; i++) {
+                            pairs.push(sortedProps[i] + '=' + props[sortedProps[i]]);
                         }
-                        if (stateStr.length > 0) {
-                            name = name + '[' + stateStr.join(',') + ']';
-                        }
+                        stateStr = '[' + pairs.join(',') + ']';
                     }
-                    palCache.push({ id: getBedrockId(name), javaId: name });
+                    var fullName = name + stateStr;
+                    palCache.push({ id: getBedrockId(fullName), javaId: fullName });
                 }
 
                 var sliceSize = sx * sz;
@@ -1467,6 +1594,9 @@
                 if (b.y >= height) height = b.y + 1;
                 if (b.z >= length) length = b.z + 1;
             }
+
+            // 初始化敏感词缓存
+            _SF.initCache(totalBlocksCount);
 
             var collectors = {};
             var ss = width * length;
@@ -1637,6 +1767,9 @@
                 throw new Error('未找到任何方块数据 (不支持此格式)');
             }
 
+            // 初始化敏感词缓存
+            _SF.initCache(blocks.length);
+
             var collectors = {};
             var ss = w * l;
             for (var i = 0; i < blocks.length; i++) {
@@ -1691,7 +1824,7 @@
         }
 
         // ============================================================
-        // 生成指令 (完整修复版)
+        // 生成指令 (优化版 - 使用缓存敏感词检测)
         // ============================================================
         async function generateCommands(blocks, fn, w, l, params) {
             var sb = params.sb || 'dr';
@@ -1702,6 +1835,7 @@
             var disableSensitive = params.disableSensitive || false;
 
             var cmds = [];
+            manualBlocks = [];
 
             function _c(cmd, comment) {
                 if (comment) cmds.push('#' + comment);
@@ -1749,84 +1883,51 @@
 
             function isSensitiveScore(score) {
                 if (disableSensitive) return false;
-                var str = String(score);
-                if (!/^\d+$/.test(str)) return false;
-                return _SF && _SF.contains(str);
+                return _SF.isSensitive(score);
+            }
+
+            // 优化的区间拆分 - 使用二分查找
+            function findSafePointInRange(start, end, sp) {
+                if (start > end) return null;
+                var left = start,
+                    right = end;
+                var iterations = 0;
+                while (left <= right && iterations < 10000) {
+                    iterations++;
+                    var mid = Math.floor((left + right) / 2);
+                    if (!isSensitiveScore(mid * sp)) return mid;
+                    // 检查左侧
+                    var leftResult = findSafePointInRange(left, mid - 1, sp);
+                    if (leftResult !== null) return leftResult;
+                    left = mid + 1;
+                }
+                return null;
             }
 
             function trySplitSensitiveRange(start, end, sp) {
                 if (end - start + 1 <= 2) return null;
-                var safeScores = [];
-                var total = end - start + 1;
-                var step = total > 1000 ? Math.max(1, Math.floor(total / 100)) : 1;
-                for (var s = start; s <= end; s += step) {
-                    if (!isSensitiveScore(s * sp)) safeScores.push(s);
+                var safePoint = findSafePointInRange(start, end, sp);
+                if (safePoint === null) return null;
+
+                var result = [];
+                var leftResult = null;
+                if (start <= safePoint - 1) {
+                    leftResult = trySplitSensitiveRange(start, safePoint - 1, sp);
+                    if (leftResult) result = result.concat(leftResult);
+                    else if (start < safePoint) return null;
                 }
-                if (safeScores.length === 0 && step > 1) {
-                    step = Math.max(1, Math.floor(step / 3));
-                    for (var s = start; s <= end; s += step) {
-                        if (!isSensitiveScore(s * sp)) safeScores.push(s);
-                    }
+                result.push([safePoint, safePoint]);
+                var rightResult = null;
+                if (safePoint + 1 <= end) {
+                    rightResult = trySplitSensitiveRange(safePoint + 1, end, sp);
+                    if (rightResult) result = result.concat(rightResult);
+                    else if (safePoint < end) return null;
                 }
-                if (safeScores.length === 0) return null;
-                var subRanges = [];
-                var currentStart = start;
-                safeScores.sort(function(a, b) { return a - b; });
-                var uniqueSafe = [];
-                for (var i = 0; i < safeScores.length; i++) {
-                    if (i === 0 || safeScores[i] !== safeScores[i - 1]) {
-                        if (safeScores[i] > start && safeScores[i] < end) {
-                            uniqueSafe.push(safeScores[i]);
-                        }
-                    }
-                }
-                for (var i = 0; i < uniqueSafe.length; i++) {
-                    var splitPoint = uniqueSafe[i];
-                    if (currentStart <= splitPoint - 1) {
-                        subRanges.push([currentStart, splitPoint - 1]);
-                    }
-                    currentStart = splitPoint;
-                }
-                if (currentStart <= end) {
-                    subRanges.push([currentStart, end]);
-                }
-                var validRanges = [];
-                for (var i = 0; i < subRanges.length; i++) {
-                    var r = subRanges[i];
-                    var allSafe = true;
-                    var checkStep = Math.max(1, Math.floor((r[1] - r[0] + 1) / 20));
-                    for (var s = r[0]; s <= r[1]; s += checkStep) {
-                        if (isSensitiveScore(s * sp)) { allSafe = false; break; }
-                    }
-                    if (allSafe) {
-                        validRanges.push(r);
-                    } else {
-                        var subResult = trySplitSensitiveRange(r[0], r[1], sp);
-                        if (subResult) {
-                            for (var j = 0; j < subResult.length; j++) {
-                                validRanges.push(subResult[j]);
-                            }
-                        } else {
-                            return null;
-                        }
-                    }
-                }
-                return validRanges.length > 0 ? validRanges : null;
+                return result.length > 0 ? result : null;
             }
 
             var allBatch = [];
-            var allSingle = [];
-            var totalBlocksCount = 0;
             var sensitiveCount = 0;
-
-            for (var bid in collectors) {
-                var col = collectors[bid];
-                if (!col || !col.intervals || !col.intervals.len) continue;
-                for (var ii = 0; ii < col.intervals.len; ii++) {
-                    totalBlocksCount += col.intervals.ends[ii] - col.intervals.starts[ii] + 1;
-                }
-            }
-            log('总方块数: ' + totalBlocksCount);
 
             for (var bid in collectors) {
                 var col = collectors[bid];
@@ -1869,11 +1970,20 @@
                             });
                         }
                     } else {
+                        // 拆分失败，逐个处理
                         for (var s = start; s <= end; s++) {
-                            var scoreVal = s * sp;
-                            if (isSensitiveScore(scoreVal)) {
-                                allSingle.push({ score: s, blockId: bid });
+                            if (isSensitiveScore(s * sp)) {
                                 sensitiveCount++;
+                                // 记录需要手动执行的方块
+                                var coord = scoreToCoord(s, w, l);
+                                var blockParts = bid.split(' ');
+                                manualBlocks.push({
+                                    id: blockParts[0],
+                                    state: blockParts.slice(1).join(' '),
+                                    x: coord.x,
+                                    y: coord.y,
+                                    z: coord.z
+                                });
                             } else {
                                 allBatch.push({ start: s, end: s, blockId: bid });
                             }
@@ -1949,26 +2059,15 @@
                 }
             }
 
-            if (allSingle.length > 0) {
+            if (manualBlocks.length > 0) {
                 cmds.push('');
-                cmds.push('# ===== [手动执行] 以下 ' + allSingle.length + ' 个方块含敏感分值，请逐条手动执行 =====');
+                cmds.push('# ===== [手动执行] 以下 ' + manualBlocks.length + ' 个方块含敏感分值，请逐条手动执行 =====');
                 cmds.push('# 站在盔甲架起始位置，逐条输入以下 setblock 指令');
 
-                var singleByBlock = {};
-                for (var i = 0; i < allSingle.length; i++) {
-                    var item = allSingle[i];
-                    if (!singleByBlock[item.blockId]) singleByBlock[item.blockId] = [];
-                    singleByBlock[item.blockId].push(item.score);
-                }
-
-                for (var bid in singleByBlock) {
-                    var scores = singleByBlock[bid];
-                    scores.sort(function(a, b) { return a - b; });
-                    for (var i = 0; i < scores.length; i++) {
-                        var score = scores[i];
-                        var coord = scoreToCoord(score, w, l);
-                        cmds.push('setblock ~' + coord.x + ' ~' + coord.y + ' ~' + coord.z + ' ' + bid);
-                    }
+                for (var i = 0; i < manualBlocks.length; i++) {
+                    var mb = manualBlocks[i];
+                    var statePart = mb.state ? ' ' + mb.state : '';
+                    cmds.push('setblock ~' + mb.x + ' ~' + mb.y + ' ~' + mb.z + ' ' + mb.id + statePart);
                 }
                 cmds.push('# ===== [手动执行结束] =====');
             }
@@ -2073,8 +2172,8 @@
             cmds.push('# 1. 在命令方块中(按顺序)粘贴以上指令');
             cmds.push('# 2. [脉冲]一次性执行 -> [循环]保持开启 -> [连锁]保持开启');
             cmds.push('# 3. 确保建筑区域已清空再运行');
-            if (allSingle.length > 0) {
-                cmds.push('# 4. ' + allSingle.length + ' 个敏感方块已转为手动 setblock，请执行');
+            if (manualBlocks.length > 0) {
+                cmds.push('# 4. ' + manualBlocks.length + ' 个敏感方块已转为手动 setblock，请执行');
             } else {
                 cmds.push('# 4. 无敏感方块，全部自动执行');
             }
@@ -2582,7 +2681,7 @@
         window.clearAll = clearAll;
         window.copyCommands = copyCommands;
 
-        log('Web 版转换器 v3.6 已加载');
+        log('Web 版转换器 v3.6 已加载 (优化版)');
         log('映射表加载中...');
         log('点击「生成3D预览」→ 生成预览');
         log('点击「生成分享链接」→ 上传到云端，1-3分钟有效期');
