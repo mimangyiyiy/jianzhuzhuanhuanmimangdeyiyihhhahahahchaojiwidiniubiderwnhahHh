@@ -1018,7 +1018,7 @@
         }
 
         // ============================================================
-        // 加载 generator_blocks.json (优化版)
+        // 加载 generator_blocks.json (优化版 - 与Python脚本一致)
         // ============================================================
         var blockMap = {};
         var blockMapFallback = {};
@@ -1095,19 +1095,60 @@
             stText.textContent = '⚠️ 映射表加载失败，使用内置简化映射';
             log('⚠️ 映射表加载失败: ' + errMsg);
             showToast('映射表加载失败，使用内置简化映射', 'error');
+            // 内置映射表 - 与Python脚本的BEDROCK_ID_MAP一致
             blockMap = {
                 'minecraft:stone': 'stone',
-                'minecraft:grass_block': 'grass_block',
-                'minecraft:dirt': 'dirt',
+                'minecraft:granite': 'granite 1',
+                'minecraft:polished_granite': 'granite 1',
+                'minecraft:diorite': 'diorite',
+                'minecraft:polished_diorite': 'diorite 1',
+                'minecraft:andesite': 'andesite',
+                'minecraft:polished_andesite': 'andesite 1',
                 'minecraft:cobblestone': 'cobblestone',
-                'minecraft:oak_planks': 'oak_planks',
                 'minecraft:bedrock': 'bedrock',
-                'minecraft:glass': 'glass',
-                'minecraft:water': 'water',
-                'minecraft:lava': 'lava',
+                'minecraft:dirt': 'dirt',
+                'minecraft:grass_block': 'grass',
+                'minecraft:coarse_dirt': 'dirt 1',
+                'minecraft:podzol': 'podzol',
                 'minecraft:sand': 'sand',
+                'minecraft:red_sand': 'sand 1',
                 'minecraft:gravel': 'gravel',
                 'minecraft:clay': 'clay',
+                'minecraft:oak_log': 'oak_log',
+                'minecraft:spruce_log': 'spruce_log',
+                'minecraft:birch_log': 'birch_log',
+                'minecraft:jungle_log': 'jungle_log',
+                'minecraft:acacia_log': 'acacia_log',
+                'minecraft:dark_oak_log': 'dark_oak_log',
+                'minecraft:oak_planks': 'planks',
+                'minecraft:spruce_planks': 'planks 1',
+                'minecraft:birch_planks': 'planks 2',
+                'minecraft:jungle_planks': 'planks 3',
+                'minecraft:acacia_planks': 'planks 4',
+                'minecraft:dark_oak_planks': 'planks 5',
+                'minecraft:stone_bricks': 'stone_bricks',
+                'minecraft:mossy_stone_bricks': 'mossy_stone_bricks',
+                'minecraft:cracked_stone_bricks': 'cracked_stone_bricks',
+                'minecraft:chiseled_stone_bricks': 'chiseled_stone_bricks',
+                'minecraft:bricks': 'brick_block',
+                'minecraft:glass': 'glass',
+                'minecraft:glass_pane': 'glass_pane',
+                'minecraft:white_wool': 'wool',
+                'minecraft:orange_wool': 'wool 1',
+                'minecraft:magenta_wool': 'wool 2',
+                'minecraft:light_blue_wool': 'wool 3',
+                'minecraft:yellow_wool': 'wool 4',
+                'minecraft:lime_wool': 'wool 5',
+                'minecraft:pink_wool': 'wool 6',
+                'minecraft:gray_wool': 'wool 7',
+                'minecraft:light_gray_wool': 'wool 8',
+                'minecraft:cyan_wool': 'wool 9',
+                'minecraft:purple_wool': 'wool 10',
+                'minecraft:blue_wool': 'wool 11',
+                'minecraft:brown_wool': 'wool 12',
+                'minecraft:green_wool': 'wool 13',
+                'minecraft:red_wool': 'wool 14',
+                'minecraft:black_wool': 'wool 15',
                 'minecraft:white_concrete': 'concrete 0',
                 'minecraft:orange_concrete': 'concrete 1',
                 'minecraft:magenta_concrete': 'concrete 2',
@@ -1124,12 +1165,127 @@
                 'minecraft:green_concrete': 'concrete 13',
                 'minecraft:red_concrete': 'concrete 14',
                 'minecraft:black_concrete': 'concrete 15',
-                'minecraft:oak_log': 'oak_log',
-                'minecraft:spruce_log': 'spruce_log',
-                'minecraft:birch_log': 'birch_log',
-                'minecraft:jungle_log': 'jungle_log',
-                'minecraft:acacia_log': 'acacia_log',
-                'minecraft:dark_oak_log': 'dark_oak_log'
+                'minecraft:netherrack': 'netherrack',
+                'minecraft:soul_sand': 'soul_sand',
+                'minecraft:glowstone': 'glowstone',
+                'minecraft:obsidian': 'obsidian',
+                'minecraft:ice': 'ice',
+                'minecraft:snow': 'snow',
+                'minecraft:snow_block': 'snow_layer',
+                'minecraft:water': 'water',
+                'minecraft:lava': 'lava',
+                'minecraft:torch': 'torch',
+                'minecraft:redstone_torch': 'redstone_torch',
+                'minecraft:chest': 'chest',
+                'minecraft:trapped_chest': 'trapped_chest',
+                'minecraft:furnace': 'furnace',
+                'minecraft:crafting_table': 'crafting_table',
+                'minecraft:enchanting_table': 'enchanting_table',
+                'minecraft:anvil': 'anvil',
+                'minecraft:bookshelf': 'bookshelf',
+                'minecraft:tnt': 'tnt',
+                'minecraft:slime_block': 'slime',
+                'minecraft:iron_block': 'iron_block',
+                'minecraft:gold_block': 'gold_block',
+                'minecraft:diamond_block': 'diamond_block',
+                'minecraft:emerald_block': 'emerald_block',
+                'minecraft:redstone_block': 'redstone_block',
+                'minecraft:lapis_block': 'lapis_block',
+                'minecraft:coal_block': 'coal_block',
+                'minecraft:sponge': 'sponge',
+                'minecraft:wet_sponge': 'sponge 1',
+                'minecraft:oak_stairs': 'oak_stairs',
+                'minecraft:spruce_stairs': 'spruce_stairs',
+                'minecraft:birch_stairs': 'birch_stairs',
+                'minecraft:jungle_stairs': 'jungle_stairs',
+                'minecraft:acacia_stairs': 'acacia_stairs',
+                'minecraft:dark_oak_stairs': 'dark_oak_stairs',
+                'minecraft:cobblestone_stairs': 'cobblestone_stairs',
+                'minecraft:stone_brick_stairs': 'stone_brick_stairs',
+                'minecraft:brick_stairs': 'brick_stairs',
+                'minecraft:nether_brick_stairs': 'nether_brick_stairs',
+                'minecraft:sandstone_stairs': 'sandstone_stairs',
+                'minecraft:red_sandstone_stairs': 'red_sandstone_stairs',
+                'minecraft:oak_slab': 'oak_slab',
+                'minecraft:spruce_slab': 'spruce_slab',
+                'minecraft:birch_slab': 'birch_slab',
+                'minecraft:jungle_slab': 'jungle_slab',
+                'minecraft:acacia_slab': 'acacia_slab',
+                'minecraft:dark_oak_slab': 'dark_oak_slab',
+                'minecraft:stone_slab': 'stone_slab',
+                'minecraft:cobblestone_slab': 'cobblestone_slab',
+                'minecraft:stone_brick_slab': 'stone_brick_slab',
+                'minecraft:brick_slab': 'brick_slab',
+                'minecraft:nether_brick_slab': 'nether_brick_slab',
+                'minecraft:sandstone_slab': 'sandstone_slab',
+                'minecraft:red_sandstone_slab': 'red_sandstone_slab',
+                'minecraft:oak_fence': 'oak_fence',
+                'minecraft:spruce_fence': 'spruce_fence',
+                'minecraft:birch_fence': 'birch_fence',
+                'minecraft:jungle_fence': 'jungle_fence',
+                'minecraft:acacia_fence': 'acacia_fence',
+                'minecraft:dark_oak_fence': 'dark_oak_fence',
+                'minecraft:nether_brick_fence': 'nether_brick_fence',
+                'minecraft:oak_fence_gate': 'oak_fence_gate',
+                'minecraft:spruce_fence_gate': 'spruce_fence_gate',
+                'minecraft:birch_fence_gate': 'birch_fence_gate',
+                'minecraft:jungle_fence_gate': 'jungle_fence_gate',
+                'minecraft:acacia_fence_gate': 'acacia_fence_gate',
+                'minecraft:dark_oak_fence_gate': 'dark_oak_fence_gate',
+                'minecraft:cobblestone_wall': 'cobblestone_wall',
+                'minecraft:mossy_cobblestone_wall': 'mossy_cobblestone_wall',
+                'minecraft:stone_brick_wall': 'stone_brick_wall',
+                'minecraft:mossy_stone_brick_wall': 'mossy_stone_brick_wall',
+                'minecraft:oak_door': 'oak_door',
+                'minecraft:spruce_door': 'spruce_door',
+                'minecraft:birch_door': 'birch_door',
+                'minecraft:jungle_door': 'jungle_door',
+                'minecraft:acacia_door': 'acacia_door',
+                'minecraft:dark_oak_door': 'dark_oak_door',
+                'minecraft:iron_door': 'iron_door',
+                'minecraft:oak_trapdoor': 'trapdoor',
+                'minecraft:spruce_trapdoor': 'trapdoor',
+                'minecraft:birch_trapdoor': 'trapdoor',
+                'minecraft:jungle_trapdoor': 'trapdoor',
+                'minecraft:acacia_trapdoor': 'trapdoor',
+                'minecraft:dark_oak_trapdoor': 'trapdoor',
+                'minecraft:iron_trapdoor': 'iron_trapdoor',
+                'minecraft:oak_button': 'oak_button',
+                'minecraft:stone_button': 'stone_button',
+                'minecraft:oak_pressure_plate': 'oak_pressure_plate',
+                'minecraft:stone_pressure_plate': 'stone_pressure_plate',
+                'minecraft:lever': 'lever',
+                'minecraft:dispenser': 'dispenser',
+                'minecraft:dropper': 'dropper',
+                'minecraft:piston': 'piston',
+                'minecraft:sticky_piston': 'sticky_piston',
+                'minecraft:observer': 'observer',
+                'minecraft:hopper': 'hopper',
+                'minecraft:repeater': 'repeater',
+                'minecraft:comparator': 'comparator',
+                'minecraft:note_block': 'noteblock',
+                'minecraft:daylight_detector': 'daylight_detector',
+                'minecraft:redstone_lamp': 'redstone_lamp',
+                'minecraft:jukebox': 'jukebox',
+                'minecraft:beacon': 'beacon',
+                'minecraft:ender_chest': 'ender_chest',
+                'minecraft:shulker_box': 'shulker_box',
+                'minecraft:white_shulker_box': 'white_shulker_box',
+                'minecraft:orange_shulker_box': 'orange_shulker_box',
+                'minecraft:magenta_shulker_box': 'magenta_shulker_box',
+                'minecraft:light_blue_shulker_box': 'light_blue_shulker_box',
+                'minecraft:yellow_shulker_box': 'yellow_shulker_box',
+                'minecraft:lime_shulker_box': 'lime_shulker_box',
+                'minecraft:pink_shulker_box': 'pink_shulker_box',
+                'minecraft:gray_shulker_box': 'gray_shulker_box',
+                'minecraft:light_gray_shulker_box': 'light_gray_shulker_box',
+                'minecraft:cyan_shulker_box': 'cyan_shulker_box',
+                'minecraft:purple_shulker_box': 'purple_shulker_box',
+                'minecraft:blue_shulker_box': 'blue_shulker_box',
+                'minecraft:brown_shulker_box': 'brown_shulker_box',
+                'minecraft:green_shulker_box': 'green_shulker_box',
+                'minecraft:red_shulker_box': 'red_shulker_box',
+                'minecraft:black_shulker_box': 'black_shulker_box'
             };
             blockMapFallback = blockMap;
             mapLoaded = true;
@@ -1139,7 +1295,7 @@
         loadBlockMap();
 
         // ============================================================
-        // getBedrockId (优化版 - 支持状态属性)
+        // getBedrockId (与Python脚本逻辑一致)
         // ============================================================
         function getBedrockId(javaId) {
             if (!mapLoaded) {
@@ -1386,7 +1542,7 @@
         }
 
         // ============================================================
-        // 解析 litematic / schematic (优化版)
+        // 解析 litematic / schematic (与Python脚本逻辑一致)
         // ============================================================
         async function parseLitematic(data) {
             var raw = data[0] === 0x1f || data[0] === 0x78 ? await decompress(data) : data;
@@ -1824,14 +1980,14 @@
         }
 
         // ============================================================
-        // 生成指令 (优化版 - 使用缓存敏感词检测)
+        // 生成指令 - 使用unless模式 (与Python脚本的 generate_commands_typed 一致)
         // ============================================================
         async function generateCommands(blocks, fn, w, l, params) {
             var sb = params.sb || 'dr';
             var sp = params.sp || 1;
             var ht = params.ht || 'h';
             var bt = params.bt || 'b';
-            var mc = params.mc || 10000;
+            var max_chars = params.mc || 10000;
             var disableSensitive = params.disableSensitive || false;
 
             var cmds = [];
@@ -1842,347 +1998,304 @@
                 cmds.push(cmd);
             }
 
-            var maxY = 0,
-                minY = Infinity;
+            // 收集所有方块，按y分层
+            var layers = {};
             for (var i = 0; i < blocks.blocks.length; i++) {
                 var b = blocks.blocks[i];
-                if (b.y > maxY) maxY = b.y;
-                if (b.y < minY) minY = b.y;
+                var bid = getBedrockId(b.id);
+                if (!layers[b.y]) layers[b.y] = [];
+                layers[b.y].push({ x: b.x, z: b.z, block: bid, javaId: b.id });
             }
-            var totalHeight = maxY - minY + 1;
 
-            cmds.push('# [脉冲] [无条件] [红石控制] 一次性执行');
-            _c('scoreboard objectives add ' + sb + ' dummy', '创建 ' + sb + ' 计分板');
-            _c('summon armor_stand ~ ~ ~', '召唤 h 高度扫描器');
-            _c('tag @e[type=armor_stand,c=1,r=2.5,tag=!b] add ' + ht, '标记 h');
-            _c('tp @e[tag=' + ht + ',type=armor_stand] ~ ~0 ~', '传送 h 到 y=0');
-            _c('summon armor_stand ~ ~ ~', '召唤 b 位置扫描器');
-            _c('tag @e[type=armor_stand,c=1,r=2.5,tag=!h] add ' + bt, '标记 b');
-            _c('tp @e[tag=' + bt + ',type=armor_stand] ~ ~0 ~', '传送 b 到 y=0');
-            _c('scoreboard players set @e[tag=' + ht + ',type=armor_stand] ' + sb + ' 0', 'h 计数归零');
-            _c('scoreboard players set @e[tag=' + bt + ',type=armor_stand] ' + sb + ' 0', 'b 计数归零');
-            cmds.push('');
-            cmds.push('# [循环] [无条件] [保持开启] 速度' + sp + 'x');
-            _c('scoreboard players add @e[tag=' + ht + ',type=armor_stand] ' + sb + ' ' + sp, 'h 计数 +' + sp);
-            _c('scoreboard players add @e[tag=' + bt + ',type=armor_stand] ' + sb + ' ' + sp, 'b 计数 +' + sp);
-            cmds.push('');
-            cmds.push('# [连锁] [无条件] [保持开启]');
+            var ys = Object.keys(layers).map(Number).sort(function(a, b) { return a - b; });
+            var minY = ys[0] || 0;
+            var maxY = ys[ys.length - 1] || 0;
+            var H = ys.length;
+            var startY = minY;
+            var y_dir = 1;
 
-            var collectors = blocks.collectors;
-            if (!collectors) {
-                collectors = {};
-                var ss = w * l;
-                for (var i = 0; i < blocks.blocks.length; i++) {
-                    var b = blocks.blocks[i];
-                    var bid = getBedrockId(b.id);
-                    if (!collectors[bid]) collectors[bid] = createCollector();
-                    addToCollector(collectors[bid], b.z * w + b.x + b.y * ss + 1);
+            // 构建 typeId 映射 (与Python脚本一致: 从300开始)
+            var block_to_id = {};
+            var next_id = 300;
+            var all_entries = [];
+            for (var y in layers) {
+                for (var j = 0; j < layers[y].length; j++) {
+                    var e = layers[y][j];
+                    if (!block_to_id[e.block]) {
+                        block_to_id[e.block] = next_id++;
+                    }
+                    all_entries.push({ y: parseInt(y), x: e.x, z: e.z, block: e.block });
                 }
-                for (var k in collectors) finishCollector(collectors[k]);
+            }
+            var id_to_block = {};
+            for (var k in block_to_id) {
+                id_to_block[block_to_id[k]] = k;
             }
 
-            function isSensitiveScore(score) {
+            // 构建步进索引: idx = layer_idx * W * L + z * W + x
+            function idxOf(li, x, z) {
+                return (li * w * l + z) * w + x;
+            }
+
+            // 按类型合并区间
+            var type_ranges = [];
+            for (var i = 0; i < all_entries.length; i++) {
+                var e = all_entries[i];
+                var li = e.y - minY;
+                var s = idxOf(li, e.x, e.z);
+                var tid = block_to_id[e.block];
+                type_ranges.push([s, s, tid]);
+            }
+            type_ranges.sort(function(a, b) { return a[0] - b[0]; });
+
+            var merged = [];
+            for (var i = 0; i < type_ranges.length; i++) {
+                var s = type_ranges[i][0],
+                    en = type_ranges[i][1],
+                    tid = type_ranges[i][2];
+                if (merged.length && merged[merged.length - 1][2] === tid && s === merged[merged.length - 1][1] + 1) {
+                    merged[merged.length - 1][1] = en;
+                } else {
+                    merged.push([s, en, tid]);
+                }
+            }
+
+            var totalSteps = w * l * H;
+            var layerSize = w * l;
+
+            // ===== 生成指令 =====
+            cmds.push("#" + "=".repeat(60));
+            cmds.push("# " + fn + " | " + all_entries.length + " 个方块 | " + w + "x" + H + "x" + l + " | " + sb);
+            cmds.push("#" + "=".repeat(60));
+            cmds.push("");
+
+            // 1. 创建计分板
+            cmds.push("# [脉冲] [无条件] [红石控制] 一次性执行");
+            _c("scoreboard objectives add " + sb + " dummy", "创建 " + sb + " 计分板");
+            _c("summon armor_stand ~ ~ ~", "召唤 h 高度扫描器");
+            _c("tag @e[type=armor_stand,c=1,r=2.5,tag=!b] add " + ht, "标记 h");
+            _c("tp @e[tag=" + ht + ",type=armor_stand] ~ ~" + startY + " ~", "传送 h 到 y=" + startY);
+            _c("summon armor_stand ~ ~ ~", "召唤 b 位置扫描器");
+            _c("tag @e[type=armor_stand,c=1,r=2.5,tag=!h] add " + bt, "标记 b");
+            _c("tp @e[tag=" + bt + ",type=armor_stand] ~ ~" + startY + " ~", "传送 b 到 y=" + startY);
+            _c("scoreboard players set @e[tag=" + ht + ",type=armor_stand] " + sb + " 0", "h 计数归零");
+            _c("scoreboard players set @e[tag=" + bt + ",type=armor_stand] " + sb + " 0", "b 计数归零");
+            cmds.push("");
+
+            // 2. 循环加速
+            cmds.push("# [循环] [无条件] [保持开启] 速度" + sp + "x");
+            _c("scoreboard players add @e[tag=" + ht + ",type=armor_stand] " + sb + " " + sp, "h 计数 +" + sp);
+            _c("scoreboard players add @e[tag=" + bt + ",type=armor_stand] " + sb + " " + sp, "b 计数 +" + sp);
+            cmds.push("");
+
+            // 3. unless 放置命令
+            cmds.push("# [连锁] [无条件] [保持开启]");
+
+            function isScoreSensitive(score) {
                 if (disableSensitive) return false;
                 return _SF.isSensitive(score);
             }
 
-            // 优化的区间拆分 - 使用二分查找
-            function findSafePointInRange(start, end, sp) {
-                if (start > end) return null;
-                var left = start,
-                    right = end;
-                var iterations = 0;
-                while (left <= right && iterations < 10000) {
-                    iterations++;
-                    var mid = Math.floor((left + right) / 2);
-                    if (!isSensitiveScore(mid * sp)) return mid;
-                    // 检查左侧
-                    var leftResult = findSafePointInRange(left, mid - 1, sp);
-                    if (leftResult !== null) return leftResult;
-                    left = mid + 1;
+            function buildUnlessCmd(blockName, rangelist) {
+                function fmt(s, e) {
+                    var sv = s * sp,
+                        ev = e * sp;
+                    if (sv === ev) return sb + "=!" + sv;
+                    return sb + "=!" + sv + ".." + ev;
                 }
-                return null;
+                var conds = rangelist.map(function(r) { return fmt(r[0], r[1]); }).join(",");
+                return "execute as @e[tag=" + bt + ",type=armor_stand] at @s unless entity @s[scores={" + conds +
+                    "}] run setblock ~ ~ ~ " + blockName;
             }
 
-            function trySplitSensitiveRange(start, end, sp) {
-                if (end - start + 1 <= 2) return null;
-                var safePoint = findSafePointInRange(start, end, sp);
-                if (safePoint === null) return null;
-
-                var result = [];
-                var leftResult = null;
-                if (start <= safePoint - 1) {
-                    leftResult = trySplitSensitiveRange(start, safePoint - 1, sp);
-                    if (leftResult) result = result.concat(leftResult);
-                    else if (start < safePoint) return null;
-                }
-                result.push([safePoint, safePoint]);
-                var rightResult = null;
-                if (safePoint + 1 <= end) {
-                    rightResult = trySplitSensitiveRange(safePoint + 1, end, sp);
-                    if (rightResult) result = result.concat(rightResult);
-                    else if (safePoint < end) return null;
-                }
-                return result.length > 0 ? result : null;
+            // 分组 by block
+            var block_ranges = {};
+            for (var i = 0; i < merged.length; i++) {
+                var s = merged[i][0],
+                    en = merged[i][1],
+                    tid = merged[i][2];
+                var block = id_to_block[tid];
+                if (!block_ranges[block]) block_ranges[block] = [];
+                block_ranges[block].push([s, en]);
             }
 
-            var allBatch = [];
-            var sensitiveCount = 0;
+            var manualList = [];
 
-            for (var bid in collectors) {
-                var col = collectors[bid];
-                if (!col || !col.intervals || !col.intervals.len) continue;
-
-                var itv = col.intervals;
-                var ranges = [];
-                for (var ii = 0; ii < itv.len; ii++) {
-                    ranges.push([itv.starts[ii], itv.ends[ii]]);
-                }
-
+            for (var block in block_ranges) {
+                var ranges = block_ranges[block];
+                var batch = [];
                 for (var ri = 0; ri < ranges.length; ri++) {
-                    var start = ranges[ri][0];
-                    var end = ranges[ri][1];
-
-                    var hasSensitive = false;
-                    var scanStep = Math.max(1, Math.floor((end - start + 1) / 50));
-                    for (var s = start; s <= end; s += scanStep) {
-                        if (isSensitiveScore(s * sp)) { hasSensitive = true; break; }
-                    }
-                    if (!hasSensitive) {
-                        if (isSensitiveScore(start * sp) || isSensitiveScore(end * sp)) {
-                            hasSensitive = true;
-                        }
-                    }
-
-                    if (!hasSensitive) {
-                        allBatch.push({ start: start, end: end, blockId: bid });
-                        continue;
-                    }
-
-                    var splitResult = trySplitSensitiveRange(start, end, sp);
-
-                    if (splitResult) {
-                        for (var si = 0; si < splitResult.length; si++) {
-                            allBatch.push({
-                                start: splitResult[si][0],
-                                end: splitResult[si][1],
-                                blockId: bid
-                            });
-                        }
-                    } else {
-                        // 拆分失败，逐个处理
-                        for (var s = start; s <= end; s++) {
-                            if (isSensitiveScore(s * sp)) {
-                                sensitiveCount++;
-                                // 记录需要手动执行的方块
-                                var coord = scoreToCoord(s, w, l);
-                                var blockParts = bid.split(' ');
-                                manualBlocks.push({
-                                    id: blockParts[0],
-                                    state: blockParts.slice(1).join(' '),
-                                    x: coord.x,
-                                    y: coord.y,
-                                    z: coord.z
-                                });
-                            } else {
-                                allBatch.push({ start: s, end: s, blockId: bid });
+                    var s = ranges[ri][0],
+                        en = ranges[ri][1];
+                    var curStart = null;
+                    for (var li = s; li <= en; li++) {
+                        var sv = li * sp;
+                        if (isScoreSensitive(sv)) {
+                            if (curStart !== null) {
+                                batch.push([curStart, li - 1]);
+                                curStart = null;
                             }
-                        }
-                    }
-                }
-            }
-
-            log('敏感方块数: ' + sensitiveCount + ' (转为手动 setblock)');
-
-            var batchByBlock = {};
-            for (var i = 0; i < allBatch.length; i++) {
-                var item = allBatch[i];
-                if (!batchByBlock[item.blockId]) batchByBlock[item.blockId] = [];
-                batchByBlock[item.blockId].push([item.start, item.end]);
-            }
-
-            function formatScoreRange(start, end, sp, sb) {
-                var s = start * sp;
-                var e = end * sp;
-                if (s === e) {
-                    return sb + '=!' + s;
-                } else {
-                    return sb + '=!' + s + '..' + e;
-                }
-            }
-
-            for (var bid in batchByBlock) {
-                var ranges2 = batchByBlock[bid];
-                ranges2.sort(function(a, b) { return a[0] - b[0]; });
-
-                var merged = [];
-                for (var i = 0; i < ranges2.length; i++) {
-                    if (merged.length === 0) {
-                        merged.push([ranges2[i][0], ranges2[i][1]]);
-                    } else {
-                        var last = merged[merged.length - 1];
-                        if (ranges2[i][0] <= last[1] + 1) {
-                            if (ranges2[i][1] > last[1]) {
-                                last[1] = ranges2[i][1];
-                            }
+                            // 记录手动执行
+                            var blockIdx = li;
+                            var sliceSize = w * l;
+                            var yIdx = Math.floor(blockIdx / sliceSize);
+                            var rem = blockIdx % sliceSize;
+                            var zz = Math.floor(rem / w);
+                            var xx = rem % w;
+                            var wy = minY + yIdx;
+                            manualList.push({ x: xx, y: wy, z: zz, block: block });
                         } else {
-                            merged.push([ranges2[i][0], ranges2[i][1]]);
+                            if (curStart === null) curStart = li;
                         }
                     }
+                    if (curStart !== null) {
+                        batch.push([curStart, en]);
+                    }
                 }
 
+                // 合并连续的区间
+                if (batch.length) {
+                    var cb = [batch[0]];
+                    for (var bi = 1; bi < batch.length; bi++) {
+                        if (batch[bi][0] === cb[cb.length - 1][1] + 1) {
+                            cb[cb.length - 1][1] = batch[bi][1];
+                        } else {
+                            cb.push(batch[bi]);
+                        }
+                    }
+                    batch = cb;
+                }
+
+                // 按长度分割
                 var temp = [];
-                for (var i = 0; i < merged.length; i++) {
-                    var test = temp.concat([merged[i]]);
-                    var testStr = test.map(function(x) {
-                        return formatScoreRange(x[0], x[1], sp, sb);
-                    }).join(',');
-
-                    if (testStr.length > mc && temp.length > 0) {
-                        var tempStr = temp.map(function(x) {
-                            return formatScoreRange(x[0], x[1], sp, sb);
-                        }).join(',');
-                        cmds.push('execute as @e[tag=' + bt + ',type=armor_stand] at @s unless entity @s[scores={' +
-                            tempStr + '}] run setblock ~ ~ ~ ' + bid);
-                        temp = [];
-                        temp.push(merged[i]);
+                for (var i = 0; i < batch.length; i++) {
+                    var test = temp.concat([batch[i]]);
+                    var cmd = buildUnlessCmd(block, test);
+                    if (cmd.length > max_chars && temp.length > 0) {
+                        _c(buildUnlessCmd(block, temp), "放置 " + block);
+                        temp = [batch[i]];
                     } else {
-                        temp.push(merged[i]);
+                        temp.push(batch[i]);
                     }
                 }
-                if (temp.length > 0) {
-                    var tempStr = temp.map(function(x) {
-                        return formatScoreRange(x[0], x[1], sp, sb);
-                    }).join(',');
-                    cmds.push('execute as @e[tag=' + bt + ',type=armor_stand] at @s unless entity @s[scores={' +
-                        tempStr + '}] run setblock ~ ~ ~ ' + bid);
+                if (temp.length) {
+                    _c(buildUnlessCmd(block, temp), "放置 " + block);
                 }
             }
 
-            if (manualBlocks.length > 0) {
-                cmds.push('');
-                cmds.push('# ===== [手动执行] 以下 ' + manualBlocks.length + ' 个方块含敏感分值，请逐条手动执行 =====');
-                cmds.push('# 站在盔甲架起始位置，逐条输入以下 setblock 指令');
-
-                for (var i = 0; i < manualBlocks.length; i++) {
-                    var mb = manualBlocks[i];
-                    var statePart = mb.state ? ' ' + mb.state : '';
-                    cmds.push('setblock ~' + mb.x + ' ~' + mb.y + ' ~' + mb.z + ' ' + mb.id + statePart);
+            // 手动执行指令
+            if (manualList.length) {
+                cmds.push("");
+                cmds.push("# ===== [手动执行] 以下 " + manualList.length + " 个方块含敏感分值 =====");
+                cmds.push("# 站在盔甲架起始位置，逐条输入以下 setblock 指令");
+                for (var i = 0; i < manualList.length; i++) {
+                    var m = manualList[i];
+                    cmds.push("setblock ~" + m.x + " ~" + m.y + " ~" + m.z + " " + m.block);
                 }
-                cmds.push('# ===== [手动执行结束] =====');
+                cmds.push("# ===== [手动执行结束] =====");
+                manualBlocks = manualList;
             }
 
-            cmds.push('');
-            cmds.push('# ===== b 移动 =====');
-            _c('execute as @e[tag=' + bt + ',type=armor_stand] at @s run tp @s ~1 ~ ~', 'b 向右移动 1 格');
-            cmds.push('');
+            cmds.push("");
+            _c("execute as @e[tag=" + bt + ",type=armor_stand] at @s run tp @s ~1 ~ ~", "b 向右移动 1 格");
 
-            // ============================================================
-            // 换行/换层 (合并指令版)
-            // ============================================================
-            cmds.push('# ===== 换行/换层 (合并指令) =====');
-
-            // --- 换行: b 行末回绕 ---
-            var wrapScores = [];
-            for (var i = 1; i < l; i++) {
-                wrapScores.push(i * w * sp);
+            // 换行回绕
+            var totalRows = H * l;
+            var bTriggers = [];
+            for (var m = 1; m < totalRows; m++) {
+                if (m % l !== 0) {
+                    bTriggers.push(m * w * sp);
+                }
             }
-            if (wrapScores.length > 0) {
-                var wrapMerged = [];
-                for (var i = 0; i < wrapScores.length; i++) {
-                    if (wrapMerged.length === 0 || wrapScores[i] > wrapMerged[wrapMerged.length - 1][1] + 1) {
-                        wrapMerged.push([wrapScores[i], wrapScores[i]]);
+            var layerSkips = [];
+            for (var i = 1; i < H; i++) {
+                layerSkips.push(i * layerSize * sp);
+            }
+            var layerSkipsStr = layerSkips.map(function(v) { return sb + "=" + v; }).join(",");
+
+            var bPrefix = "execute as @e[tag=" + bt + ",type=armor_stand] unless entity @s";
+            var bSuffix = layerSkipsStr ? "unless entity @s[scores={" + layerSkipsStr + "}] at @s run tp @s ~-" + w +
+                " ~ ~1" : "at @s run tp @s ~-" + w + " ~ ~1";
+
+            var batch = [];
+            for (var i = 0; i < bTriggers.length; i++) {
+                var c = sb + "=" + bTriggers[i];
+                var test = batch.concat([c]);
+                var full = bPrefix + "[scores={" + test.join(",") + "}] " + bSuffix;
+                if (full.length > max_chars && batch.length) {
+                    _c(bPrefix + "[scores={" + batch.join(",") + "}] " + bSuffix, "b 行末回绕");
+                    batch = [c];
+                } else {
+                    batch.push(c);
+                }
+            }
+            if (batch.length) {
+                _c(bPrefix + "[scores={" + batch.join(",") + "}] " + bSuffix, "b 行末回绕");
+            }
+
+            // h 层推进
+            var hConds = [];
+            for (var i = 1; i < H; i++) {
+                hConds.push(sb + "=" + i * layerSize * sp);
+            }
+            var hCombined = hConds.join(",");
+
+            function appendHTp(cs) {
+                _c("execute as @e[tag=" + ht + ",type=armor_stand] unless entity @s[scores={" + cs +
+                    "}] at @s run tp @s ~ ~" + y_dir + " ~", "h 层推进");
+                _c("execute as @e[tag=" + ht + ",type=armor_stand] unless entity @s[scores={" + cs +
+                    "}] at @s run tp @e[tag=" + bt + ",type=armor_stand] ~ ~ ~", "h 拉回 b");
+            }
+
+            var hTest = "execute as @e[tag=" + ht + ",type=armor_stand] unless entity @s[scores={" + hCombined +
+                "}] at @s run tp @s ~ ~" + y_dir + " ~";
+            if (hTest.length > 13000) {
+                var batchCs = [];
+                for (var i = 0; i < hConds.length; i++) {
+                    var c = hConds[i];
+                    var test = batchCs.concat([c]);
+                    var t = "execute as @e[tag=" + ht + ",type=armor_stand] unless entity @s[scores={" + test.join(
+                        ",") + "}] at @s run tp @s ~ ~" + y_dir + " ~";
+                    if (t.length > 13000) {
+                        appendHTp(batchCs.join(","));
+                        batchCs = [c];
                     } else {
-                        wrapMerged[wrapMerged.length - 1][1] = wrapScores[i];
+                        batchCs.push(c);
                     }
                 }
-                var tempRanges = [];
-                for (var i = 0; i < wrapMerged.length; i++) {
-                    var s = wrapMerged[i][0];
-                    var e = wrapMerged[i][1];
-                    var rangeStr = (s === e) ? (sb + '=' + s + '..' + s) : (sb + '=' + s + '..' + e);
-                    var test = tempRanges.concat([rangeStr]);
-                    if (test.join(',').length > 8000) {
-                        cmds.push('execute as @e[tag=' + bt + ',type=armor_stand] if entity @s[scores={' + tempRanges
-                            .join(',') + '}] run tp @s ~-' + w + ' ~ ~1');
-                        tempRanges = [rangeStr];
-                    } else {
-                        tempRanges.push(rangeStr);
-                    }
+                if (batchCs.length) {
+                    appendHTp(batchCs.join(","));
                 }
-                if (tempRanges.length > 0) {
-                    cmds.push('execute as @e[tag=' + bt + ',type=armor_stand] if entity @s[scores={' + tempRanges.join(
-                        ',') + '}] run tp @s ~-' + w + ' ~ ~1');
-                }
-            }
-
-            // --- 换层: h 层推进 ---
-            var totalBlocks = w * l;
-            var layerScores = [];
-            for (var i = 1; i < totalHeight; i++) {
-                layerScores.push(i * totalBlocks * sp);
-            }
-            if (layerScores.length > 0) {
-                var layerMerged = [];
-                for (var i = 0; i < layerScores.length; i++) {
-                    if (layerMerged.length === 0 || layerScores[i] > layerMerged[layerMerged.length - 1][1] + 1) {
-                        layerMerged.push([layerScores[i], layerScores[i]]);
-                    } else {
-                        layerMerged[layerMerged.length - 1][1] = layerScores[i];
-                    }
-                }
-                var tempRanges = [];
-                for (var i = 0; i < layerMerged.length; i++) {
-                    var s = layerMerged[i][0];
-                    var e = layerMerged[i][1];
-                    var rangeStr = (s === e) ? (sb + '=' + s + '..' + s) : (sb + '=' + s + '..' + e);
-                    var test = tempRanges.concat([rangeStr]);
-                    if (test.join(',').length > 8000) {
-                        cmds.push('execute as @e[tag=' + ht + ',type=armor_stand] if entity @s[scores={' + tempRanges
-                            .join(',') + '}] run tp @s ~ ~1 ~');
-                        cmds.push('execute as @e[tag=' + ht + ',type=armor_stand] if entity @s[scores={' + tempRanges
-                            .join(',') + '}] at @s run tp @e[tag=' + bt + ',type=armor_stand] ~ ~ ~');
-                        tempRanges = [rangeStr];
-                    } else {
-                        tempRanges.push(rangeStr);
-                    }
-                }
-                if (tempRanges.length > 0) {
-                    cmds.push('execute as @e[tag=' + ht + ',type=armor_stand] if entity @s[scores={' + tempRanges.join(
-                        ',') + '}] run tp @s ~ ~1 ~');
-                    cmds.push('execute as @e[tag=' + ht + ',type=armor_stand] if entity @s[scores={' + tempRanges.join(
-                        ',') + '}] at @s run tp @e[tag=' + bt + ',type=armor_stand] ~ ~ ~');
-                }
-            }
-
-            cmds.push('');
-            _c('titleraw @a actionbar {"rawtext":[{"text":"文件 ' + fn + ' 加载完成"}]}', '加载完成提示');
-            cmds.push('');
-
-            cmds.push('# ===== 重置 =====');
-            _c('scoreboard players set @e[tag=' + ht + ',type=armor_stand] ' + sb + ' 0', 'h 计数归零');
-            _c('scoreboard players set @e[tag=' + bt + ',type=armor_stand] ' + sb + ' 0', 'b 计数归零');
-            _c('tp @e[tag=' + ht + ',type=armor_stand] ~ ~0 ~', '传送 h 回 y=0');
-            _c('tp @e[tag=' + bt + ',type=armor_stand] ~ ~0 ~', '传送 b 回 y=0');
-            _c('kill @e[tag=' + ht + ',type=armor_stand]', '移除 h');
-            _c('kill @e[tag=' + bt + ',type=armor_stand]', '移除 b');
-            cmds.push('');
-
-            cmds.push('# ===== 使用说明 =====');
-            cmds.push('# 1. 在命令方块中(按顺序)粘贴以上指令');
-            cmds.push('# 2. [脉冲]一次性执行 -> [循环]保持开启 -> [连锁]保持开启');
-            cmds.push('# 3. 确保建筑区域已清空再运行');
-            if (manualBlocks.length > 0) {
-                cmds.push('# 4. ' + manualBlocks.length + ' 个敏感方块已转为手动 setblock，请执行');
             } else {
-                cmds.push('# 4. 无敏感方块，全部自动执行');
+                appendHTp(hCombined);
             }
+
+            _c("execute as @e[tag=" + ht + ",type=armor_stand] at @s run tp @s ~ ~ ~", "h 重复 tp 到自己(锁定原位)");
+            cmds.push("");
+
+            // 进度提示
+            _c("titleraw @a actionbar {\"rawtext\":[{\"text\":\"> \"},{\"score\":{\"name\":\"@e[tag=" + bt +
+                ",type=armor_stand,c=1]\",\"objective\":\"" + sb +
+                "\"}},{\"text\":\" / " + totalSteps + "\"}]}", "显示进度条");
+            _c("execute as @e[tag=" + bt + ",type=armor_stand,scores={" + sb + "=" + totalSteps +
+                "..}] at @s run titleraw @a actionbar {\"rawtext\":[{\"text\":\"文件 " + fn + " 加载完成\"}]}",
+                "加载完成提示");
+            cmds.push("");
+
+            // 重置
+            cmds.push("# 重置(手动)");
+            _c("scoreboard players set @e[tag=" + ht + ",type=armor_stand] " + sb + " 0", "h 计数归零");
+            _c("scoreboard players set @e[tag=" + bt + ",type=armor_stand] " + sb + " 0", "b 计数归零");
+            _c("tp @e[tag=" + ht + ",type=armor_stand] ~ ~" + startY + " ~", "传送 h 回 y=" + startY);
+            _c("tp @e[tag=" + bt + ",type=armor_stand] ~ ~" + startY + " ~", "传送 b 回 y=" + startY);
+            _c("kill @e[tag=" + ht + ",type=armor_stand]", "移除 h");
+            _c("kill @e[tag=" + bt + ",type=armor_stand]", "移除 b");
 
             return cmds;
         }
 
         // ============================================================
-        // 生成 3D 预览 HTML (纯色RGB方块，无纹理)
+        // 生成 3D 预览 HTML (纯色RGB方块)
         // ============================================================
         function generatePreviewHTMLWithColors(result, fileName) {
             if (!result || !result.blocks || result.blocks.length === 0) {
@@ -2209,7 +2322,6 @@
             }
 
             var blockPosData = {};
-            var blockBedrockMap = {};
             for (var javaId in groupMap) {
                 var list = groupMap[javaId];
                 var positions = [];
@@ -2218,7 +2330,6 @@
                     positions.push([b.x, b.y, b.z]);
                 }
                 blockPosData[javaId] = positions;
-                blockBedrockMap[javaId] = getBedrockId(javaId);
             }
 
             // 生成基于方块ID的稳定颜色
@@ -2407,7 +2518,7 @@
         }
 
         // ============================================================
-        // 预览 - 使用纯色RGB方块，无纹理
+        // 预览
         // ============================================================
         async function preview() {
             if (!currentFileData) {
@@ -2681,7 +2792,7 @@
         window.clearAll = clearAll;
         window.copyCommands = copyCommands;
 
-        log('Web 版转换器 v3.6 已加载 (优化版)');
+        log('Web 版转换器 v3.6 已加载 (与Python脚本逻辑一致)');
         log('映射表加载中...');
         log('点击「生成3D预览」→ 生成预览');
         log('点击「生成分享链接」→ 上传到云端，1-3分钟有效期');
