@@ -680,6 +680,7 @@
                 return blockMap[key];
             }
         }
+        // ✅ 返回原始 ID 而不是 unknown
         return javaId.split(':').pop() || javaId;
     }
 
