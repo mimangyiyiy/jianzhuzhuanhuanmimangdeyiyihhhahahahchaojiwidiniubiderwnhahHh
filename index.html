@@ -1023,6 +1023,7 @@
         var blockMap = {};
         var blockMapFallback = {};
         var mapLoaded = false;
+        var unknownBlocks = new Set();
 
         function makeJavaKey(name, props) {
             if (!props || Object.keys(props).length === 0) return name;
@@ -1096,7 +1097,7 @@
             log('⚠️ 映射表加载失败: ' + errMsg);
             showToast('映射表加载失败，使用内置简化映射', 'error');
             // 内置映射表 - 与Python脚本的BEDROCK_ID_MAP一致
-            blockMap = {
+            var builtin = {
                 'minecraft:stone': 'stone',
                 'minecraft:granite': 'granite 1',
                 'minecraft:polished_granite': 'granite 1',
@@ -1268,26 +1269,10 @@
                 'minecraft:redstone_lamp': 'redstone_lamp',
                 'minecraft:jukebox': 'jukebox',
                 'minecraft:beacon': 'beacon',
-                'minecraft:ender_chest': 'ender_chest',
-                'minecraft:shulker_box': 'shulker_box',
-                'minecraft:white_shulker_box': 'white_shulker_box',
-                'minecraft:orange_shulker_box': 'orange_shulker_box',
-                'minecraft:magenta_shulker_box': 'magenta_shulker_box',
-                'minecraft:light_blue_shulker_box': 'light_blue_shulker_box',
-                'minecraft:yellow_shulker_box': 'yellow_shulker_box',
-                'minecraft:lime_shulker_box': 'lime_shulker_box',
-                'minecraft:pink_shulker_box': 'pink_shulker_box',
-                'minecraft:gray_shulker_box': 'gray_shulker_box',
-                'minecraft:light_gray_shulker_box': 'light_gray_shulker_box',
-                'minecraft:cyan_shulker_box': 'cyan_shulker_box',
-                'minecraft:purple_shulker_box': 'purple_shulker_box',
-                'minecraft:blue_shulker_box': 'blue_shulker_box',
-                'minecraft:brown_shulker_box': 'brown_shulker_box',
-                'minecraft:green_shulker_box': 'green_shulker_box',
-                'minecraft:red_shulker_box': 'red_shulker_box',
-                'minecraft:black_shulker_box': 'black_shulker_box'
+                'minecraft:ender_chest': 'ender_chest'
             };
-            blockMapFallback = blockMap;
+            blockMap = builtin;
+            blockMapFallback = builtin;
             mapLoaded = true;
             setTimeout(function() { showProgress(false); }, 1000);
         }
@@ -1295,7 +1280,7 @@
         loadBlockMap();
 
         // ============================================================
-        // getBedrockId (与Python脚本逻辑一致)
+        // getBedrockId - 修复版：绝不返回 unknown
         // ============================================================
         function getBedrockId(javaId) {
             if (!mapLoaded) {
@@ -1322,20 +1307,56 @@
 
             // 尝试精确匹配 (带状态)
             var key = makeJavaKey(name, props);
-            if (blockMap[key] !== undefined) {
+            if (blockMap[key] !== undefined && blockMap[key] !== 'unknown') {
                 return blockMap[key];
             }
 
             // 尝试无状态回退
-            if (blockMap[name] !== undefined) {
+            var baseName = name.split(':').pop() || name;
+            if (blockMap[name] !== undefined && blockMap[name] !== 'unknown') {
                 return blockMap[name];
             }
-            if (blockMapFallback[name] !== undefined) {
+            if (blockMapFallback[name] !== undefined && blockMapFallback[name] !== 'unknown') {
                 return blockMapFallback[name];
             }
+            // 尝试用短名称匹配
+            if (blockMap[baseName] !== undefined && blockMap[baseName] !== 'unknown') {
+                return blockMap[baseName];
+            }
+            if (blockMapFallback[baseName] !== undefined && blockMapFallback[baseName] !== 'unknown') {
+                return blockMapFallback[baseName];
+            }
 
-            // 最终回退
-            return name.split(':').pop() || name;
+            // 最终回退：返回原始短名称（绝不返回 unknown）
+            var fallback = baseName;
+            // 特殊处理常见方块
+            var commonFallbacks = {
+                'air': 'air',
+                'stone': 'stone',
+                'dirt': 'dirt',
+                'grass_block': 'grass',
+                'cobblestone': 'cobblestone',
+                'oak_planks': 'planks',
+                'bedrock': 'bedrock',
+                'glass': 'glass',
+                'sand': 'sand',
+                'gravel': 'gravel',
+                'clay': 'clay',
+                'water': 'water',
+                'lava': 'lava',
+                'netherrack': 'netherrack',
+                'soul_sand': 'soul_sand',
+                'glowstone': 'glowstone',
+                'obsidian': 'obsidian',
+                'ice': 'ice',
+                'snow': 'snow'
+            };
+            if (commonFallbacks[baseName]) {
+                return commonFallbacks[baseName];
+            }
+            // 记录未知方块
+            unknownBlocks.add(javaId);
+            return baseName;
         }
 
         // ============================================================
@@ -1542,7 +1563,7 @@
         }
 
         // ============================================================
-        // 解析 litematic / schematic (与Python脚本逻辑一致)
+        // 解析 litematic / schematic
         // ============================================================
         async function parseLitematic(data) {
             var raw = data[0] === 0x1f || data[0] === 0x78 ? await decompress(data) : data;
@@ -1700,7 +1721,6 @@
                         palCache.push(null);
                         continue;
                     }
-                    // 构建带状态的 Java ID
                     var stateStr = '';
                     var sortedProps = Object.keys(props).sort();
                     if (sortedProps.length > 0) {
@@ -1711,7 +1731,8 @@
                         stateStr = '[' + pairs.join(',') + ']';
                     }
                     var fullName = name + stateStr;
-                    palCache.push({ id: getBedrockId(fullName), javaId: fullName });
+                    var bedrockId = getBedrockId(fullName);
+                    palCache.push({ id: bedrockId, javaId: fullName });
                 }
 
                 var sliceSize = sx * sz;
@@ -1751,7 +1772,6 @@
                 if (b.z >= length) length = b.z + 1;
             }
 
-            // 初始化敏感词缓存
             _SF.initCache(totalBlocksCount);
 
             var collectors = {};
@@ -1763,6 +1783,10 @@
                 addToCollector(collectors[bid], b.z * width + b.x + b.y * ss + 1);
             }
             for (var k in collectors) finishCollector(collectors[k]);
+
+            if (unknownBlocks.size > 0) {
+                log('⚠️ 未知方块 (' + unknownBlocks.size + ' 种): ' + Array.from(unknownBlocks).join(', '));
+            }
 
             log('解析完成: ' + allBlocks.length + ' 个方块, 尺寸 ' + width + 'x' + height + 'x' + length);
             return { blocks: allBlocks, width: width, height: height, length: length, collectors: collectors };
@@ -1923,7 +1947,6 @@
                 throw new Error('未找到任何方块数据 (不支持此格式)');
             }
 
-            // 初始化敏感词缓存
             _SF.initCache(blocks.length);
 
             var collectors = {};
@@ -1935,6 +1958,10 @@
                 addToCollector(collectors[bid], b.z * w + b.x + b.y * ss + 1);
             }
             for (var k in collectors) finishCollector(collectors[k]);
+
+            if (unknownBlocks.size > 0) {
+                log('⚠️ 未知方块 (' + unknownBlocks.size + ' 种): ' + Array.from(unknownBlocks).join(', '));
+            }
 
             log('解析完成: ' + blocks.length + ' 个方块, 尺寸 ' + w + 'x' + h + 'x' + l);
             return { blocks: blocks, width: w, height: h, length: l, collectors: collectors };
@@ -1980,7 +2007,7 @@
         }
 
         // ============================================================
-        // 生成指令 - 使用unless模式 (与Python脚本的 generate_commands_typed 一致)
+        // 生成指令 - 修复版：绝不产生 unknown
         // ============================================================
         async function generateCommands(blocks, fn, w, l, params) {
             var sb = params.sb || 'dr';
@@ -1998,23 +2025,32 @@
                 cmds.push(cmd);
             }
 
-            // 收集所有方块，按y分层
+            // 收集所有方块，按y分层，同时确保不使用 unknown
             var layers = {};
+            var blockIdMap = {};
             for (var i = 0; i < blocks.blocks.length; i++) {
                 var b = blocks.blocks[i];
                 var bid = getBedrockId(b.id);
+                // 确保 bid 不是 unknown
+                if (bid === 'unknown') {
+                    bid = b.id.split(':').pop() || 'stone';
+                }
                 if (!layers[b.y]) layers[b.y] = [];
                 layers[b.y].push({ x: b.x, z: b.z, block: bid, javaId: b.id });
+                blockIdMap[bid] = true;
             }
 
             var ys = Object.keys(layers).map(Number).sort(function(a, b) { return a - b; });
-            var minY = ys[0] || 0;
-            var maxY = ys[ys.length - 1] || 0;
+            if (ys.length === 0) {
+                cmds.push('# 错误: 没有找到任何方块');
+                return cmds;
+            }
+            var minY = ys[0];
             var H = ys.length;
             var startY = minY;
             var y_dir = 1;
 
-            // 构建 typeId 映射 (与Python脚本一致: 从300开始)
+            // 构建 typeId 映射
             var block_to_id = {};
             var next_id = 300;
             var all_entries = [];
@@ -2032,7 +2068,12 @@
                 id_to_block[block_to_id[k]] = k;
             }
 
-            // 构建步进索引: idx = layer_idx * W * L + z * W + x
+            if (all_entries.length === 0) {
+                cmds.push('# 错误: 没有有效的方块');
+                return cmds;
+            }
+
+            // 构建步进索引
             function idxOf(li, x, z) {
                 return (li * w * l + z) * w + x;
             }
@@ -2135,7 +2176,6 @@
                                 batch.push([curStart, li - 1]);
                                 curStart = null;
                             }
-                            // 记录手动执行
                             var blockIdx = li;
                             var sliceSize = w * l;
                             var yIdx = Math.floor(blockIdx / sliceSize);
@@ -2153,7 +2193,6 @@
                     }
                 }
 
-                // 合并连续的区间
                 if (batch.length) {
                     var cb = [batch[0]];
                     for (var bi = 1; bi < batch.length; bi++) {
@@ -2166,7 +2205,6 @@
                     batch = cb;
                 }
 
-                // 按长度分割
                 var temp = [];
                 for (var i = 0; i < batch.length; i++) {
                     var test = temp.concat([batch[i]]);
@@ -2332,7 +2370,6 @@
                 blockPosData[javaId] = positions;
             }
 
-            // 生成基于方块ID的稳定颜色
             var blockColors = {};
             var javaIdList = Object.keys(groupMap);
             for (var i = 0; i < javaIdList.length; i++) {
@@ -2755,7 +2792,12 @@
                 setStatus('转换完成! ' + cmdCount + ' 条有效指令', 'status-ok');
                 log('转换完成: ' + cmdCount + ' 条指令, ' + blockCount + ' 个方块');
                 infoText.textContent = '指令: ' + cmdCount + ' 条 | 方块: ' + blockCount;
-                showToast('转换完成: ' + cmdCount + ' 条指令', 'success');
+
+                if (unknownBlocks.size > 0) {
+                    showToast('⚠️ 有 ' + unknownBlocks.size + ' 种未知方块，已使用回退ID', 'info');
+                } else {
+                    showToast('转换完成: ' + cmdCount + ' 条指令', 'success');
+                }
                 switchTab('cm');
             } catch (e) {
                 setStatus('转换失败: ' + e.message, 'status-err');
@@ -2792,8 +2834,9 @@
         window.clearAll = clearAll;
         window.copyCommands = copyCommands;
 
-        log('Web 版转换器 v3.6 已加载 (与Python脚本逻辑一致)');
+        log('Web 版转换器 v3.6 已加载 (修复版: 绝不输出 unknown)');
         log('映射表加载中...');
+        log('如果遇到未知方块，会自动使用原始ID作为回退');
         log('点击「生成3D预览」→ 生成预览');
         log('点击「生成分享链接」→ 上传到云端，1-3分钟有效期');
         log('「下载HTML」直接保存到本地');
