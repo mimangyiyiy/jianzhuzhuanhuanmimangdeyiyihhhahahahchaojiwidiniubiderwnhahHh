@@ -469,7 +469,6 @@
                 max-width: 90%;
             }
         }
-        /* SVG 图标占位 */
         .svg-icon {
             display: inline-block;
             vertical-align: middle;
@@ -958,7 +957,7 @@
         }
 
         // ============================================================
-        // 加载 block_map.js
+        // 加载 generator_blocks.json (替代 block_map.js)
         // ============================================================
         var blockMap = {};
         var mapLoaded = false;
@@ -967,50 +966,26 @@
             showProgress(true);
             setProgress(0, '加载映射表');
 
-            fetch('block_map.js')
+            fetch('generator_blocks.json')
                 .then(function(response) {
                     if (!response.ok) throw new Error('HTTP ' + response.status);
-                    var total = parseInt(response.headers.get('content-length')) || 0;
-                    var loaded = 0;
-                    var reader = response.body.getReader();
-                    var chunks = [];
-
-                    function pump() {
-                        return reader.read().then(function(result) {
-                            if (result.done) {
-                                var blob = new Blob(chunks);
-                                return blob.text();
-                            }
-                            chunks.push(result.value);
-                            loaded += result.value.length;
-                            if (total > 0) {
-                                var pct = Math.round(loaded / total * 100);
-                                setProgress(pct, '加载映射表');
-                            } else {
-                                var pct = Math.min(Math.round(loaded / 1024 / 1024 * 5), 90);
-                                setProgress(pct, '加载映射表');
-                            }
-                            return pump();
-                        });
-                    }
-                    return pump();
+                    return response.json();
                 })
-                .then(function(code) {
-                    setProgress(95, '解析映射表');
-                    eval(code);
-                    if (typeof BLOCK_MAP !== 'undefined' && BLOCK_MAP !== null) {
-                        blockMap = BLOCK_MAP;
+                .then(function(data) {
+                    setProgress(80, '解析映射表');
+                    if (data && typeof data === 'object') {
+                        blockMap = data;
                         mapLoaded = true;
                         var count = Object.keys(blockMap).length;
                         setProgress(100, '加载完成!');
                         mapStatus.textContent = '已加载 ' + count + ' 条';
                         mapStatus.style.color = '#69db7c';
                         stText.textContent = '就绪 — 拖拽文件到下方或点击选择';
-                        log('映射表加载完成: ' + count + ' 条');
+                        log('映射表加载完成: ' + count + ' 条 (来自 generator_blocks.json)');
                         showToast('映射表加载完成: ' + count + ' 条', 'success');
                         setTimeout(function() { showProgress(false); }, 800);
                     } else {
-                        throw new Error('BLOCK_MAP 未定义');
+                        throw new Error('映射表数据格式无效');
                     }
                 })
                 .catch(function(err) {
