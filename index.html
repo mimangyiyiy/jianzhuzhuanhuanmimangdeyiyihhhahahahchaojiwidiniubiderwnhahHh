@@ -1,2534 +1,705 @@
-<!DOCTYPE html>
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Minecraft 建筑转换器 - 网页版 (端口 9718) - 深色主题"""
+import sys, os, io, base64, threading
+import logging
+logging.getLogger('werkzeug').setLevel(logging.ERROR)
+logging.getLogger('flask').setLevel(logging.ERROR)
+from pathlib import Path
+from flask import Flask, request, render_template_string, send_file, jsonify
+
+_TMP_DIR = os.path.join(os.getcwd(), 'tmp_uploads')
+os.makedirs(_TMP_DIR, exist_ok=True)
+
+try:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+except Exception:
+    pass
+
+import jz_config
+
+_jz_mod = sys.modules.get('__main__')
+if _jz_mod and hasattr(_jz_mod, 'parse_building'):
+    jz = _jz_mod
+else:
+    import importlib.util
+    base = sys._MEIPASS if getattr(sys, 'frozen', False) else os.path.dirname(__file__)
+    spec = importlib.util.spec_from_file_location('jz', os.path.join(base, 'jz.py'))
+    jz = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(jz)
+
+app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
+
+# ============================================================
+# SVG 图标
+# ============================================================
+ICON_UPLOAD = '''<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>'''
+ICON_CONVERT = '''<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>'''
+ICON_PREVIEW = '''<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'''
+ICON_DOWNLOAD = '''<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'''
+ICON_CLEAR = '''<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>'''
+ICON_LOG = '''<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>'''
+ICON_COMMAND = '''<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>'''
+ICON_BILIBILI = '''<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.813 4.653h.854l1.338 1.606v10.66l-1.338 1.607H16.11l-2.183 2.147h-3.848L7.896 18.526H5.333L3.995 16.919V6.259l1.338-1.606h.854l1.872-1.87 1.872 1.87h4.122l1.872-1.87 1.872 1.87zm-1.338 2.14H7.525l-1.06 1.07v9.237l1.06 1.07h8.95l1.06-1.07V7.864l-1.06-1.07zm-6.316 2.674v6.955h-2.14V9.467h2.14zm4.816 0v6.955h-2.14V9.467h2.14z"/></svg>'''
+ICON_WARNING = '''<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ffd43b" stroke-width="2"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/></svg>'''
+ICON_CLOSE = '''<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'''
+
+# ============================================================
+# JS 代码 (base64 混淆)
+# ============================================================
+JS_SRC = r'''
+document.addEventListener('contextmenu',function(e){e.preventDefault();return false},true);
+window.addEventListener('contextmenu',function(e){e.preventDefault();return false},true);
+document.oncontextmenu=function(){return false};
+document.addEventListener('keydown',function(e){
+  var k=e.keyCode||e.which;
+  if(k===123){e.preventDefault();return false}
+  if(e.ctrlKey&&(k===85||k===83)){e.preventDefault();return false}
+  if(e.ctrlKey&&e.shiftKey&&(k===73||k===74||k===67)){e.preventDefault();return false}
+  if(e.ctrlKey&&e.shiftKey&&k===75){e.preventDefault();return false}
+  return true
+},true);
+window.addEventListener('keydown',function(e){if(e.keyCode===123)e.preventDefault()},true);
+document.addEventListener('dragstart',function(e){e.preventDefault()});
+(function(){var t=setInterval(function(){debugger},800);})();
+console.log('%c警告','color:red;font-size:24px;font-weight:bold','本页面内容受版权保护，请勿通过开发者工具查看源码。');
+
+function log(m){var e=document.getElementById('log');e.textContent+=m+'\n';e.scrollTop=e.scrollHeight}
+function clr(){document.getElementById('log').textContent=''}
+function switchTab(n){document.querySelectorAll('.tab,.tab-content').forEach(e=>e.classList.remove('active'));document.getElementById(n+'Content').classList.add('active');document.querySelector('.tab[onclick*="'+n+'"]').classList.add('active')}
+function showLoad(){document.getElementById('loadingOverlay').style.display='flex'}
+function hideLoad(){document.getElementById('loadingOverlay').style.display='none'}
+function disableBtns(){document.querySelectorAll('.btn').forEach(b=>b.disabled=true)}
+function enableBtns(){document.querySelectorAll('.btn').forEach(b=>b.disabled=false)}
+
+// ===== 启动弹窗 =====
+function showStartupModal(){
+  var modal=document.getElementById('startupModal');
+  modal.style.display='flex';
+}
+
+function closeModal(stay){
+  var modal=document.getElementById('startupModal');
+  modal.style.display='none';
+  if(!stay){
+    window.location.href='https://mmdyy-xywbmm.zh.kg/download';
+  }
+}
+
+// 页面加载完成后显示弹窗
+document.addEventListener('DOMContentLoaded',function(){
+  showStartupModal();
+});
+
+async function convert(){
+  var f=document.getElementById('fileInput').files[0];if(!f){log('请先选择文件');return}
+  clr();showLoad();disableBtns();document.getElementById('dlArea').style.display='none'
+  var fd=new FormData();fd.append('file',f);
+  fd.append('scoreboard_name',document.getElementById('sbName').value.trim()||'dr');
+  fd.append('speed',document.getElementById('speed').value.trim()||'1');
+  fd.append('h_tag',document.getElementById('hTag').value.trim()||'h');
+  fd.append('b_tag',document.getElementById('bTag').value.trim()||'b');
+  fd.append('max_chars',document.getElementById('maxChars').value.trim()||'10000');
+  try{
+    var r=await fetch('/convert',{method:'POST',body:fd});
+    var d=await r.json();
+    if(d.error){log('错误: '+d.error);return}
+    log(d.log||'');
+    if(d.commands){document.getElementById('cmdLog').textContent=d.commands;switchTab('cmd')}
+    if(d.filename){document.getElementById('dlLink').href='/download/'+d.filename;document.getElementById('dlArea').style.display='block'}
+  }catch(e){log('错误: '+e.message)}
+  finally{hideLoad();enableBtns()}
+}
+
+async function preview(){
+  var f=document.getElementById('fileInput').files[0];if(!f)return;
+  showLoad();disableBtns();
+  var fd=new FormData();fd.append('file',f);
+  try{
+    var r=await fetch('/preview',{method:'POST',body:fd});
+    var d=await r.json();
+    if(d.error){log('错误: '+d.error);return}
+    if(d.url){document.getElementById('previewFrame').src=d.url;switchTab('preview')}
+  }catch(e){log('错误: '+e.message)}
+  finally{hideLoad();enableBtns()}
+}
+
+async function switchVer(v){
+  showLoad();disableBtns();
+  try{await fetch('/switch/'+v);}catch(e){}
+}
+
+async function loadSensitive(){
+  try{
+    var r=await fetch('/sensitive');var d=await r.json();
+    if(d.error){document.getElementById('rmMsg').textContent=d.error;return}
+    document.getElementById('offArea').style.display='none';
+    document.getElementById('sensArea').style.display='block';
+    document.getElementById('rmMsg').textContent='';
+    var ta=document.getElementById('sensArea');
+    ta.value=d.user_words.map(function(w){return (w.type==='allow'?'!':'')+w.text}).join('\n');
+  }catch(e){alert(e.message)}
+}
+
+async function saveSensitive(){
+  var ta=document.getElementById('sensArea');
+  var items=ta.value.split('\n').map(function(l){return l.trim()}).filter(function(l){return l&&l.charAt(0)!=='#'});
+  try{
+    var r=await fetch('/sensitive/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({words:items})});
+    var d=await r.json();
+    if(d.error){document.getElementById('rmMsg').textContent=d.error;return}
+    document.getElementById('rmMsg').textContent='已保存';
+    setTimeout(function(){document.getElementById('rmMsg').textContent=''},2000);
+  }catch(e){alert(e.message)}
+}
+
+async function viewOfficial(){
+  try{
+    var r=await fetch('/sensitive/official');var d=await r.json();
+    var ta=document.getElementById('offArea');
+    var sa=document.getElementById('sensArea');
+    ta.value='内置规则共 '+d.count+' 条:\n\n'+d.rules.join('\n');
+    ta.style.display='block';
+    sa.style.display='none';
+  }catch(e){document.getElementById('rmMsg').textContent='加载失败: '+e.message}
+}
+
+window.convert=convert;window.preview=preview;window.switchTab=switchTab;window.switchVer=switchVer;
+window.loadSensitive=loadSensitive;window.saveSensitive=saveSensitive;window.viewOfficial=viewOfficial;
+window.closeModal=closeModal;
+'''
+JS_B64 = base64.b64encode(JS_SRC.encode('utf-8')).decode('ascii')
+
+# ============================================================
+# HTML 模板 (深色主题 + 启动弹窗)
+# ============================================================
+HTML = f'''<!DOCTYPE html>
 <html lang="zh">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MC建筑转换器 v3.6 - JS版</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            background: linear-gradient(135deg, #0d0d2b, #1a1a3e, #0f0f2e);
-            min-height: 100vh;
-            font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
-            padding: 20px;
-        }
-        .container {
-            max-width: 960px;
-            margin: 0 auto;
-        }
-        h1 {
-            font-size: 24px;
-            color: #fff;
-            margin-bottom: 4px;
-        }
-        h1 span {
-            background: linear-gradient(135deg, #7c4dff, #448aff);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .sub {
-            color: #889;
-            font-size: 13px;
-            margin-bottom: 10px;
-        }
-        .card {
-            background: rgba(255, 255, 255, .04);
-            border: 1px solid rgba(255, 255, 255, .08);
-            border-radius: 10px;
-            padding: 14px;
-            margin-bottom: 10px;
-        }
-        .row {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-            align-items: center;
-            margin-top: 4px;
-        }
-        label {
-            font-size: 12px;
-            color: #999;
-        }
-        input[type=file] {
-            font-size: 12px;
-            color: #ccc;
-            background: transparent;
-            border: none;
-            cursor: pointer;
-        }
-        input[type=text],
-        input[type=number] {
-            padding: 3px 6px;
-            border: 1px solid rgba(255, 255, 255, .1);
-            border-radius: 4px;
-            background: rgba(0, 0, 0, .3);
-            color: #ccc;
-            font-size: 12px;
-            width: 70px;
-        }
-        .btn {
-            padding: 8px 20px;
-            border: none;
-            border-radius: 5px;
-            font-size: 13px;
-            cursor: pointer;
-            color: #fff;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            text-decoration: none;
-            transition: .15s;
-            font-weight: 500;
-        }
-        .btn svg {
-            width: 16px;
-            height: 16px;
-            fill: currentColor;
-            flex-shrink: 0;
-        }
-        .btn-primary {
-            background: linear-gradient(135deg, #7c4dff, #5e35e0);
-        }
-        .btn-primary:hover:not(:disabled) {
-            opacity: .85;
-            transform: scale(1.02);
-        }
-        .btn-secondary {
-            background: linear-gradient(135deg, #448aff, #2962ff);
-        }
-        .btn-secondary:hover:not(:disabled) {
-            opacity: .85;
-            transform: scale(1.02);
-        }
-        .btn-success {
-            background: linear-gradient(135deg, #00c853, #00a844);
-        }
-        .btn-success:hover:not(:disabled) {
-            opacity: .85;
-            transform: scale(1.02);
-        }
-        .btn-danger {
-            background: linear-gradient(135deg, #ff1744, #d50000);
-        }
-        .btn-danger:hover:not(:disabled) {
-            opacity: .85;
-            transform: scale(1.02);
-        }
-        .btn:disabled {
-            opacity: .35;
-            cursor: not-allowed;
-        }
-        .btn-sm {
-            padding: 4px 12px;
-            font-size: 12px;
-        }
-        .btn-lg {
-            padding: 10px 28px;
-            font-size: 15px;
-        }
-        .btn-preview {
-            background: linear-gradient(135deg, #00b894, #00a381);
-        }
-        .btn-preview:hover:not(:disabled) {
-            opacity: .85;
-            transform: scale(1.02);
-        }
-        #st {
-            font-size: 13px;
-            padding: 10px 16px;
-            border-radius: 6px;
-            margin-bottom: 8px;
-            background: rgba(255, 255, 255, .03);
-            transition: all .3s;
-            border-left: 3px solid transparent;
-            min-height: 38px;
-        }
-        #st.status-ok {
-            border-left-color: #00c853;
-            color: #69db7c;
-        }
-        #st.status-err {
-            border-left-color: #ff1744;
-            color: #ff6b6b;
-        }
-        #st.status-info {
-            border-left-color: #448aff;
-            color: #74c0fc;
-        }
-        #st.status-file {
-            border-left-color: #ffd43b;
-            color: #ffd43b;
-            background: rgba(255, 212, 59, .08);
-        }
-        #ld {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(13, 13, 43, .92);
-            z-index: 9999;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            gap: 16px;
-        }
-        #ld.s {
-            display: flex;
-        }
-        #sp {
-            width: 40px;
-            height: 40px;
-            border: 3px solid rgba(124, 77, 255, .2);
-            border-top-color: #7c4dff;
-            border-radius: 50%;
-            animation: s .8s linear infinite;
-        }
-        @keyframes s {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-        #lt {
-            color: #889;
-            font-size: 13px;
-        }
-        .tabs {
-            display: flex;
-            border-bottom: 1px solid rgba(255, 255, 255, .06);
-            margin-top: 8px;
-        }
-        .tab {
-            padding: 5px 14px;
-            cursor: pointer;
-            font-size: 12px;
-            color: #666;
-            border-bottom: 2px solid transparent;
-            transition: .2s;
-        }
-        .tab:hover {
-            color: #aaa;
-        }
-        .tab.a {
-            color: #ccc;
-            border-bottom-color: #7c4dff;
-        }
-        .tab-c {
-            display: none;
-            margin-top: 6px;
-        }
-        .tab-c.s {
-            display: block;
-        }
-        .box {
-            background: rgba(0, 0, 0, .4);
-            border: 1px solid rgba(255, 255, 255, .06);
-            border-radius: 8px;
-            padding: 10px;
-            font-family: Consolas, monospace;
-            font-size: 11px;
-            color: #8b8baa;
-            height: 300px;
-            overflow: auto;
-            white-space: pre-wrap;
-            word-break: break-all;
-        }
-        .box-lg {
-            height: 420px;
-        }
-        .badge {
-            display: inline-block;
-            padding: 2px 10px;
-            border-radius: 10px;
-            font-size: 11px;
-            background: rgba(124, 77, 255, .2);
-            color: #b197fc;
-            margin-left: 6px;
-        }
-        .checkbox-label {
-            font-size: 12px;
-            color: #999;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            cursor: pointer;
-        }
-        .checkbox-label input[type=checkbox] {
-            accent-color: #7c4dff;
-            width: 14px;
-            height: 14px;
-            cursor: pointer;
-        }
-        .drop-zone {
-            border: 2px dashed rgba(255, 255, 255, .1);
-            border-radius: 8px;
-            padding: 20px;
-            text-align: center;
-            color: #555;
-            transition: .3s;
-            cursor: pointer;
-            position: relative;
-        }
-        .drop-zone:hover {
-            border-color: rgba(124, 77, 255, .4);
-            background: rgba(124, 77, 255, .05);
-        }
-        .drop-zone.drag-over {
-            border-color: #7c4dff;
-            background: rgba(124, 77, 255, .12);
-            transform: scale(1.01);
-        }
-        .drop-zone.has-file {
-            border-color: #ffd43b;
-            background: rgba(255, 212, 59, .06);
-        }
-        .drop-zone .icon {
-            display: block;
-            margin-bottom: 4px;
-        }
-        .drop-zone .file-name-display {
-            font-size: 14px;
-            color: #ffd43b;
-            font-weight: 500;
-            margin-top: 4px;
-        }
-        .drop-zone .file-size-display {
-            font-size: 11px;
-            color: #666;
-        }
-        .toast {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 12px 28px;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 500;
-            z-index: 10000;
-            opacity: 0;
-            transition: all .4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-            pointer-events: none;
-            background: rgba(0, 0, 0, .85);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, .1);
-        }
-        .toast.show {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-        }
-        .toast.success {
-            border-color: #00c853;
-            color: #69db7c;
-        }
-        .toast.error {
-            border-color: #ff1744;
-            color: #ff6b6b;
-        }
-        .toast.info {
-            border-color: #448aff;
-            color: #74c0fc;
-        }
-        .copy-btn {
-            background: rgba(255, 255, 255, .08);
-            border: 1px solid rgba(255, 255, 255, .1);
-            color: #aaa;
-            padding: 2px 10px;
-            border-radius: 4px;
-            font-size: 11px;
-            cursor: pointer;
-            transition: .2s;
-        }
-        .copy-btn:hover {
-            background: rgba(255, 255, 255, .15);
-            color: #fff;
-        }
-        #progress-wrap {
-            width: 100%;
-            height: 6px;
-            background: rgba(255, 255, 255, 0.06);
-            border-radius: 3px;
-            margin-top: 6px;
-            overflow: hidden;
-            position: relative;
-            display: none;
-        }
-        #progress-wrap.active {
-            display: block;
-        }
-        #progress-bar {
-            height: 100%;
-            width: 0%;
-            border-radius: 3px;
-            background: linear-gradient(90deg, #7c4dff, #448aff, #00c853);
-            background-size: 200% 100%;
-            animation: progress-shimmer 1.5s ease-in-out infinite;
-            transition: width .15s ease-out;
-        }
-        @keyframes progress-shimmer {
-            0% {
-                background-position: 0% 0%;
-            }
-            100% {
-                background-position: 200% 0%;
-            }
-        }
-        #progress-text {
-            font-size: 11px;
-            color: #aaa;
-            margin-top: 2px;
-            display: block;
-        }
-        #st-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .preview-actions {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-top: 8px;
-        }
-        .preview-actions .btn {
-            flex: 1;
-            min-width: 120px;
-            text-align: center;
-        }
-        @media(max-width:600px) {
-            .row {
-                gap: 4px;
-            }
-            input[type=text],
-            input[type=number] {
-                width: 50px;
-            }
-            .btn {
-                padding: 6px 12px;
-                font-size: 11px;
-            }
-            #preview3d {
-                height: 300px;
-            }
-            .toast {
-                font-size: 12px;
-                padding: 10px 20px;
-                bottom: 20px;
-                max-width: 90%;
-            }
-        }
-        .drop-zone .icon svg {
-            width: 36px;
-            height: 36px;
-            fill: #666;
-        }
-        .btn svg {
-            width: 16px;
-            height: 16px;
-        }
-        #preview3d {
-            width: 100%;
-            height: 500px;
-            border-radius: 8px;
-            background: #0d0d2b;
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            gap: 12px;
-        }
-        #preview3d .big-icon svg {
-            width: 64px;
-            height: 64px;
-            fill: #555;
-        }
-        #preview3d .hint {
-            color: #555;
-            font-size: 14px;
-            text-align: center;
-            line-height: 1.6;
-        }
-        #preview3d .hint small {
-            color: #444;
-            font-size: 12px;
-        }
-        .preview-info-overlay {
-            position: absolute;
-            bottom: 12px;
-            left: 12px;
-            background: rgba(0, 0, 0, .7);
-            padding: 6px 14px;
-            border-radius: 6px;
-            font-size: 12px;
-            color: #aaa;
-            pointer-events: none;
-            z-index: 10;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MC 建筑转换器 v3.6</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{background:#0d0d2b;min-height:100vh;font-family:"Segoe UI","Microsoft YaHei",sans-serif;padding:20px;color:#ccc}}
+.container{{max-width:960px;margin:0 auto}}
+
+/* 水印 */
+.wm{{position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:999;opacity:.06}}
+
+/* 头部 */
+.header{{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px}}
+.header h1{{font-size:24px;color:#fff}}
+.header h1 span{{background:linear-gradient(135deg,#7c4dff,#448aff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}}
+.header .sub{{font-size:13px;color:#889}}
+.header .badge{{display:inline-block;padding:2px 10px;border-radius:10px;font-size:11px;background:rgba(124,77,255,.2);color:#b197fc;margin-left:6px}}
+
+/* 状态栏 */
+#status{{background:rgba(255,255,255,.03);border-left:3px solid #7c4dff;border-radius:6px;padding:10px 16px;margin-bottom:10px;font-size:13px}}
+
+/* 卡片 */
+.card{{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:14px;margin-bottom:10px}}
+
+/* 拖拽区 */
+.drop-zone{{border:2px dashed rgba(255,255,255,.1);border-radius:8px;padding:24px 20px;text-align:center;cursor:pointer;transition:.3s}}
+.drop-zone:hover{{border-color:rgba(124,77,255,.4);background:rgba(124,77,255,.05)}}
+.drop-zone.drag-over{{border-color:#7c4dff;background:rgba(124,77,255,.12)}}
+.drop-zone.has-file{{border-color:#ffd43b;background:rgba(255,212,59,.06)}}
+.drop-zone .file-name{{color:#ffd43b;font-weight:500;margin-top:4px;font-size:14px}}
+.drop-zone .file-size{{font-size:11px;color:#666}}
+.drop-zone input[type=file]{{display:none}}
+.drop-zone .icon{{display:inline-block;margin-bottom:4px;color:#666}}
+
+/* 表单行 */
+.row{{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}}
+.row label{{font-size:12px;color:#999}}
+.row input[type=text],.row input[type=number]{{padding:4px 8px;border:1px solid rgba(255,255,255,.1);border-radius:4px;background:rgba(0,0,0,.3);color:#ccc;font-size:12px;width:60px}}
+.row input[type=file]{{font-size:12px;color:#ccc;background:transparent;border:none;cursor:pointer}}
+.row .checkbox-label{{display:flex;align-items:center;gap:4px;font-size:12px;color:#999;cursor:pointer}}
+.row .checkbox-label input[type=checkbox]{{accent-color:#7c4dff;width:14px;height:14px;cursor:pointer}}
+
+/* 按钮 */
+.btn{{padding:8px 20px;border:none;border-radius:6px;font-size:13px;cursor:pointer;color:#fff;display:inline-flex;align-items:center;gap:6px;transition:.15s;font-weight:500}}
+.btn:disabled{{opacity:.35;cursor:not-allowed}}
+.btn-primary{{background:linear-gradient(135deg,#7c4dff,#5e35e0)}}
+.btn-primary:hover:not(:disabled){{opacity:.85;transform:scale(1.02)}}
+.btn-success{{background:linear-gradient(135deg,#00c853,#00a844)}}
+.btn-success:hover:not(:disabled){{opacity:.85;transform:scale(1.02)}}
+.btn-preview{{background:linear-gradient(135deg,#00b894,#00a381)}}
+.btn-preview:hover:not(:disabled){{opacity:.85;transform:scale(1.02)}}
+.btn-danger{{background:linear-gradient(135deg,#ff1744,#d50000)}}
+.btn-danger:hover:not(:disabled){{opacity:.85;transform:scale(1.02)}}
+.btn-warning{{background:linear-gradient(135deg,#ffd43b,#f9a825)}}
+.btn-warning:hover:not(:disabled){{opacity:.85;transform:scale(1.02)}}
+.btn-sm{{padding:4px 12px;font-size:12px}}
+.btn-link{{background:transparent;color:#888;padding:4px 8px;font-size:12px}}
+.btn-link:hover{{color:#fff}}
+
+/* 标签页 */
+.tabs{{display:flex;border-bottom:1px solid rgba(255,255,255,.06);margin-top:6px}}
+.tab{{padding:6px 16px;cursor:pointer;font-size:12px;color:#666;border-bottom:2px solid transparent;transition:.2s;display:flex;align-items:center;gap:4px}}
+.tab:hover{{color:#aaa}}
+.tab.active{{color:#ccc;border-bottom-color:#7c4dff}}
+.tab-content{{display:none;margin-top:6px}}
+.tab-content.active{{display:block}}
+
+/* 日志/指令框 */
+.box{{background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:10px;font-family:Consolas,monospace;font-size:12px;color:#8b8baa;height:260px;overflow:auto;white-space:pre-wrap;word-break:break-all}}
+.box-lg{{height:380px}}
+.box-sm{{height:150px}}
+.box-header{{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}}
+.box-header span{{font-size:11px;color:#666}}
+.copy-btn{{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);color:#aaa;padding:2px 12px;border-radius:4px;font-size:11px;cursor:pointer}}
+.copy-btn:hover{{background:rgba(255,255,255,.15);color:#fff}}
+
+/* 预览 */
+iframe{{width:100%;height:500px;border:none;border-radius:8px;margin-top:8px;background:#0d0d2b}}
+
+/* 敏感词 */
+.sens-area{{width:100%;height:160px;font-family:Consolas,monospace;font-size:12px;margin-top:8px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.06);border-radius:6px;padding:8px;color:#ccc}}
+.sens-area:focus{{outline:none;border-color:#7c4dff}}
+.sens-area[readonly]{{background:rgba(255,255,255,.04);color:#666}}
+
+/* 加载遮罩 */
+#loadingOverlay{{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(13,13,43,.92);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:16px}}
+#loadingOverlay.active{{display:flex}}
+#loadingOverlay .spinner{{width:40px;height:40px;border:3px solid rgba(124,77,255,.2);border-top-color:#7c4dff;border-radius:50%;animation:spin .8s linear infinite}}
+@keyframes spin{{to{{transform:rotate(360deg)}}}}
+#loadingOverlay .loading-text{{color:#889;font-size:13px}}
+
+/* Toast */
+#toast{{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(80px);padding:12px 28px;border-radius:10px;font-size:14px;font-weight:500;z-index:10000;opacity:0;transition:all .4s;pointer-events:none;background:rgba(0,0,0,.85);border:1px solid rgba(255,255,255,.1)}}
+#toast.show{{opacity:1;transform:translateX(-50%) translateY(0)}}
+#toast.success{{border-color:#00c853;color:#69db7c}}
+#toast.error{{border-color:#ff1744;color:#ff6b6b}}
+#toast.info{{border-color:#448aff;color:#74c0fc}}
+
+/* ===== 启动弹窗 ===== */
+#startupModal{{
+  display:none;
+  position:fixed;
+  top:0;left:0;
+  width:100%;height:100%;
+  background:rgba(0,0,0,.85);
+  backdrop-filter:blur(8px);
+  z-index:99999;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+}}
+#startupModal.active{{display:flex}}
+.modal-box{{
+  background:linear-gradient(145deg,#1a1a4e,#0d0d2b);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:16px;
+  padding:32px 40px;
+  max-width:520px;
+  width:100%;
+  text-align:center;
+  box-shadow:0 20px 60px rgba(0,0,0,.8);
+  position:relative;
+}}
+.modal-box .warning-icon{{color:#ffd43b;margin-bottom:16px}}
+.modal-box h2{{font-size:20px;color:#ffd43b;margin-bottom:10px}}
+.modal-box p{{font-size:14px;color:#999;line-height:1.6;margin-bottom:20px}}
+.modal-box .btn-group{{display:flex;flex-direction:column;gap:10px}}
+.modal-box .btn-group .btn{{justify-content:center;padding:12px 24px;font-size:14px;width:100%}}
+.modal-box .btn-group .btn-warning{{background:linear-gradient(135deg,#ffd43b,#f9a825);color:#1a1a3e}}
+.modal-box .btn-group .btn-warning:hover{{opacity:.85;transform:scale(1.01)}}
+.modal-box .btn-group .btn-secondary{{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1)}}
+.modal-box .btn-group .btn-secondary:hover{{background:rgba(255,255,255,.15)}}
+.modal-box .version-tag{{display:inline-block;padding:2px 12px;border-radius:10px;font-size:11px;background:rgba(255,212,59,.15);color:#ffd43b;margin-bottom:12px}}
+
+/* 响应式 */
+@media(max-width:600px){{
+  .row{{gap:4px}}
+  .row input[type=text],.row input[type=number]{{width:40px}}
+  .btn{{padding:6px 12px;font-size:11px}}
+  .header h1{{font-size:18px}}
+  .box{{height:180px}}
+  .box-lg{{height:280px}}
+  .modal-box{{padding:24px 20px}}
+}}
+</style>
 </head>
 <body>
 
-    <div id="ld"><div id="sp"></div><div id="lt">处理中...</div></div>
-    <div id="toast" class="toast"></div>
+<!-- 启动弹窗 -->
+<div id="startupModal">
+  <div class="modal-box">
+    <div class="warning-icon">{ICON_WARNING}</div>
+    <div class="version-tag">⚠ 开发预览版</div>
+    <h2>网站尚未完善</h2>
+    <p>当前版本生成的指令可能存在问题，<br>请勿在正式服务器使用。</p>
+    <div class="btn-group">
+      <button class="btn btn-warning" onclick="closeModal(false)">
+        {ICON_DOWNLOAD} 立即前往下载已完成版本 <span style="font-size:11px;opacity:.7">(推荐)</span>
+      </button>
+      <button class="btn btn-secondary" onclick="closeModal(true)">
+        我不管，我非要留在这个没有做完的网站
+      </button>
+    </div>
+  </div>
+</div>
 
-    <div class="container">
-        <h1>MC <span>建筑转换器</span> v3.6</h1>
-        <div class="sub">作者: 小逸罒不迷茫 | B站: space.bilibili.com/3546638146603426 <span class="badge">Web版</span></div>
+<!-- 水印 -->
+<svg class="wm" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+  <defs><pattern id="wp" x="0" y="0" width="300" height="300" patternUnits="userSpaceOnUse">
+    <text transform="rotate(-30)" x="0" y="150" font-size="26" font-family="Microsoft YaHei,SimHei,sans-serif" fill="#888">小逸罒不迷茫</text>
+  </pattern></defs>
+  <rect width="100%" height="100%" fill="url(#wp)"/>
+</svg>
 
-        <div id="st">
-            <div id="st-top">
-                <span id="st-text">⏳ 加载映射表中...</span>
-                <span id="mapStatus" style="font-size:11px;color:#666;">映射表: 0%</span>
-            </div>
-            <div id="progress-wrap" class="active">
-                <div id="progress-bar" style="width:0%"></div>
-            </div>
-            <span id="progress-text">加载映射表 (0%)</span>
-        </div>
+<!-- 加载遮罩 -->
+<div id="loadingOverlay"><div class="spinner"></div><div class="loading-text">处理中...</div></div>
 
-        <div class="card">
-            <div class="drop-zone" id="dropZone">
-                <span class="icon" id="dropIcon">
-                    <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
-                </span>
-                <span id="dropText">点击选择文件 或 拖拽 .schematic / .litematic 到此处</span>
-                <input type="file" id="fi" accept=".schematic,.litematic" style="display:none;">
-                <div id="fileInfo" style="margin-top:6px;display:none;">
-                    <div class="file-name-display" id="fileNameDisplay"></div>
-                    <div class="file-size-display" id="fileSizeDisplay"></div>
-                </div>
-            </div>
+<!-- Toast -->
+<div id="toast"></div>
 
-            <div class="row">
-                <label>计分板:</label>
-                <input type="text" id="sb" value="dr" style="width:60px">
-                <label>速度:</label>
-                <input type="number" id="spd" value="1" style="width:45px" min="1" max="10">
-                <label>h标签:</label>
-                <input type="text" id="ht" value="h" style="width:35px">
-                <label>b标签:</label>
-                <input type="text" id="bt" value="b" style="width:35px">
-                <label>上限:</label>
-                <input type="number" id="mc" value="10000" style="width:60px" min="100" max="99999">
-            </div>
-            <div class="row" style="margin-top:4px;">
-                <label>预览有效期:</label>
-                <input type="number" id="expireTime" value="3" style="width:50px" min="1" max="3">
-                <span style="font-size:11px;color:#666;">分钟 (1-3分钟)</span>
-                <label class="checkbox-label" style="margin-left:12px;">
-                    <input type="checkbox" id="disableSensitive" checked>
-                    启用敏感词过滤
-                </label>
-                <span style="font-size:11px;color:#555;margin-left:4px;" id="sensitiveCount">规则: 6 条</span>
-            </div>
-            <div class="row" style="margin-top:8px;">
-                <button class="btn btn-preview" id="pb" onclick="preview()" disabled>
-                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
-                    生成3D预览
-                </button>
-                <button class="btn btn-primary" id="cb" onclick="convert()" disabled>
-                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                    转换
-                </button>
-                <button class="btn btn-success" id="dlBtn" onclick="downloadCommands()" disabled style="display:none;">
-                    <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-                    下载指令
-                </button>
-                <button class="btn btn-danger btn-sm" onclick="clearAll()">
-                    <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                    清空
-                </button>
-                <span style="font-size:11px;color:#555;margin-left:auto;" id="infoText"></span>
-            </div>
-        </div>
+<div class="container">
 
-        <div class="tabs">
-            <div class="tab a" onclick="switchTab('lg')">日志</div>
-            <div class="tab" onclick="switchTab('cm')">指令</div>
-            <div class="tab" onclick="switchTab('pr')">3D预览</div>
-        </div>
+  <!-- 头部 -->
+  <div class="header">
+    <h1>MC <span>建筑转换器</span> v3.6</h1>
+    <div class="sub">作者: 小逸罒不迷茫 <span class="badge">网页版</span></div>
+  </div>
 
-        <div class="tab-c s" id="lgC">
-            <div class="box" id="lg" style="height:180px;font-size:12px;">加载映射表中...</div>
-        </div>
-        <div class="tab-c" id="cmC">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                <span style="font-size:11px;color:#666;">共 <span id="cmdCount">0</span> 条指令</span>
-                <div><button class="copy-btn" onclick="copyCommands()">复制</button></div>
-            </div>
-            <div class="box box-lg" id="cm">等待转换...</div>
-        </div>
-        <div class="tab-c" id="prC">
-            <div style="margin-bottom:6px;">
-                <div class="preview-actions">
-                    <button class="btn btn-preview btn-lg" id="previewDownloadBtn" onclick="downloadPreviewHTML()" style="display:none;">
-                        <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-                        生成分享链接
-                    </button>
-                    <button class="btn btn-secondary btn-lg" id="previewDownloadLocalBtn" onclick="downloadPreviewHTMLDirect()" style="display:none;">
-                        <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-                        下载HTML
-                    </button>
-                </div>
-                <div style="margin-top:4px;">
-                    <span style="font-size:11px;color:#666;" id="previewInfo"></span>
-                    <span style="font-size:11px;color:#555;margin-left:8px;" id="previewStatus"></span>
-                </div>
-            </div>
-            <div id="preview3d">
-                <div class="big-icon">
-                    <svg viewBox="0 0 64 64">
-                        <rect x="8" y="8" width="48" height="48" rx="4" stroke="#666" stroke-width="2" fill="none"/>
-                        <rect x="16" y="16" width="32" height="32" rx="2" stroke="#555" stroke-width="1.5" fill="none"/>
-                        <line x1="16" y1="28" x2="48" y2="28" stroke="#555" stroke-width="1.5"/>
-                        <line x1="16" y1="36" x2="48" y2="36" stroke="#555" stroke-width="1.5"/>
-                        <line x1="28" y1="16" x2="28" y2="48" stroke="#555" stroke-width="1.5"/>
-                        <line x1="36" y1="16" x2="36" y2="48" stroke="#555" stroke-width="1.5"/>
-                    </svg>
-                </div>
-                <div class="hint">点击「生成3D预览」生成预览HTML<br><small>下载后用浏览器打开查看3D模型</small></div>
-                <div class="preview-info-overlay" id="prInfo" style="display:none;"></div>
-            </div>
-        </div>
+  <!-- 状态 -->
+  <div id="status">⏳ 就绪，请上传文件</div>
+
+  <!-- 主卡片 -->
+  <div class="card">
+
+    <!-- 拖拽区 -->
+    <div class="drop-zone" id="dropZone">
+      <span class="icon">{ICON_UPLOAD}</span>
+      <div><span id="dropText">点击选择 或 拖拽 .schematic / .litematic</span></div>
+      <div id="fileInfo" style="display:none;margin-top:4px;">
+        <div class="file-name" id="fileNameDisplay"></div>
+        <div class="file-size" id="fileSizeDisplay"></div>
+      </div>
+      <input type="file" id="fileInput" accept=".schematic,.litematic">
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js">
-    </script>
-    <script>
-        // ============================================================
-        // 敏感词过滤器 - 与 jz.py 完全一致
-        // ============================================================
-        var SF_RULES = [
-            /3224909018|2265778903|1632249606|1477550673|110101195306153019|976410387|878880263|804305473|762469277|635793980|560802433|534369147|517213791|422427876|375415740|281798694|259256141|183339779|163721419|70363734|40609891|479988|19132/i,
-            /3.{0,3}?7.{0,3}?5.{0,3}?4.{0,3}?1.{0,3}?5/i,
-            /8[^1-8a-z]*?9*?6[^1-46-9a-z]*?4|6[^1-9a-z]*?4[^0-9a-z]*?8[^1-9a-z]*?9/i,
-            /(?<![a-z0-9#])8\s*?9\s*?6\s*?4(?![0-9a-z_])/i,
-            /(?<![a-z0-9])19890?60?4(?![a-z0-9])|(?<![0-9])98753210?(?![0-9])/i,
-            /^(?!.*?([0-9])\1{3,}?).*?(?<![0-9a-z#])(1[12345]|2[123]|3[1234567]|4[123456]|5[012345]|6[12345])[0-9]{4}(19[0-9]{2}|20[012][0-9])(0[1-9]|1[012])(0[1-9]|[123][0-9])[0-9]{3}[0-9x](?![0-9a-z])/i
-        ];
-
-        var SF = {
-            contains: function(s) {
-                if (!s) return false;
-                var str = String(s);
-                if (!/^\d+$/.test(str)) return false;
-                for (var i = 0; i < SF_RULES.length; i++) {
-                    if (SF_RULES[i].test(str)) return true;
-                }
-                return false;
-            },
-            count: function() { return SF_RULES.length; }
-        };
-
-        var toastTimer = null;
-
-        function showToast(msg, type) {
-            var el = document.getElementById('toast');
-            el.textContent = msg;
-            el.className = 'toast ' + (type || 'info') + ' show';
-            clearTimeout(toastTimer);
-            toastTimer = setTimeout(function() { el.classList.remove('show'); }, 3000);
-        }
-
-        // ============================================================
-        // 主逻辑 - 完全重写，与 jz.py 一致
-        // ============================================================
-        var lg = document.getElementById('lg');
-        var fi = document.getElementById('fi');
-        var dropZone = document.getElementById('dropZone');
-        var currentFileData = null;
-        var currentFileName = '';
-        var currentCommands = null;
-        var currentPreviewResult = null;
-        var currentPreviewHTML = null;
-        var currentPreviewUrl = '';
-
-        var sbEl = document.getElementById('sb');
-        var spdEl = document.getElementById('spd');
-        var htEl = document.getElementById('ht');
-        var btEl = document.getElementById('bt');
-        var mcEl = document.getElementById('mc');
-        var expireTimeEl = document.getElementById('expireTime');
-        var pbBtn = document.getElementById('pb');
-        var cbBtn = document.getElementById('cb');
-        var dlBtn = document.getElementById('dlBtn');
-        var cmBox = document.getElementById('cm');
-        var infoText = document.getElementById('infoText');
-        var cmdCountEl = document.getElementById('cmdCount');
-        var disableSensitiveEl = document.getElementById('disableSensitive');
-        var sensitiveCountEl = document.getElementById('sensitiveCount');
-        var previewDownloadBtn = document.getElementById('previewDownloadBtn');
-        var previewDownloadLocalBtn = document.getElementById('previewDownloadLocalBtn');
-        var previewInfo = document.getElementById('previewInfo');
-        var previewStatus = document.getElementById('previewStatus');
-        var prInfo = document.getElementById('prInfo');
-        var preview3d = document.getElementById('preview3d');
-        var mapStatus = document.getElementById('mapStatus');
-        var stText = document.getElementById('st-text');
-        var progressWrap = document.getElementById('progress-wrap');
-        var progressBar = document.getElementById('progress-bar');
-        var progressText = document.getElementById('progress-text');
-
-        sensitiveCountEl.textContent = '规则: ' + SF.count() + ' 条';
-
-        function log(msg) {
-            var line = '[' + new Date().toLocaleTimeString() + '] ' + msg;
-            lg.textContent += line + '\n';
-            lg.scrollTop = lg.scrollHeight;
-        }
-
-        function setStatus(msg, cls) {
-            var el = document.getElementById('st');
-            el.className = cls || '';
-            stText.textContent = msg;
-        }
-
-        function showLoading(msg) {
-            document.getElementById('lt').textContent = msg || '处理中...';
-            document.getElementById('ld').className = 's';
-        }
-
-        function hideLoading() {
-            document.getElementById('ld').className = '';
-        }
-
-        function switchTab(name) {
-            document.querySelectorAll('.tab,.tab-c').forEach(function(el) {
-                el.classList.remove('a', 's');
-            });
-            document.getElementById(name + 'C').classList.add('s');
-            document.querySelector('.tab[onclick*="' + name + '"]').classList.add('a');
-        }
-
-        function showProgress(show) {
-            if (show) {
-                progressWrap.classList.add('active');
-            } else {
-                progressWrap.classList.remove('active');
-                progressBar.style.width = '0%';
-                progressText.textContent = '';
-                mapStatus.textContent = '';
-            }
-        }
-
-        function setProgress(pct, label) {
-            var p = Math.min(Math.max(pct, 0), 100);
-            progressBar.style.width = p + '%';
-            var txt = label || '加载中';
-            progressText.textContent = txt + ' (' + Math.round(p) + '%)';
-            mapStatus.textContent = Math.round(p) + '%';
-        }
-
-        function clearAll() {
-            currentFileData = null;
-            currentFileName = '';
-            currentCommands = null;
-            currentPreviewResult = null;
-            currentPreviewHTML = null;
-            currentPreviewUrl = '';
-            fi.value = '';
-            updateFileUI(null);
-            pbBtn.disabled = true;
-            cbBtn.disabled = true;
-            dlBtn.style.display = 'none';
-            previewDownloadBtn.style.display = 'none';
-            previewDownloadLocalBtn.style.display = 'none';
-            previewInfo.textContent = '';
-            previewStatus.textContent = '';
-            prInfo.style.display = 'none';
-            preview3d.innerHTML = `
-                <div class="big-icon">
-                    <svg viewBox="0 0 64 64">
-                        <rect x="8" y="8" width="48" height="48" rx="4" stroke="#666" stroke-width="2" fill="none"/>
-                        <rect x="16" y="16" width="32" height="32" rx="2" stroke="#555" stroke-width="1.5" fill="none"/>
-                        <line x1="16" y1="28" x2="48" y2="28" stroke="#555" stroke-width="1.5"/>
-                        <line x1="16" y1="36" x2="48" y2="36" stroke="#555" stroke-width="1.5"/>
-                        <line x1="28" y1="16" x2="28" y2="48" stroke="#555" stroke-width="1.5"/>
-                        <line x1="36" y1="16" x2="36" y2="48" stroke="#555" stroke-width="1.5"/>
-                    </svg>
-                </div>
-                <div class="hint">点击「生成3D预览」生成预览HTML<br><small>下载后用浏览器打开查看3D模型</small></div>
-                <div class="preview-info-overlay" id="prInfo" style="display:none;"></div>
-            `;
-            cmBox.textContent = '等待转换...';
-            cmdCountEl.textContent = '0';
-            setStatus('已清空');
-            log('已清空所有数据');
-            infoText.textContent = '';
-            showToast('已清空所有数据', 'info');
-        }
-
-        function updateFileUI(file) {
-            var fn = document.getElementById('fileNameDisplay');
-            var fs = document.getElementById('fileSizeDisplay');
-            var fi2 = document.getElementById('fileInfo');
-            if (file) {
-                dropZone.classList.add('has-file');
-                fi2.style.display = 'block';
-                fn.textContent = file.name;
-                var sz = file.size;
-                if (sz < 1024) fs.textContent = sz + ' B';
-                else if (sz < 1024 * 1024) fs.textContent = (sz / 1024).toFixed(1) + ' KB';
-                else fs.textContent = (sz / (1024 * 1024)).toFixed(1) + ' MB';
-                document.getElementById('dropText').textContent = '文件已选择，点击可更换';
-                document.getElementById('dropIcon').innerHTML = `<svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>`;
-                showToast('已加载: ' + file.name, 'success');
-            } else {
-                dropZone.classList.remove('has-file');
-                fi2.style.display = 'none';
-                document.getElementById('dropText').textContent = '点击选择文件 或 拖拽 .schematic / .litematic 到此处';
-                document.getElementById('dropIcon').innerHTML = `<svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>`;
-            }
-        }
-
-        function handleFile(file) {
-            if (!file) return;
-            var ext = file.name.split('.').pop().toLowerCase();
-            if (ext !== 'schematic' && ext !== 'litematic') {
-                setStatus('不支持的文件格式: ' + ext, 'status-err');
-                log('不支持的文件格式: ' + ext);
-                showToast('不支持的文件格式: ' + ext, 'error');
-                return;
-            }
-            currentFileName = file.name;
-            updateFileUI(file);
-            pbBtn.disabled = false;
-            cbBtn.disabled = false;
-            dlBtn.style.display = 'none';
-            previewDownloadBtn.style.display = 'none';
-            previewDownloadLocalBtn.style.display = 'none';
-            setStatus('已加载: ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)', 'status-file');
-            log('加载文件: ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)');
-
-            var reader = new FileReader();
-            reader.onload = function(e) {
-                currentFileData = new Uint8Array(e.target.result);
-                log('文件读取完成，大小: ' + currentFileData.length + ' 字节');
-                setStatus('就绪，可预览或转换: ' + file.name, 'status-file');
-                showToast('文件已就绪', 'success');
-            };
-            reader.onerror = function() {
-                setStatus('读取文件失败', 'status-err');
-                log('读取文件失败');
-                showToast('读取文件失败', 'error');
-            };
-            reader.readAsArrayBuffer(file);
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            fi.addEventListener('change', function(e) {
-                if (fi.files.length > 0) { handleFile(fi.files[0]); }
-            });
-            dropZone.addEventListener('click', function() { fi.click(); });
-            dropZone.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                dropZone.classList.add('drag-over');
-            });
-            dropZone.addEventListener('dragleave', function() {
-                dropZone.classList.remove('drag-over');
-            });
-            dropZone.addEventListener('drop', function(e) {
-                e.preventDefault();
-                dropZone.classList.remove('drag-over');
-                if (e.dataTransfer.files.length > 0) {
-                    fi.files = e.dataTransfer.files;
-                    handleFile(e.dataTransfer.files[0]);
-                }
-            });
-        });
-
-        function getParams() {
-            return {
-                sb: sbEl.value || 'dr',
-                sp: parseInt(spdEl.value) || 1,
-                ht: htEl.value || 'h',
-                bt: btEl.value || 'b',
-                mc: parseInt(mcEl.value) || 10000,
-                disableSensitive: disableSensitiveEl.checked,
-                expireTime: Math.min(Math.max(parseInt(expireTimeEl.value) || 3, 1), 3)
-            };
-        }
-
-        function copyCommands() {
-            var t = cmBox.textContent;
-            if (!t || t === '等待转换...') return;
-            navigator.clipboard.writeText(t).then(function() {
-                showToast('已复制到剪贴板', 'success');
-            }).catch(function() {
-                var ta = document.createElement('textarea');
-                ta.value = t;
-                document.body.appendChild(ta);
-                ta.select();
-                document.execCommand('copy');
-                document.body.removeChild(ta);
-                showToast('已复制到剪贴板', 'success');
-            });
-        }
-
-        // ============================================================
-        // 加载映射表 - 与 jz.py 完全一致
-        // ============================================================
-        var BEDROCK_ID_MAP = {};
-        var mapLoaded = false;
-
-        function makeJavaKey(name, props) {
-            if (!props || Object.keys(props).length === 0) return name;
-            var sorted = Object.keys(props).sort().map(function(k) { return k + '=' + props[k]; }).join(',');
-            return name + '::' + sorted;
-        }
-
-        function loadBlockMap() {
-            showProgress(true);
-            setProgress(0, '加载映射表');
-
-            fetch('generator_blocks.json')
-                .then(function(response) {
-                    if (!response.ok) throw new Error('HTTP ' + response.status);
-                    return response.json();
-                })
-                .then(function(data) {
-                    setProgress(80, '解析映射表');
-                    if (data && data.mappings && Array.isArray(data.mappings)) {
-                        var map = {};
-                        for (var i = 0; i < data.mappings.length; i++) {
-                            var entry = data.mappings[i];
-                            var java = entry.java_state;
-                            if (!java || !java.Name) continue;
-                            var bedrock = entry.bedrock_state;
-                            if (!bedrock || !bedrock.bedrock_identifier) continue;
-                            var props = java.Properties || {};
-                            var key = makeJavaKey(java.Name, props);
-                            var stateStr = '';
-                            if (bedrock.state && Object.keys(bedrock.state).length > 0) {
-                                var sortedKeys = Object.keys(bedrock.state).sort();
-                                var pairs = [];
-                                for (var j = 0; j < sortedKeys.length; j++) {
-                                    var k = sortedKeys[j];
-                                    var v = bedrock.state[k];
-                                    pairs.push(k + '=' + (typeof v === 'string' ? '"' + v + '"' : v));
-                                }
-                                stateStr = ' [' + pairs.join(',') + ']';
-                            }
-                            map[key] = bedrock.bedrock_identifier + stateStr;
-                            // 无状态回退
-                            if (!map[java.Name]) {
-                                map[java.Name] = bedrock.bedrock_identifier + stateStr;
-                            }
-                        }
-                        BEDROCK_ID_MAP = map;
-                        mapLoaded = true;
-                        var count = Object.keys(BEDROCK_ID_MAP).length;
-                        setProgress(100, '加载完成!');
-                        mapStatus.textContent = '已加载 ' + count + ' 条';
-                        mapStatus.style.color = '#69db7c';
-                        stText.textContent = '就绪 — 拖拽文件到下方或点击选择';
-                        log('映射表加载完成: ' + count + ' 条');
-                        showToast('映射表加载完成: ' + count + ' 条', 'success');
-                        setTimeout(function() { showProgress(false); }, 800);
-                    } else {
-                        throw new Error('映射表格式无效');
-                    }
-                })
-                .catch(function(err) {
-                    loadFallbackMap(err.message);
-                });
-        }
-
-        function loadFallbackMap(errMsg) {
-            setProgress(0, '加载失败');
-            mapStatus.textContent = '⚠️ 加载失败: ' + errMsg;
-            mapStatus.style.color = '#ff6b6b';
-            stText.textContent = '⚠️ 映射表加载失败，使用内置映射';
-            log('⚠️ 映射表加载失败: ' + errMsg);
-            showToast('映射表加载失败，使用内置映射', 'error');
-
-            // 内置映射 - 与 jz.py 的 BEDROCK_ID_MAP 一致
-            var builtin = {
-                'minecraft:stone': 'stone',
-                'minecraft:granite': 'granite 1',
-                'minecraft:polished_granite': 'granite 1',
-                'minecraft:diorite': 'diorite',
-                'minecraft:polished_diorite': 'diorite 1',
-                'minecraft:andesite': 'andesite',
-                'minecraft:polished_andesite': 'andesite 1',
-                'minecraft:cobblestone': 'cobblestone',
-                'minecraft:bedrock': 'bedrock',
-                'minecraft:dirt': 'dirt',
-                'minecraft:grass_block': 'grass',
-                'minecraft:coarse_dirt': 'dirt 1',
-                'minecraft:podzol': 'podzol',
-                'minecraft:sand': 'sand',
-                'minecraft:red_sand': 'sand 1',
-                'minecraft:gravel': 'gravel',
-                'minecraft:clay': 'clay',
-                'minecraft:oak_log': 'oak_log',
-                'minecraft:spruce_log': 'spruce_log',
-                'minecraft:birch_log': 'birch_log',
-                'minecraft:jungle_log': 'jungle_log',
-                'minecraft:acacia_log': 'acacia_log',
-                'minecraft:dark_oak_log': 'dark_oak_log',
-                'minecraft:oak_planks': 'planks',
-                'minecraft:spruce_planks': 'planks 1',
-                'minecraft:birch_planks': 'planks 2',
-                'minecraft:jungle_planks': 'planks 3',
-                'minecraft:acacia_planks': 'planks 4',
-                'minecraft:dark_oak_planks': 'planks 5',
-                'minecraft:stone_bricks': 'stone_bricks',
-                'minecraft:mossy_stone_bricks': 'mossy_stone_bricks',
-                'minecraft:cracked_stone_bricks': 'cracked_stone_bricks',
-                'minecraft:chiseled_stone_bricks': 'chiseled_stone_bricks',
-                'minecraft:bricks': 'brick_block',
-                'minecraft:glass': 'glass',
-                'minecraft:glass_pane': 'glass_pane',
-                'minecraft:white_wool': 'wool',
-                'minecraft:orange_wool': 'wool 1',
-                'minecraft:magenta_wool': 'wool 2',
-                'minecraft:light_blue_wool': 'wool 3',
-                'minecraft:yellow_wool': 'wool 4',
-                'minecraft:lime_wool': 'wool 5',
-                'minecraft:pink_wool': 'wool 6',
-                'minecraft:gray_wool': 'wool 7',
-                'minecraft:light_gray_wool': 'wool 8',
-                'minecraft:cyan_wool': 'wool 9',
-                'minecraft:purple_wool': 'wool 10',
-                'minecraft:blue_wool': 'wool 11',
-                'minecraft:brown_wool': 'wool 12',
-                'minecraft:green_wool': 'wool 13',
-                'minecraft:red_wool': 'wool 14',
-                'minecraft:black_wool': 'wool 15',
-                'minecraft:white_concrete': 'concrete 0',
-                'minecraft:orange_concrete': 'concrete 1',
-                'minecraft:magenta_concrete': 'concrete 2',
-                'minecraft:light_blue_concrete': 'concrete 3',
-                'minecraft:yellow_concrete': 'concrete 4',
-                'minecraft:lime_concrete': 'concrete 5',
-                'minecraft:pink_concrete': 'concrete 6',
-                'minecraft:gray_concrete': 'concrete 7',
-                'minecraft:light_gray_concrete': 'concrete 8',
-                'minecraft:cyan_concrete': 'concrete 9',
-                'minecraft:purple_concrete': 'concrete 10',
-                'minecraft:blue_concrete': 'concrete 11',
-                'minecraft:brown_concrete': 'concrete 12',
-                'minecraft:green_concrete': 'concrete 13',
-                'minecraft:red_concrete': 'concrete 14',
-                'minecraft:black_concrete': 'concrete 15',
-                'minecraft:netherrack': 'netherrack',
-                'minecraft:soul_sand': 'soul_sand',
-                'minecraft:glowstone': 'glowstone',
-                'minecraft:obsidian': 'obsidian',
-                'minecraft:ice': 'ice',
-                'minecraft:snow': 'snow',
-                'minecraft:snow_block': 'snow_layer',
-                'minecraft:water': 'water',
-                'minecraft:lava': 'lava',
-                'minecraft:torch': 'torch',
-                'minecraft:redstone_torch': 'redstone_torch',
-                'minecraft:chest': 'chest',
-                'minecraft:trapped_chest': 'trapped_chest',
-                'minecraft:furnace': 'furnace',
-                'minecraft:crafting_table': 'crafting_table',
-                'minecraft:enchanting_table': 'enchanting_table',
-                'minecraft:anvil': 'anvil',
-                'minecraft:bookshelf': 'bookshelf',
-                'minecraft:tnt': 'tnt',
-                'minecraft:slime_block': 'slime',
-                'minecraft:iron_block': 'iron_block',
-                'minecraft:gold_block': 'gold_block',
-                'minecraft:diamond_block': 'diamond_block',
-                'minecraft:emerald_block': 'emerald_block',
-                'minecraft:redstone_block': 'redstone_block',
-                'minecraft:lapis_block': 'lapis_block',
-                'minecraft:coal_block': 'coal_block',
-                'minecraft:sponge': 'sponge',
-                'minecraft:wet_sponge': 'sponge 1',
-                'minecraft:oak_stairs': 'oak_stairs',
-                'minecraft:spruce_stairs': 'spruce_stairs',
-                'minecraft:birch_stairs': 'birch_stairs',
-                'minecraft:jungle_stairs': 'jungle_stairs',
-                'minecraft:acacia_stairs': 'acacia_stairs',
-                'minecraft:dark_oak_stairs': 'dark_oak_stairs',
-                'minecraft:cobblestone_stairs': 'cobblestone_stairs',
-                'minecraft:stone_brick_stairs': 'stone_brick_stairs',
-                'minecraft:brick_stairs': 'brick_stairs',
-                'minecraft:nether_brick_stairs': 'nether_brick_stairs',
-                'minecraft:sandstone_stairs': 'sandstone_stairs',
-                'minecraft:red_sandstone_stairs': 'red_sandstone_stairs',
-                'minecraft:oak_slab': 'oak_slab',
-                'minecraft:spruce_slab': 'spruce_slab',
-                'minecraft:birch_slab': 'birch_slab',
-                'minecraft:jungle_slab': 'jungle_slab',
-                'minecraft:acacia_slab': 'acacia_slab',
-                'minecraft:dark_oak_slab': 'dark_oak_slab',
-                'minecraft:stone_slab': 'stone_slab',
-                'minecraft:cobblestone_slab': 'cobblestone_slab',
-                'minecraft:stone_brick_slab': 'stone_brick_slab',
-                'minecraft:brick_slab': 'brick_slab',
-                'minecraft:nether_brick_slab': 'nether_brick_slab',
-                'minecraft:sandstone_slab': 'sandstone_slab',
-                'minecraft:red_sandstone_slab': 'red_sandstone_slab',
-                'minecraft:oak_fence': 'oak_fence',
-                'minecraft:spruce_fence': 'spruce_fence',
-                'minecraft:birch_fence': 'birch_fence',
-                'minecraft:jungle_fence': 'jungle_fence',
-                'minecraft:acacia_fence': 'acacia_fence',
-                'minecraft:dark_oak_fence': 'dark_oak_fence',
-                'minecraft:nether_brick_fence': 'nether_brick_fence',
-                'minecraft:oak_fence_gate': 'oak_fence_gate',
-                'minecraft:spruce_fence_gate': 'spruce_fence_gate',
-                'minecraft:birch_fence_gate': 'birch_fence_gate',
-                'minecraft:jungle_fence_gate': 'jungle_fence_gate',
-                'minecraft:acacia_fence_gate': 'acacia_fence_gate',
-                'minecraft:dark_oak_fence_gate': 'dark_oak_fence_gate',
-                'minecraft:cobblestone_wall': 'cobblestone_wall',
-                'minecraft:mossy_cobblestone_wall': 'mossy_cobblestone_wall',
-                'minecraft:stone_brick_wall': 'stone_brick_wall',
-                'minecraft:mossy_stone_brick_wall': 'mossy_stone_brick_wall',
-                'minecraft:oak_door': 'oak_door',
-                'minecraft:spruce_door': 'spruce_door',
-                'minecraft:birch_door': 'birch_door',
-                'minecraft:jungle_door': 'jungle_door',
-                'minecraft:acacia_door': 'acacia_door',
-                'minecraft:dark_oak_door': 'dark_oak_door',
-                'minecraft:iron_door': 'iron_door',
-                'minecraft:oak_trapdoor': 'trapdoor',
-                'minecraft:spruce_trapdoor': 'trapdoor',
-                'minecraft:birch_trapdoor': 'trapdoor',
-                'minecraft:jungle_trapdoor': 'trapdoor',
-                'minecraft:acacia_trapdoor': 'trapdoor',
-                'minecraft:dark_oak_trapdoor': 'trapdoor',
-                'minecraft:iron_trapdoor': 'iron_trapdoor',
-                'minecraft:oak_button': 'oak_button',
-                'minecraft:stone_button': 'stone_button',
-                'minecraft:oak_pressure_plate': 'oak_pressure_plate',
-                'minecraft:stone_pressure_plate': 'stone_pressure_plate',
-                'minecraft:lever': 'lever',
-                'minecraft:dispenser': 'dispenser',
-                'minecraft:dropper': 'dropper',
-                'minecraft:piston': 'piston',
-                'minecraft:sticky_piston': 'sticky_piston',
-                'minecraft:observer': 'observer',
-                'minecraft:hopper': 'hopper',
-                'minecraft:repeater': 'repeater',
-                'minecraft:comparator': 'comparator',
-                'minecraft:note_block': 'noteblock',
-                'minecraft:daylight_detector': 'daylight_detector',
-                'minecraft:redstone_lamp': 'redstone_lamp',
-                'minecraft:jukebox': 'jukebox',
-                'minecraft:beacon': 'beacon',
-                'minecraft:ender_chest': 'ender_chest'
-            };
-            BEDROCK_ID_MAP = builtin;
-            mapLoaded = true;
-            setTimeout(function() { showProgress(false); }, 1000);
-        }
-
-        loadBlockMap();
-
-        // ============================================================
-        // getBedrockId - 与 jz.py 完全一致，绝不返回 unknown
-        // ============================================================
-        function getBedrockId(javaId) {
-            if (!mapLoaded) {
-                return javaId.split(':').pop() || javaId;
-            }
-
-            var name = javaId;
-            var props = {};
-            var bracketIdx = javaId.indexOf('[');
-            if (bracketIdx > -1) {
-                name = javaId.substring(0, bracketIdx);
-                var propStr = javaId.substring(bracketIdx + 1, javaId.length - 1);
-                if (propStr) {
-                    var pairs = propStr.split(',');
-                    for (var i = 0; i < pairs.length; i++) {
-                        var pair = pairs[i].split('=');
-                        if (pair.length === 2) {
-                            props[pair[0]] = pair[1];
-                        }
-                    }
-                }
-            }
-
-            var key = makeJavaKey(name, props);
-            if (BEDROCK_ID_MAP[key] !== undefined) {
-                return BEDROCK_ID_MAP[key];
-            }
-            if (BEDROCK_ID_MAP[name] !== undefined) {
-                return BEDROCK_ID_MAP[name];
-            }
-
-            // 短名称回退
-            var shortName = name.split(':').pop() || name;
-            if (BEDROCK_ID_MAP[shortName] !== undefined) {
-                return BEDROCK_ID_MAP[shortName];
-            }
-
-            // 最终回退 - 绝不返回 unknown
-            var common = {
-                'air': 'air',
-                'stone': 'stone',
-                'dirt': 'dirt',
-                'grass': 'grass',
-                'cobblestone': 'cobblestone',
-                'planks': 'planks',
-                'bedrock': 'bedrock',
-                'glass': 'glass',
-                'sand': 'sand',
-                'gravel': 'gravel',
-                'clay': 'clay',
-                'water': 'water',
-                'lava': 'lava',
-                'netherrack': 'netherrack',
-                'soul_sand': 'soul_sand',
-                'glowstone': 'glowstone',
-                'obsidian': 'obsidian',
-                'ice': 'ice',
-                'snow': 'snow'
-            };
-            if (common[shortName]) {
-                return common[shortName];
-            }
-            return shortName;
-        }
-
-        // ============================================================
-        // NBT 解析 - 与 jz.py 完全一致
-        // ============================================================
-        function parseNBT(buf) {
-            var dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
-            var off = 0;
-
-            function check(n) {
-                if (off + n > dv.byteLength) {
-                    throw new Error('Offset is outside the bounds of the DataView');
-                }
-            }
-
-            function rB() { check(1); return dv.getUint8(off++); }
-
-            function rS() { check(2); var v = dv.getInt16(off);
-                off += 2; return v; }
-
-            function rI() { check(4); var v = dv.getInt32(off);
-                off += 4; return v; }
-
-            function rL() { check(8); var v = dv.getBigInt64(off);
-                off += 8; return Number(v); }
-
-            function rF() { check(4); var v = dv.getFloat32(off);
-                off += 4; return v; }
-
-            function rD() { check(8); var v = dv.getFloat64(off);
-                off += 8; return v; }
-
-            function rStr() {
-                var l = rS();
-                if (l < 0) throw new Error('Invalid string length');
-                check(l);
-                var s = '';
-                for (var i = 0; i < l; i++) s += String.fromCharCode(dv.getUint8(off + i));
-                off += l;
-                return s;
-            }
-
-            function rList() {
-                var t = rB(),
-                    l = rI(),
-                    a = [];
-                for (var i = 0; i < l; i++) a.push(rTag(t));
-                return a;
-            }
-
-            function rCompound() {
-                var o = {};
-                while (true) {
-                    var t = rB();
-                    if (t === 0) break;
-                    o[rStr()] = rTag(t);
-                }
-                return o;
-            }
-
-            function rTag(t) {
-                if (t === 1) return rB();
-                if (t === 2) return rS();
-                if (t === 3) return rI();
-                if (t === 4) { var h = rI(),
-                        l = rI(); return { high: h, low: l >>> 0 }; }
-                if (t === 5) return rF();
-                if (t === 6) return rD();
-                if (t === 7) { var l = rI();
-                    check(l); var a = new Uint8Array(buf.buffer, buf.byteOffset + off, l);
-                    off += l; return a; }
-                if (t === 8) return rStr();
-                if (t === 9) return rList();
-                if (t === 10) return rCompound();
-                if (t === 11) { var l = rI(),
-                        a = [];
-                    for (var i = 0; i < l; i++) a.push(rI()); return a; }
-                if (t === 12) { var l = rI(),
-                        a = [];
-                    for (var i = 0; i < l; i++) a.push(rL()); return a; }
-                return null;
-            }
-
-            var rt = rB();
-            if (rt !== 10) {
-                off = 0;
-                var rt2 = rB();
-                if (rt2 === 10) { rStr(); return rTag(10); }
-                throw new Error('Root tag is not TAG_Compound');
-            }
-            rStr();
-            return rTag(10);
-        }
-
-        async function decompress(data) {
-            if (!data || data.length < 2) return data;
-            if (data[0] === 0x1f && data[1] === 0x8b) {
-                try {
-                    var ds = new DecompressionStream('gzip');
-                    var w = ds.writable.getWriter();
-                    w.write(data);
-                    w.close();
-                    var ch = [],
-                        r = ds.readable.getReader();
-                    while (true) { var v = await r.read(); if (v.done) break;
-                        ch.push(v.value); }
-                    return new Uint8Array(await new Blob(ch).arrayBuffer());
-                } catch (e) { return data; }
-            }
-            if (data[0] === 0x78) {
-                try {
-                    var ds = new DecompressionStream('deflate-raw');
-                    var w = ds.writable.getWriter();
-                    w.write(data);
-                    w.close();
-                    var ch = [],
-                        r = ds.readable.getReader();
-                    while (true) { var v = await r.read(); if (v.done) break;
-                        ch.push(v.value); }
-                    return new Uint8Array(await new Blob(ch).arrayBuffer());
-                } catch (e) { return data; }
-            }
-            return data;
-        }
-
-        // ============================================================
-        // 解析 Litematic - 与 jz.py 完全一致
-        // ============================================================
-        async function parseLitematic(data) {
-            var raw = data[0] === 0x1f || data[0] === 0x78 ? await decompress(data) : data;
-            var root = parseNBT(raw);
-
-            var regions = null;
-            if (root.Regions) {
-                regions = root.Regions;
-            } else if (root.Minecraft && root.Minecraft.Regions) {
-                regions = root.Minecraft.Regions;
-            } else if (root.regions) {
-                regions = root.regions;
-            }
-
-            if (Array.isArray(regions)) {
-                var newRegions = {};
-                for (var i = 0; i < regions.length; i++) {
-                    newRegions['region_' + i] = regions[i];
-                }
-                regions = newRegions;
-            }
-
-            if (!regions) {
-                for (var key in root) {
-                    if (typeof root[key] === 'object' && root[key] && root[key].Size && root[key].BlockStatePalette) {
-                        regions = {};
-                        regions[key] = root[key];
-                        break;
-                    }
-                }
-                if (!regions) {
-                    throw new Error('未找到 Regions，根键: ' + Object.keys(root).join(', '));
-                }
-            }
-
-            function getVal(o, k) {
-                if (!o) return 0;
-                if (Array.isArray(o)) {
-                    var m = { x: 0, y: 1, z: 2 };
-                    return o[m[k] || 0] || 0;
-                }
-                if (typeof o === 'object') return o[k] || 0;
-                return o;
-            }
-
-            var allBlocks = [];
-            var minX = Infinity,
-                minY = Infinity,
-                minZ = Infinity;
-            var totalBlocksCount = 0;
-
-            for (var rname in regions) {
-                var region = regions[rname];
-                if (!region || typeof region !== 'object') continue;
-
-                var sx = Math.abs(getVal(region.Size, 'x') || 0);
-                var sy = Math.abs(getVal(region.Size, 'y') || 0);
-                var sz = Math.abs(getVal(region.Size, 'z') || 0);
-
-                if (sx === 0 || sy === 0 || sz === 0) continue;
-
-                var rx = getVal(region.Position, 'x') || 0;
-                var ry = getVal(region.Position, 'y') || 0;
-                var rz = getVal(region.Position, 'z') || 0;
-
-                var palette = region.BlockStatePalette || region.Palette || region.blockStatePalette;
-                if (!palette || !palette.length) {
-                    for (var key in region) {
-                        if (Array.isArray(region[key]) && region[key].length > 0) {
-                            var first = region[key][0];
-                            if (first && (first.Name || first.name || typeof first === 'string')) {
-                                palette = region[key];
-                                break;
-                            }
-                        }
-                    }
-                    if (!palette || !palette.length) continue;
-                }
-
-                var blockStates = region.BlockStates || region.blockStates || region.BlockStatesLongArray || [];
-                if (!blockStates || !blockStates.length) {
-                    for (var key in region) {
-                        if (Array.isArray(region[key]) && region[key].length > 0) {
-                            var first = region[key][0];
-                            if (typeof first === 'number' || typeof first === 'bigint') {
-                                blockStates = region[key];
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                if (!blockStates || !blockStates.length) continue;
-
-                var longArray = [];
-                for (var i = 0; i < blockStates.length; i++) {
-                    var val = blockStates[i];
-                    if (typeof val === 'bigint') {
-                        longArray.push(Number(val));
-                    } else {
-                        longArray.push(Number(val));
-                    }
-                }
-
-                var psize = palette.length;
-                var bits = Math.max(2, Math.ceil(Math.log2(psize)));
-                var mask = (1 << bits) - 1;
-                var totalBlocks = sx * sy * sz;
-                totalBlocksCount += totalBlocks;
-
-                var indices = new Uint32Array(totalBlocks);
-                var bitPos = 0;
-                for (var i = 0; i < totalBlocks; i++) {
-                    var bitIndex = i * bits;
-                    var wordIndex = Math.floor(bitIndex / 64);
-                    var bitOffset = bitIndex % 64;
-                    var value = 0;
-                    if (wordIndex < longArray.length) {
-                        var chunk1 = longArray[wordIndex] >>> bitOffset;
-                        value |= chunk1 & ((1 << Math.min(bits, 64 - bitOffset)) - 1);
-                        var remaining = bits - (64 - bitOffset);
-                        if (remaining > 0 && wordIndex + 1 < longArray.length) {
-                            var chunk2 = longArray[wordIndex + 1] & ((1 << remaining) - 1);
-                            value |= chunk2 << (64 - bitOffset);
-                        }
-                    }
-                    indices[i] = value & mask;
-                }
-
-                var palCache = [];
-                for (var pi = 0; pi < psize; pi++) {
-                    var entry = palette[pi];
-                    var name = '';
-                    var props = {};
-                    if (typeof entry === 'string') {
-                        name = entry;
-                    } else if (entry && entry.Name) {
-                        name = entry.Name;
-                        if (entry.Properties) {
-                            for (var pk in entry.Properties) {
-                                props[pk] = entry.Properties[pk];
-                            }
-                        }
-                    } else if (entry && entry.name) {
-                        name = entry.name;
-                        if (entry.properties) {
-                            for (var pk in entry.properties) {
-                                props[pk] = entry.properties[pk];
-                            }
-                        }
-                    } else if (entry && entry.id) {
-                        name = entry.id;
-                    }
-                    if (!name || name === 'minecraft:air' || name === 'minecraft:cave_air' || name === 'minecraft:void_air') {
-                        palCache.push(null);
-                        continue;
-                    }
-                    var stateStr = '';
-                    var sortedProps = Object.keys(props).sort();
-                    if (sortedProps.length > 0) {
-                        var pairs = [];
-                        for (var i = 0; i < sortedProps.length; i++) {
-                            pairs.push(sortedProps[i] + '=' + props[sortedProps[i]]);
-                        }
-                        stateStr = '[' + pairs.join(',') + ']';
-                    }
-                    var fullName = name + stateStr;
-                    var bedrockId = getBedrockId(fullName);
-                    palCache.push({ id: bedrockId, javaId: fullName });
-                }
-
-                var sliceSize = sx * sz;
-                for (var y = 0; y < sy; y++) {
-                    for (var z = 0; z < sz; z++) {
-                        for (var x = 0; x < sx; x++) {
-                            var idx = indices[y * sliceSize + z * sx + x];
-                            if (idx >= palCache.length) continue;
-                            var pe = palCache[idx];
-                            if (!pe) continue;
-                            var wx = rx + x;
-                            var wy = ry + y;
-                            var wz = rz + z;
-                            allBlocks.push({ x: wx, y: wy, z: wz, id: pe.javaId || pe.id });
-                            if (wx < minX) minX = wx;
-                            if (wy < minY) minY = wy;
-                            if (wz < minZ) minZ = wz;
-                        }
-                    }
-                }
-            }
-
-            if (!allBlocks.length) {
-                throw new Error('未找到任何方块');
-            }
-
-            var width = 0,
-                height = 0,
-                length = 0;
-            for (var i = 0; i < allBlocks.length; i++) {
-                var b = allBlocks[i];
-                b.x -= minX;
-                b.y -= minY;
-                b.z -= minZ;
-                if (b.x >= width) width = b.x + 1;
-                if (b.y >= height) height = b.y + 1;
-                if (b.z >= length) length = b.z + 1;
-            }
-
-            log('解析完成: ' + allBlocks.length + ' 个方块, 尺寸 ' + width + 'x' + height + 'x' + length);
-            return { blocks: allBlocks, width: width, height: height, length: length };
-        }
-
-        // ============================================================
-        // 解析 Schematic - 与 jz.py 完全一致
-        // ============================================================
-        async function parseSchematic(data) {
-            if (data[0] === 80 && data[1] === 75) throw new Error('ZIP 格式的 schematic 暂不支持');
-            var raw = (data[0] === 0x1f || data[0] === 0x78) ? await decompress(data) : data;
-            var root = parseNBT(raw);
-            var w = root.Width || 0,
-                h = root.Height || 0,
-                l = root.Length || 0;
-            if (!w || !h || !l) throw new Error('无效的 schematic 文件');
-
-            var blocks = [];
-
-            var pal = root.Palette || {};
-            var bd = root.BlockData || root.block_states || null;
-            var pkeys = Object.keys(pal);
-
-            if (pkeys.length > 0 && bd) {
-                log('使用新格式解析 (Palette + BlockData)');
-                var paletteList = [];
-                for (var k in pal) {
-                    paletteList[pal[k]] = k;
-                }
-                var bits = Math.max(2, Math.ceil(Math.log2(pkeys.length)));
-                var mask = (1 << bits) - 1;
-                var total = w * h * l;
-
-                var blockDataBytes = bd;
-                if (typeof blockDataBytes === 'string') {
-                    var a = new Uint8Array(blockDataBytes.length);
-                    for (var i = 0; i < blockDataBytes.length; i++) a[i] = blockDataBytes.charCodeAt(i) & 0xFF;
-                    blockDataBytes = a;
-                }
-
-                var idx = 0;
-                for (var y = 0; y < h; y++) {
-                    for (var z = 0; z < l; z++) {
-                        for (var x = 0; x < w; x++) {
-                            if (idx >= total) break;
-                            var bitIdx = idx * bits;
-                            var byteIdx = bitIdx >>> 3;
-                            var bitOff = bitIdx & 7;
-                            var val = 0;
-                            if (byteIdx + 4 < blockDataBytes.length) {
-                                val = ((blockDataBytes[byteIdx] || 0) |
-                                    ((blockDataBytes[byteIdx + 1] || 0) << 8) |
-                                    ((blockDataBytes[byteIdx + 2] || 0) << 16) |
-                                    ((blockDataBytes[byteIdx + 3] || 0) << 24)) >>> bitOff;
-                                val &= mask;
-                            }
-                            idx++;
-                            var name = paletteList[val] || 'minecraft:air';
-                            if (name !== 'minecraft:air' && name !== 'minecraft:cave_air' && name !== 'minecraft:void_air') {
-                                blocks.push({ x: x, y: y, z: z, id: name });
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (blocks.length === 0) {
-                var blocksRaw = root.Blocks || root.blocks || [];
-                var dataRaw = root.Data || root.data || [];
-                var materials = root.Materials || root.materials || '';
-
-                if (blocksRaw.length > 0) {
-                    log('使用旧格式解析 (Blocks + Data + Materials)');
-
-                    var matList = materials.split(',').map(function(s) { return s.trim(); });
-                    var isNumericMaterials = matList.length > 0 && /^\d+$/.test(matList[0]);
-
-                    if (matList.length === 0 || matList[0] === '') {
-                        var fallbackNames = [
-                            'minecraft:air', 'minecraft:stone', 'minecraft:grass_block', 'minecraft:dirt',
-                            'minecraft:cobblestone', 'minecraft:oak_planks', 'minecraft:oak_sapling',
-                            'minecraft:bedrock', 'minecraft:water', 'minecraft:water', 'minecraft:lava',
-                            'minecraft:lava', 'minecraft:sand', 'minecraft:gravel', 'minecraft:gold_ore',
-                            'minecraft:iron_ore', 'minecraft:coal_ore', 'minecraft:oak_log', 'minecraft:oak_leaves',
-                            'minecraft:sponge', 'minecraft:glass', 'minecraft:lapis_ore', 'minecraft:lapis_block',
-                            'minecraft:dispenser', 'minecraft:sandstone', 'minecraft:note_block', 'minecraft:bed',
-                            'minecraft:golden_rail', 'minecraft:detector_rail', 'minecraft:sticky_piston',
-                            'minecraft:web', 'minecraft:tall_grass', 'minecraft:dead_bush', 'minecraft:piston',
-                            'minecraft:piston_head', 'minecraft:white_wool', 'minecraft:unknown',
-                            'minecraft:dandelion', 'minecraft:poppy', 'minecraft:brown_mushroom',
-                            'minecraft:red_mushroom', 'minecraft:gold_block', 'minecraft:iron_block',
-                            'minecraft:stone_slab', 'minecraft:stone_slab', 'minecraft:bricks', 'minecraft:tnt',
-                            'minecraft:bookshelf', 'minecraft:mossy_cobblestone', 'minecraft:obsidian',
-                            'minecraft:torch', 'minecraft:fire', 'minecraft:spawner', 'minecraft:oak_stairs',
-                            'minecraft:chest', 'minecraft:redstone_wire', 'minecraft:diamond_ore',
-                            'minecraft:diamond_block', 'minecraft:crafting_table', 'minecraft:wheat',
-                            'minecraft:farmland', 'minecraft:furnace', 'minecraft:furnace',
-                            'minecraft:standing_sign', 'minecraft:oak_door', 'minecraft:ladder', 'minecraft:rail',
-                            'minecraft:cobblestone_stairs', 'minecraft:wall_sign', 'minecraft:lever',
-                            'minecraft:stone_pressure_plate', 'minecraft:iron_door', 'minecraft:oak_pressure_plate',
-                            'minecraft:redstone_ore', 'minecraft:redstone_ore', 'minecraft:redstone_torch',
-                            'minecraft:redstone_torch', 'minecraft:stone_button', 'minecraft:snow',
-                            'minecraft:ice', 'minecraft:snow_block', 'minecraft:cactus', 'minecraft:clay',
-                            'minecraft:sugar_cane', 'minecraft:jukebox', 'minecraft:oak_fence', 'minecraft:pumpkin',
-                            'minecraft:netherrack', 'minecraft:soul_sand', 'minecraft:glowstone',
-                            'minecraft:nether_portal', 'minecraft:jack_o_lantern', 'minecraft:cake',
-                            'minecraft:repeater', 'minecraft:repeater', 'minecraft:white_stained_glass',
-                            'minecraft:oak_trapdoor', 'minecraft:infested_stone', 'minecraft:stone_bricks',
-                            'minecraft:brown_mushroom_block', 'minecraft:red_mushroom_block', 'minecraft:iron_bars',
-                            'minecraft:glass_pane', 'minecraft:melon', 'minecraft:pumpkin_stem',
-                            'minecraft:melon_stem', 'minecraft:vine', 'minecraft:oak_fence_gate',
-                            'minecraft:brick_stairs', 'minecraft:stone_brick_stairs', 'minecraft:mycelium',
-                            'minecraft:waterlily', 'minecraft:nether_bricks', 'minecraft:nether_brick_fence',
-                            'minecraft:nether_brick_stairs', 'minecraft:nether_wart', 'minecraft:enchanting_table',
-                            'minecraft:brewing_stand', 'minecraft:cauldron', 'minecraft:end_portal',
-                            'minecraft:end_portal_frame', 'minecraft:end_stone', 'minecraft:dragon_egg',
-                            'minecraft:redstone_lamp', 'minecraft:redstone_lamp', 'minecraft:oak_slab'
-                        ];
-                        matList = fallbackNames;
-                        isNumericMaterials = false;
-                    }
-
-                    var total = w * h * l;
-                    var idx = 0;
-                    for (var y = 0; y < h; y++) {
-                        for (var z = 0; z < l; z++) {
-                            for (var x = 0; x < w; x++) {
-                                if (idx >= total) break;
-                                var bid = blocksRaw[idx] || 0;
-                                var d = dataRaw[idx] || 0;
-                                idx++;
-
-                                if (bid === 0) continue;
-
-                                var name;
-                                if (isNumericMaterials) {
-                                    var legacyName = matList[bid] || 'minecraft:unknown';
-                                    name = legacyName;
-                                    if (d > 0 && name.indexOf('[') === -1) {
-                                        var stateName = legacyDataToState(name, d);
-                                        if (stateName) name = stateName;
-                                    }
-                                } else {
-                                    name = matList[bid] || 'minecraft:unknown';
-                                    if (d > 0 && name.indexOf('[') === -1) {
-                                        var stateName = legacyDataToState(name, d);
-                                        if (stateName) name = stateName;
-                                    }
-                                }
-
-                                if (name && name !== 'minecraft:air') {
-                                    blocks.push({ x: x, y: y, z: z, id: name });
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (blocks.length === 0) {
-                throw new Error('未找到任何方块数据 (不支持此格式)');
-            }
-
-            log('解析完成: ' + blocks.length + ' 个方块, 尺寸 ' + w + 'x' + h + 'x' + l);
-            return { blocks: blocks, width: w, height: h, length: l };
-        }
-
-        function legacyDataToState(name, data) {
-            if (name.indexOf('stairs') !== -1 || name.indexOf('_stairs') !== -1) {
-                var dirs = ['east', 'west', 'south', 'north'];
-                var facing = dirs[data & 3] || 'east';
-                var half = (data & 4) ? 'top' : 'bottom';
-                return name + '[facing=' + facing + ',half=' + half + ']';
-            }
-            if (name.indexOf('_log') !== -1 || name.indexOf('_stem') !== -1 || name.indexOf('_wood') !== -1) {
-                var axes = ['y', 'x', 'z'];
-                var axis = axes[(data >> 2) & 3] || 'y';
-                return name + '[axis=' + axis + ']';
-            }
-            if (name === 'minecraft:white_wool') {
-                var colors = ['white', 'orange', 'magenta', 'light_blue', 'yellow', 'lime', 'pink', 'gray', 'light_gray',
-                    'cyan', 'purple', 'blue', 'brown', 'green', 'red', 'black'
-                ];
-                return 'minecraft:' + colors[data] + '_wool';
-            }
-            return null;
-        }
-
-        async function parseBuilding(data, name) {
-            var ext = name.split('.').pop().toLowerCase();
-            if (ext === 'litematic') {
-                return parseLitematic(data);
-            }
-            try {
-                return await parseSchematic(data);
-            } catch (e) {
-                log('schematic 解析失败，尝试 litematic: ' + e.message);
-                try {
-                    return await parseLitematic(data);
-                } catch (e2) {
-                    log('litematic 解析也失败: ' + e2.message);
-                }
-                throw new Error('不支持的文件格式或文件已损坏');
-            }
-        }
-
-        // ============================================================
-        // 生成指令 - 与 jz.py 的 generate_commands_typed 完全一致
-        // ============================================================
-        function generateCommands(blocks, fn, w, l, params) {
-            var sb = params.sb || 'dr';
-            var sp = params.sp || 1;
-            var ht = params.ht || 'h';
-            var bt = params.bt || 'b';
-            var max_chars = params.mc || 10000;
-            var disableSensitive = params.disableSensitive || false;
-
-            var cmds = [];
-            var manualBlocks = [];
-
-            function _c(cmd, comment) {
-                if (comment) cmds.push('#' + comment);
-                cmds.push(cmd);
-            }
-
-            // 按Y层分组
-            var layers = {};
-            for (var i = 0; i < blocks.blocks.length; i++) {
-                var b = blocks.blocks[i];
-                var bid = getBedrockId(b.id);
-                if (!layers[b.y]) layers[b.y] = [];
-                layers[b.y].push({ x: b.x, z: b.z, block: bid });
-            }
-
-            var ys = Object.keys(layers).map(Number).sort(function(a, b) { return a - b; });
-            if (ys.length === 0) {
-                cmds.push('# 错误: 没有找到任何方块');
-                return cmds;
-            }
-            var minY = ys[0];
-            var H = ys.length;
-            var startY = minY;
-            var y_dir = 1;
-
-            // 构建 typeId 映射 (从300开始，与jz.py一致)
-            var block_to_id = {};
-            var next_id = 300;
-            var all_entries = [];
-            for (var y in layers) {
-                for (var j = 0; j < layers[y].length; j++) {
-                    var e = layers[y][j];
-                    if (!block_to_id[e.block]) {
-                        block_to_id[e.block] = next_id++;
-                    }
-                    all_entries.push({ y: parseInt(y), x: e.x, z: e.z, block: e.block });
-                }
-            }
-            var id_to_block = {};
-            for (var k in block_to_id) {
-                id_to_block[block_to_id[k]] = k;
-            }
-
-            if (all_entries.length === 0) {
-                cmds.push('# 错误: 没有有效的方块');
-                return cmds;
-            }
-
-            // 计算步进索引: idx = layer_idx * W * L + z * W + x
-            function idxOf(li, x, z) {
-                return (li * w * l + z) * w + x;
-            }
-
-            // 按类型合并区间
-            var type_ranges = [];
-            for (var i = 0; i < all_entries.length; i++) {
-                var e = all_entries[i];
-                var li = e.y - minY;
-                var s = idxOf(li, e.x, e.z);
-                var tid = block_to_id[e.block];
-                type_ranges.push([s, s, tid]);
-            }
-            type_ranges.sort(function(a, b) { return a[0] - b[0]; });
-
-            var merged = [];
-            for (var i = 0; i < type_ranges.length; i++) {
-                var s = type_ranges[i][0],
-                    en = type_ranges[i][1],
-                    tid = type_ranges[i][2];
-                if (merged.length && merged[merged.length - 1][2] === tid && s === merged[merged.length - 1][1] + 1) {
-                    merged[merged.length - 1][1] = en;
-                } else {
-                    merged.push([s, en, tid]);
-                }
-            }
-
-            var totalSteps = w * l * H;
-            var layerSize = w * l;
-
-            // ===== 生成指令 =====
-            cmds.push("#" + "=".repeat(60));
-            cmds.push("# " + fn + " | " + all_entries.length + " 个方块 | " + w + "x" + H + "x" + l + " | " + sb);
-            cmds.push("#" + "=".repeat(60));
-            cmds.push("");
-
-            // 1. 创建计分板
-            cmds.push("# [脉冲] [无条件] [红石控制] 一次性执行");
-            _c("scoreboard objectives add " + sb + " dummy", "创建 " + sb + " 计分板");
-            _c("summon armor_stand ~ ~ ~", "召唤 h 高度扫描器");
-            _c("tag @e[type=armor_stand,c=1,r=2.5,tag=!b] add " + ht, "标记 h");
-            _c("tp @e[tag=" + ht + ",type=armor_stand] ~ ~" + startY + " ~", "传送 h 到 y=" + startY);
-            _c("summon armor_stand ~ ~ ~", "召唤 b 位置扫描器");
-            _c("tag @e[type=armor_stand,c=1,r=2.5,tag=!h] add " + bt, "标记 b");
-            _c("tp @e[tag=" + bt + ",type=armor_stand] ~ ~" + startY + " ~", "传送 b 到 y=" + startY);
-            _c("scoreboard players set @e[tag=" + ht + ",type=armor_stand] " + sb + " 0", "h 计数归零");
-            _c("scoreboard players set @e[tag=" + bt + ",type=armor_stand] " + sb + " 0", "b 计数归零");
-            cmds.push("");
-
-            // 2. 循环加速
-            cmds.push("# [循环] [无条件] [保持开启] 速度" + sp + "x");
-            _c("scoreboard players add @e[tag=" + ht + ",type=armor_stand] " + sb + " " + sp, "h 计数 +" + sp);
-            _c("scoreboard players add @e[tag=" + bt + ",type=armor_stand] " + sb + " " + sp, "b 计数 +" + sp);
-            cmds.push("");
-
-            // 3. unless 放置命令
-            cmds.push("# [连锁] [无条件] [保持开启]");
-
-            function isScoreSensitive(score) {
-                if (disableSensitive) return false;
-                return SF.contains(score);
-            }
-
-            function buildUnlessCmd(blockName, rangelist) {
-                function fmt(s, e) {
-                    var sv = s * sp,
-                        ev = e * sp;
-                    if (sv === ev) return sb + "=!" + sv;
-                    return sb + "=!" + sv + ".." + ev;
-                }
-                var conds = rangelist.map(function(r) { return fmt(r[0], r[1]); }).join(",");
-                return "execute as @e[tag=" + bt + ",type=armor_stand] at @s unless entity @s[scores={" + conds +
-                    "}] run setblock ~ ~ ~ " + blockName;
-            }
-
-            // 分组 by block
-            var block_ranges = {};
-            for (var i = 0; i < merged.length; i++) {
-                var s = merged[i][0],
-                    en = merged[i][1],
-                    tid = merged[i][2];
-                var block = id_to_block[tid];
-                if (!block_ranges[block]) block_ranges[block] = [];
-                block_ranges[block].push([s, en]);
-            }
-
-            var manualList = [];
-
-            for (var block in block_ranges) {
-                var ranges = block_ranges[block];
-                var batch = [];
-                for (var ri = 0; ri < ranges.length; ri++) {
-                    var s = ranges[ri][0],
-                        en = ranges[ri][1];
-                    var curStart = null;
-                    for (var li = s; li <= en; li++) {
-                        var sv = li * sp;
-                        if (isScoreSensitive(sv)) {
-                            if (curStart !== null) {
-                                batch.push([curStart, li - 1]);
-                                curStart = null;
-                            }
-                            var blockIdx = li;
-                            var sliceSize = w * l;
-                            var yIdx = Math.floor(blockIdx / sliceSize);
-                            var rem = blockIdx % sliceSize;
-                            var zz = Math.floor(rem / w);
-                            var xx = rem % w;
-                            var wy = minY + yIdx;
-                            manualList.push({ x: xx, y: wy, z: zz, block: block });
-                        } else {
-                            if (curStart === null) curStart = li;
-                        }
-                    }
-                    if (curStart !== null) {
-                        batch.push([curStart, en]);
-                    }
-                }
-
-                if (batch.length) {
-                    var cb = [batch[0]];
-                    for (var bi = 1; bi < batch.length; bi++) {
-                        if (batch[bi][0] === cb[cb.length - 1][1] + 1) {
-                            cb[cb.length - 1][1] = batch[bi][1];
-                        } else {
-                            cb.push(batch[bi]);
-                        }
-                    }
-                    batch = cb;
-                }
-
-                var temp = [];
-                for (var i = 0; i < batch.length; i++) {
-                    var test = temp.concat([batch[i]]);
-                    var cmd = buildUnlessCmd(block, test);
-                    if (cmd.length > max_chars && temp.length > 0) {
-                        _c(buildUnlessCmd(block, temp), "放置 " + block);
-                        temp = [batch[i]];
-                    } else {
-                        temp.push(batch[i]);
-                    }
-                }
-                if (temp.length) {
-                    _c(buildUnlessCmd(block, temp), "放置 " + block);
-                }
-            }
-
-            // 手动执行指令
-            if (manualList.length) {
-                cmds.push("");
-                cmds.push("# ===== [手动执行] 以下 " + manualList.length + " 个方块含敏感分值 =====");
-                cmds.push("# 站在盔甲架起始位置，逐条输入以下 setblock 指令");
-                for (var i = 0; i < manualList.length; i++) {
-                    var m = manualList[i];
-                    cmds.push("setblock ~" + m.x + " ~" + m.y + " ~" + m.z + " " + m.block);
-                }
-                cmds.push("# ===== [手动执行结束] =====");
-                manualBlocks = manualList;
-            }
-
-            cmds.push("");
-            _c("execute as @e[tag=" + bt + ",type=armor_stand] at @s run tp @s ~1 ~ ~", "b 向右移动 1 格");
-
-            // 换行回绕 - 与 jz.py 一致
-            var totalRows = H * l;
-            var bTriggers = [];
-            for (var m = 1; m < totalRows; m++) {
-                if (m % l !== 0) {
-                    bTriggers.push(m * w * sp);
-                }
-            }
-            var layerSkips = [];
-            for (var i = 1; i < H; i++) {
-                layerSkips.push(i * layerSize * sp);
-            }
-            var layerSkipsStr = layerSkips.map(function(v) { return sb + "=" + v; }).join(",");
-
-            var bPrefix = "execute as @e[tag=" + bt + ",type=armor_stand] unless entity @s";
-            var bSuffix = layerSkipsStr ? "unless entity @s[scores={" + layerSkipsStr + "}] at @s run tp @s ~-" + w +
-                " ~ ~1" : "at @s run tp @s ~-" + w + " ~ ~1";
-
-            var batch = [];
-            for (var i = 0; i < bTriggers.length; i++) {
-                var c = sb + "=" + bTriggers[i];
-                var test = batch.concat([c]);
-                var full = bPrefix + "[scores={" + test.join(",") + "}] " + bSuffix;
-                if (full.length > max_chars && batch.length) {
-                    _c(bPrefix + "[scores={" + batch.join(",") + "}] " + bSuffix, "b 行末回绕");
-                    batch = [c];
-                } else {
-                    batch.push(c);
-                }
-            }
-            if (batch.length) {
-                _c(bPrefix + "[scores={" + batch.join(",") + "}] " + bSuffix, "b 行末回绕");
-            }
-
-            // h 层推进 - 与 jz.py 一致
-            var hConds = [];
-            for (var i = 1; i < H; i++) {
-                hConds.push(sb + "=" + i * layerSize * sp);
-            }
-            var hCombined = hConds.join(",");
-
-            function appendHTp(cs) {
-                _c("execute as @e[tag=" + ht + ",type=armor_stand] unless entity @s[scores={" + cs +
-                    "}] at @s run tp @s ~ ~" + y_dir + " ~", "h 层推进");
-                _c("execute as @e[tag=" + ht + ",type=armor_stand] unless entity @s[scores={" + cs +
-                    "}] at @s run tp @e[tag=" + bt + ",type=armor_stand] ~ ~ ~", "h 拉回 b");
-            }
-
-            var hTest = "execute as @e[tag=" + ht + ",type=armor_stand] unless entity @s[scores={" + hCombined +
-                "}] at @s run tp @s ~ ~" + y_dir + " ~";
-            if (hTest.length > 13000) {
-                var batchCs = [];
-                for (var i = 0; i < hConds.length; i++) {
-                    var c = hConds[i];
-                    var test = batchCs.concat([c]);
-                    var t = "execute as @e[tag=" + ht + ",type=armor_stand] unless entity @s[scores={" + test.join(
-                        ",") + "}] at @s run tp @s ~ ~" + y_dir + " ~";
-                    if (t.length > 13000) {
-                        appendHTp(batchCs.join(","));
-                        batchCs = [c];
-                    } else {
-                        batchCs.push(c);
-                    }
-                }
-                if (batchCs.length) {
-                    appendHTp(batchCs.join(","));
-                }
-            } else {
-                appendHTp(hCombined);
-            }
-
-            _c("execute as @e[tag=" + ht + ",type=armor_stand] at @s run tp @s ~ ~ ~", "h 重复 tp 到自己(锁定原位)");
-            cmds.push("");
-
-            // 进度提示
-            _c("titleraw @a actionbar {\"rawtext\":[{\"text\":\"> \"},{\"score\":{\"name\":\"@e[tag=" + bt +
-                ",type=armor_stand,c=1]\",\"objective\":\"" + sb +
-                "\"}},{\"text\":\" / " + totalSteps + "\"}]}", "显示进度条");
-            _c("execute as @e[tag=" + bt + ",type=armor_stand,scores={" + sb + "=" + totalSteps +
-                "..}] at @s run titleraw @a actionbar {\"rawtext\":[{\"text\":\"文件 " + fn + " 加载完成\"}]}",
-                "加载完成提示");
-            cmds.push("");
-
-            // 重置
-            cmds.push("# 重置(手动)");
-            _c("scoreboard players set @e[tag=" + ht + ",type=armor_stand] " + sb + " 0", "h 计数归零");
-            _c("scoreboard players set @e[tag=" + bt + ",type=armor_stand] " + sb + " 0", "b 计数归零");
-            _c("tp @e[tag=" + ht + ",type=armor_stand] ~ ~" + startY + " ~", "传送 h 回 y=" + startY);
-            _c("tp @e[tag=" + bt + ",type=armor_stand] ~ ~" + startY + " ~", "传送 b 回 y=" + startY);
-            _c("kill @e[tag=" + ht + ",type=armor_stand]", "移除 h");
-            _c("kill @e[tag=" + bt + ",type=armor_stand]", "移除 b");
-
-            return cmds;
-        }
-
-        // ============================================================
-        // 预览功能
-        // ============================================================
-        function generatePreviewHTML(blocks, fileName) {
-            if (!blocks || blocks.length === 0) return null;
-
-            var w = blocks.width || 1;
-            var h = blocks.height || 1;
-            var l = blocks.length || 1;
-            var blockList = blocks.blocks || [];
-
-            var maxBlocks = 500000;
-            var showBlocks = blockList;
-            if (blockList.length > maxBlocks) {
-                showBlocks = blockList.slice(0, maxBlocks);
-            }
-
-            // 按Java ID分组
-            var groupMap = {};
-            for (var i = 0; i < showBlocks.length; i++) {
-                var b = showBlocks[i];
-                var javaId = b.id;
-                if (!groupMap[javaId]) groupMap[javaId] = [];
-                groupMap[javaId].push(b);
-            }
-
-            var blockPosData = {};
-            for (var javaId in groupMap) {
-                var list = groupMap[javaId];
-                var positions = [];
-                for (var j = 0; j < list.length; j++) {
-                    var b = list[j];
-                    positions.push([b.x, b.y, b.z]);
-                }
-                blockPosData[javaId] = positions;
-            }
-
-            // 生成颜色
-            var blockColors = {};
-            var javaIdList = Object.keys(groupMap);
-            var palette = [
-                '#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6', '#1abc9c',
-                '#e67e22', '#34495e', '#ecf0f1', '#95a5a6', '#c0392b', '#2980b9',
-                '#27ae60', '#d4ac0d', '#8e44ad', '#16a085', '#d35400', '#2c3e50',
-                '#7f8c8d', '#bdc3c7', '#e91e63', '#00bcd4', '#ff5722', '#795548'
-            ];
-            for (var i = 0; i < javaIdList.length; i++) {
-                blockColors[javaIdList[i]] = palette[i % palette.length];
-            }
-
-            var html = '<!DOCTYPE html>\n';
-            html += '<html>\n<head>\n';
-            html += '<meta charset="utf-8">\n';
-            html += '<title>3D预览 - ' + fileName + '</title>\n';
-            html += '<style>\n';
-            html += 'body{margin:0;overflow:hidden;background:#0d0d2b;font-family:sans-serif;}\n';
-            html += '#info{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:#aaa;font-size:13px;background:rgba(0,0,0,.6);padding:6px 20px;border-radius:8px;pointer-events:none;z-index:10;}\n';
-            html += '#loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#666;font-size:16px;z-index:20;text-align:center;}\n';
-            html += '#loading .spinner{width:32px;height:32px;margin:0 auto 12px;border:3px solid rgba(124,77,255,.2);border-top-color:#7c4dff;border-radius:50%;animation:spin .8s linear infinite;}\n';
-            html += '@keyframes spin{to{transform:rotate(360deg);}}\n';
-            html += '</style>\n';
-            html += '</head>\n<body>\n';
-            html += '<div id="loading"><div class="spinner"></div>加载中...</div>\n';
-            html += '<div id="info">' + fileName + ' | 方块: ' + showBlocks.length + ' | 尺寸: ' + w + 'x' + h + 'x' + l +
-                ' | 拖拽旋转/滚轮缩放</div>\n';
-
-            html += '<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>\n';
-            html +=
-                '<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"><\/script>\n';
-
-            html += '<script>\n';
-            html += 'var blockPosData = ' + JSON.stringify(blockPosData) + ';\n';
-            html += 'var blockColors = ' + JSON.stringify(blockColors) + ';\n';
-            html += 'var W = ' + w + ', H = ' + h + ', L = ' + l + ';\n';
-            html += 'var cx = W/2, cy = H/2, cz = L/2;\n';
-            html += 'var scene, camera, renderer, controls, modelGroup;\n';
-
-            html += `
-                    function buildScene() {
-                        document.getElementById('loading').style.display = 'none';
-                        scene = new THREE.Scene();
-                        scene.background = new THREE.Color(0x0d0d2b);
-
-                        var maxDim = Math.max(W, H, L);
-                        var dist = maxDim * 1.5 + 10;
-
-                        camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 5000);
-                        camera.position.set(dist * 0.8, dist * 0.6, dist * 0.8);
-
-                        renderer = new THREE.WebGLRenderer({ antialias: true });
-                        renderer.setSize(window.innerWidth, window.innerHeight);
-                        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-                        document.body.appendChild(renderer.domElement);
-
-                        controls = new THREE.OrbitControls(camera, renderer.domElement);
-                        controls.enableDamping = true;
-                        controls.dampingFactor = 0.08;
-                        controls.target.set(0, cy, 0);
-                        controls.update();
-
-                        var ambient = new THREE.AmbientLight(0x404070, 0.6);
-                        scene.add(ambient);
-
-                        var sun = new THREE.DirectionalLight(0xffeedd, 1.2);
-                        sun.position.set(80, 150, 60);
-                        scene.add(sun);
-
-                        var back = new THREE.DirectionalLight(0x8888ff, 0.3);
-                        back.position.set(-60, 80, -40);
-                        scene.add(back);
-
-                        var grid = new THREE.GridHelper(Math.max(maxDim * 2 + 10, 40), Math.floor(Math.max(maxDim, 20)), 0x444488, 0x333366);
-                        grid.position.y = -0.5;
-                        scene.add(grid);
-
-                        modelGroup = new THREE.Group();
-                        scene.add(modelGroup);
-
-                        var faceVerts = [
-                            { n: [1, 0, 0], u: [0, 1, 0, 1, 0, 1, 0, 0], v: [0, 0, 1, 1, 1, 1, 0, 0] },
-                            { n: [-1, 0, 0], u: [1, 0, 1, 0, 0, 1, 0, 1], v: [0, 0, 1, 1, 1, 1, 0, 0] },
-                            { n: [0, 1, 0], u: [0, 0, 1, 1, 1, 1, 0, 0], v: [1, 0, 1, 0, 0, 1, 0, 1] },
-                            { n: [0, -1, 0], u: [0, 0, 1, 1, 1, 1, 0, 0], v: [0, 1, 0, 1, 1, 0, 1, 0] },
-                            { n: [0, 0, 1], u: [0, 0, 1, 1, 1, 1, 0, 0], v: [0, 0, 1, 1, 1, 1, 0, 0] },
-                            { n: [0, 0, -1], u: [1, 0, 1, 0, 0, 1, 0, 1], v: [0, 0, 1, 1, 1, 1, 0, 0] }
-                        ];
-                        var offsets = [
-                            [0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1],
-                            [0, 1, 0], [1, 1, 0], [1, 1, 1], [0, 1, 1]
-                        ];
-                        var faceIndices = [
-                            [1, 5, 6, 2], [0, 3, 7, 4], [4, 7, 6, 5],
-                            [0, 1, 2, 3], [2, 6, 7, 3], [0, 4, 5, 1]
-                        ];
-
-                        var bids = Object.keys(blockPosData);
-
-                        for (var idx = 0; idx < bids.length; idx++) {
-                            var javaId = bids[idx];
-                            var posList = blockPosData[javaId];
-                            var color = blockColors[javaId] || '#888888';
-
-                            var positions = [];
-                            var uvs = [];
-                            var normals = [];
-
-                            for (var bi = 0; bi < posList.length; bi++) {
-                                var p = posList[bi];
-                                var bx = p[0] - cx;
-                                var by = p[1] - cy;
-                                var bz = p[2] - cz;
-                                for (var f = 0; f < 6; f++) {
-                                    var idxs = faceIndices[f];
-                                    var n = faceVerts[f].n;
-                                    var uArr = faceVerts[f].u;
-                                    var vArr = faceVerts[f].v;
-                                    for (var vi = 0; vi < 4; vi++) {
-                                        var oi = idxs[vi];
-                                        positions.push(bx + offsets[oi][0]);
-                                        positions.push(by + offsets[oi][1]);
-                                        positions.push(bz + offsets[oi][2]);
-                                        uvs.push(uArr[vi]);
-                                        uvs.push(vArr[vi]);
-                                        normals.push(n[0], n[1], n[2]);
-                                    }
-                                }
-                            }
-
-                            var geo = new THREE.BufferGeometry();
-                            var vertCount = positions.length / 3;
-                            geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-                            geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-                            geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-
-                            var indices = [];
-                            for (var i = 0; i < vertCount / 4; i++) {
-                                var base = i * 4;
-                                indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
-                            }
-                            geo.setIndex(indices);
-
-                            var mat = new THREE.MeshStandardMaterial({
-                                color: new THREE.Color(color),
-                                roughness: 0.8,
-                                metalness: 0.05,
-                                side: THREE.DoubleSide,
-                            });
-                            var mesh = new THREE.Mesh(geo, mat);
-                            modelGroup.add(mesh);
-                        }
-
-                        document.getElementById('loading').style.display = 'none';
-                        animate();
-                    }
-
-                    function animate() {
-                        requestAnimationFrame(animate);
-                        if (controls) controls.update();
-                        if (renderer && scene && camera) {
-                            renderer.render(scene, camera);
-                        }
-                    }
-
-                    window.addEventListener('resize', function() {
-                        if (camera) {
-                            camera.aspect = window.innerWidth / window.innerHeight;
-                            camera.updateProjectionMatrix();
-                        }
-                        if (renderer) {
-                            renderer.setSize(window.innerWidth, window.innerHeight);
-                        }
-                    });
-                    buildScene();
-                <\/script>\n`;
-
-            html += '</body>\n</html>';
-            return html;
-        }
-
-        // ============================================================
-        // 预览
-        // ============================================================
-        async function preview() {
-            if (!currentFileData) {
-                setStatus('请先选择文件', 'status-err');
-                showToast('请先选择一个文件', 'error');
-                return;
-            }
-
-            showProgress(true);
-            setProgress(0, '解析建筑文件');
-
-            showLoading('解析建筑文件...');
-            setStatus('解析中...', 'status-info');
-            log('开始生成3D预览: ' + currentFileName);
-
-            try {
-                setProgress(10, '解析建筑文件');
-                var result = await parseBuilding(currentFileData, currentFileName);
-                currentPreviewResult = result;
-                var blockCount = result.blocks ? result.blocks.length : 0;
-                setProgress(50, '解析完成');
-
-                setProgress(70, '生成预览HTML');
-                var html = generatePreviewHTML(result, currentFileName.replace(/\.[^.]+$/, ''));
-                setProgress(100, '完成!');
-
-                if (html) {
-                    currentPreviewHTML = html;
-                    previewDownloadBtn.style.display = 'inline-block';
-                    previewDownloadLocalBtn.style.display = 'inline-block';
-                    previewInfo.textContent = '预览已生成 (' + blockCount + ' 个方块)';
-                    previewStatus.textContent = '尺寸: ' + result.width + 'x' + result.height + 'x' + result.length;
-                    prInfo.style.display = 'block';
-                    prInfo.textContent = '方块: ' + blockCount + ' | 尺寸: ' + result.width + 'x' + result.height + 'x' +
-                        result.length;
-
-                    preview3d.innerHTML =
-                        '<div style="text-align:center;color:#69db7c;font-size:18px;">预览已生成</div><div style="color:#888;font-size:13px;margin-top:8px;">' +
-                        blockCount + ' 个方块, ' + result.width + 'x' + result.height + 'x' + result.length +
-                        '<br><span style="color:#555;">点击「生成分享链接」分享或「下载HTML」保存</span></div>';
-
-                    showToast('3D预览HTML已生成', 'success');
-                } else {
-                    showToast('预览生成失败', 'error');
-                }
-
-                setStatus('预览生成完成: ' + blockCount + ' 个方块', 'status-ok');
-                log('预览完成: 方块 ' + blockCount + ', 尺寸 ' + result.width + 'x' + result.height + 'x' + result.length);
-                switchTab('pr');
-
-                setTimeout(function() { showProgress(false); }, 500);
-
-            } catch (e) {
-                setStatus('预览失败: ' + e.message, 'status-err');
-                log('预览失败: ' + e.message);
-                showToast('预览失败: ' + e.message, 'error');
-                showProgress(false);
-            }
-            hideLoading();
-        }
-
-        // ============================================================
-        // 上传预览
-        // ============================================================
-        async function uploadPreview(html, fileName, expireMinutes) {
-            var response = await fetch('/api/upload', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    html: html,
-                    fileName: fileName,
-                    expireMinutes: expireMinutes || 3
-                })
-            });
-
-            var result = await response.json();
-
-            if (!response.ok) {
-                throw new Error(result.error || '上传失败');
-            }
-
-            return result;
-        }
-
-        function copyLink(url) {
-            navigator.clipboard.writeText(url).then(function() {
-                showToast('链接已复制', 'success');
-            }).catch(function() {
-                var ta = document.createElement('textarea');
-                ta.value = url;
-                document.body.appendChild(ta);
-                ta.select();
-                document.execCommand('copy');
-                document.body.removeChild(ta);
-                showToast('链接已复制', 'success');
-            });
-        }
-
-        function downloadPreviewHTMLDirect() {
-            if (!currentPreviewHTML) {
-                showToast('请先生成预览', 'error');
-                return;
-            }
-            var blob = new Blob([currentPreviewHTML], { type: 'text/html;charset=utf-8' });
-            var url = URL.createObjectURL(blob);
-            var a = document.createElement('a');
-            a.href = url;
-            a.download = currentFileName.replace(/\.[^.]+$/, '') + '_3d预览.html';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            log('下载预览HTML: ' + a.download);
-            showToast('预览HTML已下载', 'success');
-        }
-
-        async function downloadPreviewHTML() {
-            if (!currentPreviewHTML) {
-                showToast('请先生成预览', 'error');
-                return;
-            }
-
-            var expireMinutes = Math.min(Math.max(parseInt(document.getElementById('expireTime').value) || 3, 1), 3);
-
-            showLoading('上传预览...');
-            setStatus('上传中...', 'status-info');
-
-            try {
-                var result = await uploadPreview(
-                    currentPreviewHTML,
-                    currentFileName.replace(/\.[^.]+$/, ''),
-                    expireMinutes
-                );
-
-                hideLoading();
-
-                currentPreviewUrl = result.url;
-
-                preview3d.innerHTML = `
-                                <div style="text-align:center;color:#69db7c;font-size:18px;">预览已上传</div>
-                                <div style="color:#888;font-size:13px;margin-top:8px;">
-                                    <div style="background:rgba(0,0,0,.4);padding:10px 14px;border-radius:6px;word-break:break-all;max-width:100%;margin:8px 0;">
-                                        <a href="${result.url}" target="_blank" style="color:#7c4dff;font-size:14px;">${result.url}</a>
-                                    </div>
-                                    <span style="color:#555;">有效期: ${expireMinutes} 分钟</span>
-                                    <br><br>
-                                    <button class="btn btn-preview" onclick="copyLink('${result.url}')" style="margin-top:4px;">复制链接</button>
-                                    <button class="btn btn-primary" onclick="downloadPreviewHTMLDirect()" style="margin-top:4px;">下载HTML</button>
-                                </div>
-                            `;
-
-                previewDownloadBtn.style.display = 'none';
-                previewInfo.textContent = '已上传: ' + result.url;
-                previewStatus.textContent = '有效期' + expireMinutes + '分钟';
-
-                try {
-                    await navigator.clipboard.writeText(result.url);
-                    showToast('链接已复制到剪贴板', 'success');
-                } catch (e) {}
-
-                log('预览上传成功: ' + result.url + ' 有效期' + expireMinutes + '分钟');
-                setStatus('预览已上传，链接已复制', 'status-ok');
-
-            } catch (e) {
-                hideLoading();
-                showToast('上传失败: ' + e.message, 'error');
-                log('上传失败: ' + e.message);
-                setStatus('上传失败: ' + e.message, 'status-err');
-            }
-        }
-
-        // ============================================================
-        // 转换
-        // ============================================================
-        async function convert() {
-            if (!currentFileData) {
-                setStatus('请先选择文件', 'status-err');
-                showToast('请先选择一个文件', 'error');
-                return;
-            }
-            showLoading('生成指令...');
-            setStatus('转换中...', 'status-info');
-            log('开始转换: ' + currentFileName);
-
-            try {
-                var params = getParams();
-                var result = await parseBuilding(currentFileData, currentFileName);
-                currentPreviewResult = result;
-
-                var cmds = generateCommands(result, currentFileName.replace(/\.[^.]+$/, ''), result.width, result.length,
-                    params);
-                currentCommands = cmds;
-
-                var cmdText = cmds.join('\n');
-                cmBox.textContent = cmdText;
-                cmdCountEl.textContent = cmds.length;
-                dlBtn.style.display = 'inline-block';
-                dlBtn.disabled = false;
-
-                var blockCount = result.blocks ? result.blocks.length : 0;
-                var cmdCount = cmds.filter(function(l) {
-                    return !l.startsWith('#') && l.trim().length > 0;
-                }).length;
-                setStatus('转换完成! ' + cmdCount + ' 条有效指令', 'status-ok');
-                log('转换完成: ' + cmdCount + ' 条指令, ' + blockCount + ' 个方块');
-                infoText.textContent = '指令: ' + cmdCount + ' 条 | 方块: ' + blockCount;
-                showToast('转换完成: ' + cmdCount + ' 条指令', 'success');
-                switchTab('cm');
-            } catch (e) {
-                setStatus('转换失败: ' + e.message, 'status-err');
-                log('转换失败: ' + e.message);
-                cmBox.textContent = '转换失败: ' + e.message;
-                showToast('转换失败: ' + e.message, 'error');
-            }
-            hideLoading();
-        }
-
-        function downloadCommands() {
-            if (!currentCommands) return;
-            var text = currentCommands.join('\n');
-            var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-            var url = URL.createObjectURL(blob);
-            var a = document.createElement('a');
-            a.href = url;
-            a.download = currentFileName.replace(/\.[^.]+$/, '') + '_commands.txt';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            log('下载指令文件: ' + a.download);
-            showToast('指令已下载', 'success');
-        }
-
-        window.preview = preview;
-        window.convert = convert;
-        window.downloadCommands = downloadCommands;
-        window.downloadPreviewHTML = downloadPreviewHTML;
-        window.downloadPreviewHTMLDirect = downloadPreviewHTMLDirect;
-        window.copyLink = copyLink;
-        window.switchTab = switchTab;
-        window.clearAll = clearAll;
-        window.copyCommands = copyCommands;
-
-        log('Web 版转换器 v3.6 已加载 (与 jz.py 完全一致)');
-        log('映射表加载中...');
-        log('点击「生成3D预览」→ 生成预览');
-        log('点击「生成分享链接」→ 上传到云端，1-3分钟有效期');
-        log('「下载HTML」直接保存到本地');
-    </script>
+    <!-- 参数 -->
+    <div class="row">
+      <label>计分板:</label><input type="text" id="sbName" value="dr" style="width:50px">
+      <label>速度:</label><input type="text" id="speed" value="1" style="width:40px">
+      <label>高度盔甲架:</label><input type="text" id="hTag" value="h" style="width:40px">
+      <label>扫描盔甲架:</label><input type="text" id="bTag" value="b" style="width:40px">
+      <label>指令上限:</label><input type="text" id="maxChars" value="10000" style="width:60px">
+    </div>
+
+    <!-- 按钮 -->
+    <div class="row" style="margin-top:8px">
+      <button class="btn btn-primary" onclick="convert()">{ICON_CONVERT} 转换</button>
+      <button class="btn btn-preview" id="previewBtn" onclick="preview()" disabled>{ICON_PREVIEW} 预览</button>
+      <button class="btn btn-danger btn-sm" onclick="clearAll()" style="margin-left:auto">{ICON_CLEAR} 清空</button>
+      <span style="font-size:11px;color:#555;margin-left:8px" id="infoText"></span>
+    </div>
+    <div id="dlArea" style="display:none;margin-top:8px">
+      <a class="btn btn-success btn-sm" id="dlLink" style="text-decoration:none">{ICON_DOWNLOAD} 下载指令文件</a>
+    </div>
+  </div>
+
+  <!-- 标签页 -->
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('log')">{ICON_LOG} 日志</div>
+    <div class="tab" onclick="switchTab('cmd')">{ICON_COMMAND} 指令</div>
+    <div class="tab" onclick="switchTab('preview')">{ICON_PREVIEW} 预览</div>
+    <div class="tab" onclick="switchTab('sens')">敏感词</div>
+    <div class="tab" style="margin-left:auto" onclick="switchVer('cli')">文本模式</div>
+    <div class="tab" onclick="switchVer('gui')">GUI</div>
+    <div class="tab">
+      <a href="https://space.bilibili.com/3546638146603426" target="_blank" style="color:#fb7299;text-decoration:none;display:flex;align-items:center;gap:4px">{ICON_BILIBILI} B站</a>
+    </div>
+  </div>
+
+  <!-- 日志 -->
+  <div class="tab-content active" id="logContent">
+    <div class="box box-sm" id="log"></div>
+  </div>
+
+  <!-- 指令 -->
+  <div class="tab-content" id="cmdContent">
+    <div class="box-header"><span>共 <span id="cmdCount">0</span> 条指令</span><button class="copy-btn" onclick="copyCommands()">复制</button></div>
+    <div class="box box-lg" id="cmdLog">等待转换...</div>
+  </div>
+
+  <!-- 预览 -->
+  <div class="tab-content" id="previewContent">
+    <iframe id="previewFrame"></iframe>
+  </div>
+
+  <!-- 敏感词 -->
+  <div class="tab-content" id="sensContent">
+    <div class="card">
+      <div style="font-size:12px;color:#999;margin-bottom:6px">你的词表: 每行一词, !开头=白名单豁免, #开头=注释</div>
+      <div class="row" style="margin-top:4px">
+        <button class="btn btn-primary btn-sm" onclick="saveSensitive()">保存</button>
+        <button class="btn btn-preview btn-sm" onclick="loadSensitive()">刷新</button>
+        <button class="btn btn-secondary btn-sm" onclick="viewOfficial()">查看内置规则</button>
+        <span id="rmMsg" style="margin-left:12px;font-size:13px;color:#69db7c"></span>
+      </div>
+      <textarea class="sens-area" id="sensArea"></textarea>
+      <textarea class="sens-area" id="offArea" readonly style="display:none"></textarea>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){{var _b="{JS_B64}";var _a=atob(_b);var _u=new Uint8Array(_a.length);for(var i=0;i<_a.length;i++)_u[i]=_a.charCodeAt(i);new Function(new TextDecoder().decode(_u))();}})();
+
+// ===== 额外功能 =====
+function formatSize(s){{if(s<1024)return s+'B';if(s<1048576)return (s/1024).toFixed(1)+'KB';return (s/1048576).toFixed(1)+'MB';}}
+
+function handleFile(file){{
+  if(!file)return;
+  var ext=file.name.split('.').pop().toLowerCase();
+  if(ext!=='schematic'&&ext!=='litematic'){{log('不支持: '+ext);return;}}
+  document.getElementById('dropZone').classList.add('has-file');
+  document.getElementById('fileInfo').style.display='block';
+  document.getElementById('fileNameDisplay').textContent=file.name;
+  document.getElementById('fileSizeDisplay').textContent=formatSize(file.size);
+  document.getElementById('dropText').textContent='文件已选择，点击更换';
+  document.getElementById('previewBtn').disabled=false;
+  log('加载: '+file.name);
+}}
+
+document.getElementById('fileInput').addEventListener('change',function(){{
+  if(this.files.length>0)handleFile(this.files[0]);
+}});
+
+document.getElementById('dropZone').addEventListener('click',function(){{
+  document.getElementById('fileInput').click();
+}});
+
+document.getElementById('dropZone').addEventListener('dragover',function(e){{
+  e.preventDefault();this.classList.add('drag-over');
+}});
+document.getElementById('dropZone').addEventListener('dragleave',function(){{
+  this.classList.remove('drag-over');
+}});
+document.getElementById('dropZone').addEventListener('drop',function(e){{
+  e.preventDefault();this.classList.remove('drag-over');
+  if(e.dataTransfer.files.length>0){{
+    document.getElementById('fileInput').files=e.dataTransfer.files;
+    handleFile(e.dataTransfer.files[0]);
+  }}
+}});
+
+function clearAll(){{
+  document.getElementById('fileInput').value='';
+  document.getElementById('dropZone').classList.remove('has-file');
+  document.getElementById('fileInfo').style.display='none';
+  document.getElementById('dropText').textContent='点击选择 或 拖拽 .schematic / .litematic';
+  document.getElementById('previewBtn').disabled=true;
+  document.getElementById('dlArea').style.display='none';
+  document.getElementById('cmdLog').textContent='等待转换...';
+  document.getElementById('cmdCount').textContent='0';
+  document.getElementById('infoText').textContent='';
+  log('已清空');
+}}
+
+function copyCommands(){{
+  var t=document.getElementById('cmdLog').textContent;
+  if(!t||t==='等待转换...')return;
+  navigator.clipboard.writeText(t).then(function(){{
+    showToast('已复制','success');
+  }}).catch(function(){{
+    var ta=document.createElement('textarea');
+    ta.value=t;document.body.appendChild(ta);ta.select();
+    document.execCommand('copy');ta.remove();
+    showToast('已复制','success');
+  }});
+}}
+
+function showToast(msg,type){{
+  var t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast '+(type||'info')+' show';
+  clearTimeout(window._toastTimer);
+  window._toastTimer=setTimeout(function(){{t.classList.remove('show')}},3000);
+}}
+</script>
 </body>
-</html>
+</html>'''
+
+# 替换 SVG 占位符
+HTML = HTML.replace('{ICON_UPLOAD}', ICON_UPLOAD)
+HTML = HTML.replace('{ICON_CONVERT}', ICON_CONVERT)
+HTML = HTML.replace('{ICON_PREVIEW}', ICON_PREVIEW)
+HTML = HTML.replace('{ICON_DOWNLOAD}', ICON_DOWNLOAD)
+HTML = HTML.replace('{ICON_CLEAR}', ICON_CLEAR)
+HTML = HTML.replace('{ICON_LOG}', ICON_LOG)
+HTML = HTML.replace('{ICON_COMMAND}', ICON_COMMAND)
+HTML = HTML.replace('{ICON_BILIBILI}', ICON_BILIBILI)
+HTML = HTML.replace('{ICON_WARNING}', ICON_WARNING)
+HTML = HTML.replace('{ICON_CLOSE}', ICON_CLOSE)
+HTML = HTML.replace('{JS_B64}', JS_B64)
+
+# ============================================================
+# Flask 路由
+# ============================================================
+@app.route('/')
+def index():
+    return render_template_string(HTML)
+
+@app.route('/convert', methods=['POST'])
+def do_convert():
+    f = request.files.get('file')
+    if not f:
+        return jsonify({'error': '未选择文件'})
+    sb = request.form.get('scoreboard_name', 'dr') or 'dr'
+    sp = int(request.form.get('speed', '1') or '1')
+    ht = request.form.get('h_tag', 'h') or 'h'
+    bt = request.form.get('b_tag', 'b') or 'b'
+    mc = int(request.form.get('max_chars', '10000') or '10000')
+    
+    import uuid
+    uid = uuid.uuid4().hex[:8]
+    in_name = f"{uid}_{f.filename}"
+    in_path = os.path.join(_TMP_DIR, in_name)
+    f.save(in_path)
+    
+    log_buf = io.StringIO()
+    old = sys.stdout
+    sys.stdout = log_buf
+    try:
+        blk, w, hgt, l = jz.parse_building(in_path)
+        if not blk:
+            return jsonify({'error': '未找到任何方块'})
+        
+        fn = Path(in_path).stem
+        comp = jz.compress_blocks(blk, w, l)
+        cmds = jz.generate_commands_typed(comp, fn, w, l, use_unless=True, 
+                                          scoreboard_name=sb, speed=sp, h_tag=ht, b_tag=bt, max_chars=mc)
+        if not cmds:
+            return jsonify({'error': '未生成任何指令'})
+        out_n = f'{fn}_commands.txt'
+        out_p = os.path.join(_TMP_DIR, out_n)
+        with open(out_p, 'w', encoding='utf-8') as of:
+            of.write('\n'.join(cmds))
+        
+        show = '\n'.join(cmds[:3000])
+        if len(cmds) > 3000:
+            show += f'\n\n... 共 {len(cmds)} 条, 仅显示前 3000 行\n(完整指令请点击下方"下载指令文件"按钮)'
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'log': log_buf.getvalue() + '\n' + traceback.format_exc()})
+    finally:
+        sys.stdout = old
+        try:
+            os.remove(in_path)
+        except:
+            pass
+    
+    cfg = jz_config.load()
+    cfg.update({'version': 'web', 'scoreboard_name': sb, 'speed': sp, 'h_tag': ht, 'b_tag': bt})
+    jz_config.save(cfg)
+    return jsonify({'filename': out_n, 'log': log_buf.getvalue(), 'commands': show})
+
+@app.route('/preview', methods=['POST'])
+def do_preview():
+    f = request.files.get('file')
+    if not f:
+        return jsonify({'error': '未选择文件'})
+    in_path = os.path.join(_TMP_DIR, f.filename)
+    f.save(in_path)
+    log_buf = io.StringIO()
+    old = sys.stdout
+    sys.stdout = log_buf
+    try:
+        out = jz.generate_preview(in_path)
+        if not out:
+            return jsonify({'error': '预览生成失败'})
+        out_n = os.path.basename(out)
+        import shutil
+        shutil.move(out, os.path.join(_TMP_DIR, out_n))
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'log': log_buf.getvalue() + '\n' + traceback.format_exc()})
+    finally:
+        sys.stdout = old
+        try:
+            os.remove(in_path)
+        except:
+            pass
+    return jsonify({'url': f'/view/{out_n}', 'log': log_buf.getvalue()})
+
+@app.route('/download/<n>')
+def download(n):
+    return send_file(os.path.join(_TMP_DIR, n), as_attachment=True)
+
+@app.route('/view/<n>')
+def view_html(n):
+    return send_file(os.path.join(_TMP_DIR, n))
+
+@app.route("/sensitive")
+def sensitive_get():
+    sf = getattr(jz, "_SF", None)
+    if not sf:
+        return jsonify({"error": "no filter"})
+    return jsonify({"user_words": sf.user_words(), "netease_count": sf.netease_count()})
+
+@app.route("/sensitive/save", methods=["POST"])
+def sensitive_save():
+    sf = getattr(jz, "_SF", None)
+    if not sf:
+        return jsonify({"error": "no filter"})
+    data = request.get_json(silent=True) or {}
+    items = data.get("words", [])
+    sf.set_user_words(items)
+    try:
+        blk = []
+        alw = []
+        for w in sf.user_words():
+            if w['type'] == 'allow':
+                alw.append(w['text'])
+            else:
+                blk.append(w['text'])
+        cfg = jz_config.load()
+        cfg['sensitive_words'] = ','.join(blk)
+        cfg['sensitive_allow'] = ','.join(alw)
+        jz_config.save(cfg)
+        return jsonify({'ok': True, 'count': len(sf.user_words())})
+    except Exception as e:
+        return jsonify({'error': 'save failed: ' + str(e)})
+
+@app.route("/sensitive/official")
+def sensitive_official():
+    sf = getattr(jz, "_SF", None)
+    if not sf:
+        return jsonify({"error": "no filter"})
+    return jsonify({"count": sf.netease_count(), "rules": [r for _, r in sf.netease_patterns]})
+
+@app.route('/switch/<v>')
+def switch_ver(v):
+    try:
+        cfg = jz_config.load()
+        cfg['version'] = v
+        jz_config.save(cfg)
+    except Exception:
+        pass
+    def _do_restart():
+        import time
+        time.sleep(0.4)
+        try:
+            if getattr(sys, 'frozen', False):
+                os.execv(sys.executable, [sys.executable])
+            else:
+                jz_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'jz.py')
+                os.execv(sys.executable, [sys.executable, jz_path])
+        except Exception:
+            pass
+    threading.Thread(target=_do_restart, daemon=True).start()
+    return f'正在切换到 {v}...'
+
+if __name__ == '__main__':
+    print('=' * 50)
+    print('MC 建筑转换器 v3.6 - 网页版 (深色主题 + 启动弹窗)')
+    print('支持 .schematic / .litematic 文件')
+    print('打开: http://localhost:9718')
+    print('=' * 50)
+    app.run(host='0.0.0.0', port=9718, debug=False)
