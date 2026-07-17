@@ -1,705 +1,884 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""Minecraft 建筑转换器 - 网页版 (端口 9718) - 深色主题"""
-import sys, os, io, base64, threading
-import logging
-logging.getLogger('werkzeug').setLevel(logging.ERROR)
-logging.getLogger('flask').setLevel(logging.ERROR)
-from pathlib import Path
-from flask import Flask, request, render_template_string, send_file, jsonify
-
-_TMP_DIR = os.path.join(os.getcwd(), 'tmp_uploads')
-os.makedirs(_TMP_DIR, exist_ok=True)
-
-try:
-    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-except Exception:
-    pass
-
-import jz_config
-
-_jz_mod = sys.modules.get('__main__')
-if _jz_mod and hasattr(_jz_mod, 'parse_building'):
-    jz = _jz_mod
-else:
-    import importlib.util
-    base = sys._MEIPASS if getattr(sys, 'frozen', False) else os.path.dirname(__file__)
-    spec = importlib.util.spec_from_file_location('jz', os.path.join(base, 'jz.py'))
-    jz = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(jz)
-
-app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
-
-# ============================================================
-# SVG 图标
-# ============================================================
-ICON_UPLOAD = '''<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>'''
-ICON_CONVERT = '''<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>'''
-ICON_PREVIEW = '''<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'''
-ICON_DOWNLOAD = '''<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'''
-ICON_CLEAR = '''<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>'''
-ICON_LOG = '''<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>'''
-ICON_COMMAND = '''<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>'''
-ICON_BILIBILI = '''<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.813 4.653h.854l1.338 1.606v10.66l-1.338 1.607H16.11l-2.183 2.147h-3.848L7.896 18.526H5.333L3.995 16.919V6.259l1.338-1.606h.854l1.872-1.87 1.872 1.87h4.122l1.872-1.87 1.872 1.87zm-1.338 2.14H7.525l-1.06 1.07v9.237l1.06 1.07h8.95l1.06-1.07V7.864l-1.06-1.07zm-6.316 2.674v6.955h-2.14V9.467h2.14zm4.816 0v6.955h-2.14V9.467h2.14z"/></svg>'''
-ICON_WARNING = '''<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ffd43b" stroke-width="2"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/></svg>'''
-ICON_CLOSE = '''<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'''
-
-# ============================================================
-# JS 代码 (base64 混淆)
-# ============================================================
-JS_SRC = r'''
-document.addEventListener('contextmenu',function(e){e.preventDefault();return false},true);
-window.addEventListener('contextmenu',function(e){e.preventDefault();return false},true);
-document.oncontextmenu=function(){return false};
-document.addEventListener('keydown',function(e){
-  var k=e.keyCode||e.which;
-  if(k===123){e.preventDefault();return false}
-  if(e.ctrlKey&&(k===85||k===83)){e.preventDefault();return false}
-  if(e.ctrlKey&&e.shiftKey&&(k===73||k===74||k===67)){e.preventDefault();return false}
-  if(e.ctrlKey&&e.shiftKey&&k===75){e.preventDefault();return false}
-  return true
-},true);
-window.addEventListener('keydown',function(e){if(e.keyCode===123)e.preventDefault()},true);
-document.addEventListener('dragstart',function(e){e.preventDefault()});
-(function(){var t=setInterval(function(){debugger},800);})();
-console.log('%c警告','color:red;font-size:24px;font-weight:bold','本页面内容受版权保护，请勿通过开发者工具查看源码。');
-
-function log(m){var e=document.getElementById('log');e.textContent+=m+'\n';e.scrollTop=e.scrollHeight}
-function clr(){document.getElementById('log').textContent=''}
-function switchTab(n){document.querySelectorAll('.tab,.tab-content').forEach(e=>e.classList.remove('active'));document.getElementById(n+'Content').classList.add('active');document.querySelector('.tab[onclick*="'+n+'"]').classList.add('active')}
-function showLoad(){document.getElementById('loadingOverlay').style.display='flex'}
-function hideLoad(){document.getElementById('loadingOverlay').style.display='none'}
-function disableBtns(){document.querySelectorAll('.btn').forEach(b=>b.disabled=true)}
-function enableBtns(){document.querySelectorAll('.btn').forEach(b=>b.disabled=false)}
-
-// ===== 启动弹窗 =====
-function showStartupModal(){
-  var modal=document.getElementById('startupModal');
-  modal.style.display='flex';
-}
-
-function closeModal(stay){
-  var modal=document.getElementById('startupModal');
-  modal.style.display='none';
-  if(!stay){
-    window.location.href='https://mmdyy-xywbmm.zh.kg/download';
-  }
-}
-
-// 页面加载完成后显示弹窗
-document.addEventListener('DOMContentLoaded',function(){
-  showStartupModal();
-});
-
-async function convert(){
-  var f=document.getElementById('fileInput').files[0];if(!f){log('请先选择文件');return}
-  clr();showLoad();disableBtns();document.getElementById('dlArea').style.display='none'
-  var fd=new FormData();fd.append('file',f);
-  fd.append('scoreboard_name',document.getElementById('sbName').value.trim()||'dr');
-  fd.append('speed',document.getElementById('speed').value.trim()||'1');
-  fd.append('h_tag',document.getElementById('hTag').value.trim()||'h');
-  fd.append('b_tag',document.getElementById('bTag').value.trim()||'b');
-  fd.append('max_chars',document.getElementById('maxChars').value.trim()||'10000');
-  try{
-    var r=await fetch('/convert',{method:'POST',body:fd});
-    var d=await r.json();
-    if(d.error){log('错误: '+d.error);return}
-    log(d.log||'');
-    if(d.commands){document.getElementById('cmdLog').textContent=d.commands;switchTab('cmd')}
-    if(d.filename){document.getElementById('dlLink').href='/download/'+d.filename;document.getElementById('dlArea').style.display='block'}
-  }catch(e){log('错误: '+e.message)}
-  finally{hideLoad();enableBtns()}
-}
-
-async function preview(){
-  var f=document.getElementById('fileInput').files[0];if(!f)return;
-  showLoad();disableBtns();
-  var fd=new FormData();fd.append('file',f);
-  try{
-    var r=await fetch('/preview',{method:'POST',body:fd});
-    var d=await r.json();
-    if(d.error){log('错误: '+d.error);return}
-    if(d.url){document.getElementById('previewFrame').src=d.url;switchTab('preview')}
-  }catch(e){log('错误: '+e.message)}
-  finally{hideLoad();enableBtns()}
-}
-
-async function switchVer(v){
-  showLoad();disableBtns();
-  try{await fetch('/switch/'+v);}catch(e){}
-}
-
-async function loadSensitive(){
-  try{
-    var r=await fetch('/sensitive');var d=await r.json();
-    if(d.error){document.getElementById('rmMsg').textContent=d.error;return}
-    document.getElementById('offArea').style.display='none';
-    document.getElementById('sensArea').style.display='block';
-    document.getElementById('rmMsg').textContent='';
-    var ta=document.getElementById('sensArea');
-    ta.value=d.user_words.map(function(w){return (w.type==='allow'?'!':'')+w.text}).join('\n');
-  }catch(e){alert(e.message)}
-}
-
-async function saveSensitive(){
-  var ta=document.getElementById('sensArea');
-  var items=ta.value.split('\n').map(function(l){return l.trim()}).filter(function(l){return l&&l.charAt(0)!=='#'});
-  try{
-    var r=await fetch('/sensitive/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({words:items})});
-    var d=await r.json();
-    if(d.error){document.getElementById('rmMsg').textContent=d.error;return}
-    document.getElementById('rmMsg').textContent='已保存';
-    setTimeout(function(){document.getElementById('rmMsg').textContent=''},2000);
-  }catch(e){alert(e.message)}
-}
-
-async function viewOfficial(){
-  try{
-    var r=await fetch('/sensitive/official');var d=await r.json();
-    var ta=document.getElementById('offArea');
-    var sa=document.getElementById('sensArea');
-    ta.value='内置规则共 '+d.count+' 条:\n\n'+d.rules.join('\n');
-    ta.style.display='block';
-    sa.style.display='none';
-  }catch(e){document.getElementById('rmMsg').textContent='加载失败: '+e.message}
-}
-
-window.convert=convert;window.preview=preview;window.switchTab=switchTab;window.switchVer=switchVer;
-window.loadSensitive=loadSensitive;window.saveSensitive=saveSensitive;window.viewOfficial=viewOfficial;
-window.closeModal=closeModal;
-'''
-JS_B64 = base64.b64encode(JS_SRC.encode('utf-8')).decode('ascii')
-
-# ============================================================
-# HTML 模板 (深色主题 + 启动弹窗)
-# ============================================================
-HTML = f'''<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MC 建筑转换器 v3.6</title>
 <style>
-*{{margin:0;padding:0;box-sizing:border-box}}
-body{{background:#0d0d2b;min-height:100vh;font-family:"Segoe UI","Microsoft YaHei",sans-serif;padding:20px;color:#ccc}}
-.container{{max-width:960px;margin:0 auto}}
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+body {
+    background: #0d0d2b;
+    min-height: 100vh;
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    padding: 20px;
+    color: #ccc;
+}
+.container {
+    max-width: 960px;
+    margin: 0 auto;
+}
 
 /* 水印 */
-.wm{{position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:999;opacity:.06}}
+.wm {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 999;
+    opacity: .06;
+}
 
 /* 头部 */
-.header{{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px}}
-.header h1{{font-size:24px;color:#fff}}
-.header h1 span{{background:linear-gradient(135deg,#7c4dff,#448aff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}}
-.header .sub{{font-size:13px;color:#889}}
-.header .badge{{display:inline-block;padding:2px 10px;border-radius:10px;font-size:11px;background:rgba(124,77,255,.2);color:#b197fc;margin-left:6px}}
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+.header h1 {
+    font-size: 24px;
+    color: #fff;
+}
+.header h1 span {
+    background: linear-gradient(135deg, #7c4dff, #448aff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.header .sub {
+    font-size: 13px;
+    color: #889;
+}
+.header .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-size: 11px;
+    background: rgba(124, 77, 255, .2);
+    color: #b197fc;
+    margin-left: 6px;
+}
 
 /* 状态栏 */
-#status{{background:rgba(255,255,255,.03);border-left:3px solid #7c4dff;border-radius:6px;padding:10px 16px;margin-bottom:10px;font-size:13px}}
+#status {
+    background: rgba(255, 255, 255, .03);
+    border-left: 3px solid #7c4dff;
+    border-radius: 6px;
+    padding: 10px 16px;
+    margin-bottom: 10px;
+    font-size: 13px;
+}
 
 /* 卡片 */
-.card{{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:14px;margin-bottom:10px}}
+.card {
+    background: rgba(255, 255, 255, .04);
+    border: 1px solid rgba(255, 255, 255, .08);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 10px;
+}
 
 /* 拖拽区 */
-.drop-zone{{border:2px dashed rgba(255,255,255,.1);border-radius:8px;padding:24px 20px;text-align:center;cursor:pointer;transition:.3s}}
-.drop-zone:hover{{border-color:rgba(124,77,255,.4);background:rgba(124,77,255,.05)}}
-.drop-zone.drag-over{{border-color:#7c4dff;background:rgba(124,77,255,.12)}}
-.drop-zone.has-file{{border-color:#ffd43b;background:rgba(255,212,59,.06)}}
-.drop-zone .file-name{{color:#ffd43b;font-weight:500;margin-top:4px;font-size:14px}}
-.drop-zone .file-size{{font-size:11px;color:#666}}
-.drop-zone input[type=file]{{display:none}}
-.drop-zone .icon{{display:inline-block;margin-bottom:4px;color:#666}}
+.drop-zone {
+    border: 2px dashed rgba(255, 255, 255, .1);
+    border-radius: 8px;
+    padding: 24px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: .3s;
+}
+.drop-zone:hover {
+    border-color: rgba(124, 77, 255, .4);
+    background: rgba(124, 77, 255, .05);
+}
+.drop-zone.drag-over {
+    border-color: #7c4dff;
+    background: rgba(124, 77, 255, .12);
+}
+.drop-zone.has-file {
+    border-color: #ffd43b;
+    background: rgba(255, 212, 59, .06);
+}
+.drop-zone .file-name {
+    color: #ffd43b;
+    font-weight: 500;
+    margin-top: 4px;
+    font-size: 14px;
+}
+.drop-zone .file-size {
+    font-size: 11px;
+    color: #666;
+}
+.drop-zone input[type=file] {
+    display: none;
+}
+.drop-zone .icon {
+    display: inline-block;
+    margin-bottom: 4px;
+    color: #666;
+}
 
 /* 表单行 */
-.row{{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}}
-.row label{{font-size:12px;color:#999}}
-.row input[type=text],.row input[type=number]{{padding:4px 8px;border:1px solid rgba(255,255,255,.1);border-radius:4px;background:rgba(0,0,0,.3);color:#ccc;font-size:12px;width:60px}}
-.row input[type=file]{{font-size:12px;color:#ccc;background:transparent;border:none;cursor:pointer}}
-.row .checkbox-label{{display:flex;align-items:center;gap:4px;font-size:12px;color:#999;cursor:pointer}}
-.row .checkbox-label input[type=checkbox]{{accent-color:#7c4dff;width:14px;height:14px;cursor:pointer}}
+.row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 8px;
+}
+.row label {
+    font-size: 12px;
+    color: #999;
+}
+.row input[type=text],
+.row input[type=number] {
+    padding: 4px 8px;
+    border: 1px solid rgba(255, 255, 255, .1);
+    border-radius: 4px;
+    background: rgba(0, 0, 0, .3);
+    color: #ccc;
+    font-size: 12px;
+    width: 60px;
+}
+.row input[type=file] {
+    font-size: 12px;
+    color: #ccc;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
 
 /* 按钮 */
-.btn{{padding:8px 20px;border:none;border-radius:6px;font-size:13px;cursor:pointer;color:#fff;display:inline-flex;align-items:center;gap:6px;transition:.15s;font-weight:500}}
-.btn:disabled{{opacity:.35;cursor:not-allowed}}
-.btn-primary{{background:linear-gradient(135deg,#7c4dff,#5e35e0)}}
-.btn-primary:hover:not(:disabled){{opacity:.85;transform:scale(1.02)}}
-.btn-success{{background:linear-gradient(135deg,#00c853,#00a844)}}
-.btn-success:hover:not(:disabled){{opacity:.85;transform:scale(1.02)}}
-.btn-preview{{background:linear-gradient(135deg,#00b894,#00a381)}}
-.btn-preview:hover:not(:disabled){{opacity:.85;transform:scale(1.02)}}
-.btn-danger{{background:linear-gradient(135deg,#ff1744,#d50000)}}
-.btn-danger:hover:not(:disabled){{opacity:.85;transform:scale(1.02)}}
-.btn-warning{{background:linear-gradient(135deg,#ffd43b,#f9a825)}}
-.btn-warning:hover:not(:disabled){{opacity:.85;transform:scale(1.02)}}
-.btn-sm{{padding:4px 12px;font-size:12px}}
-.btn-link{{background:transparent;color:#888;padding:4px 8px;font-size:12px}}
-.btn-link:hover{{color:#fff}}
+.btn {
+    padding: 8px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: .15s;
+    font-weight: 500;
+}
+.btn:disabled {
+    opacity: .35;
+    cursor: not-allowed;
+}
+.btn-primary {
+    background: linear-gradient(135deg, #7c4dff, #5e35e0);
+}
+.btn-primary:hover:not(:disabled) {
+    opacity: .85;
+    transform: scale(1.02);
+}
+.btn-success {
+    background: linear-gradient(135deg, #00c853, #00a844);
+}
+.btn-success:hover:not(:disabled) {
+    opacity: .85;
+    transform: scale(1.02);
+}
+.btn-preview {
+    background: linear-gradient(135deg, #00b894, #00a381);
+}
+.btn-preview:hover:not(:disabled) {
+    opacity: .85;
+    transform: scale(1.02);
+}
+.btn-danger {
+    background: linear-gradient(135deg, #ff1744, #d50000);
+}
+.btn-danger:hover:not(:disabled) {
+    opacity: .85;
+    transform: scale(1.02);
+}
+.btn-warning {
+    background: linear-gradient(135deg, #ffd43b, #f9a825);
+    color: #1a1a3e;
+}
+.btn-warning:hover:not(:disabled) {
+    opacity: .85;
+    transform: scale(1.02);
+}
+.btn-secondary {
+    background: rgba(255, 255, 255, .08);
+    border: 1px solid rgba(255, 255, 255, .1);
+}
+.btn-secondary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, .15);
+}
+.btn-sm {
+    padding: 4px 12px;
+    font-size: 12px;
+}
+.btn-link {
+    background: transparent;
+    color: #888;
+    padding: 4px 8px;
+    font-size: 12px;
+}
+.btn-link:hover {
+    color: #fff;
+}
 
 /* 标签页 */
-.tabs{{display:flex;border-bottom:1px solid rgba(255,255,255,.06);margin-top:6px}}
-.tab{{padding:6px 16px;cursor:pointer;font-size:12px;color:#666;border-bottom:2px solid transparent;transition:.2s;display:flex;align-items:center;gap:4px}}
-.tab:hover{{color:#aaa}}
-.tab.active{{color:#ccc;border-bottom-color:#7c4dff}}
-.tab-content{{display:none;margin-top:6px}}
-.tab-content.active{{display:block}}
+.tabs {
+    display: flex;
+    border-bottom: 1px solid rgba(255, 255, 255, .06);
+    margin-top: 6px;
+}
+.tab {
+    padding: 6px 16px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #666;
+    border-bottom: 2px solid transparent;
+    transition: .2s;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.tab:hover {
+    color: #aaa;
+}
+.tab.active {
+    color: #ccc;
+    border-bottom-color: #7c4dff;
+}
+.tab-content {
+    display: none;
+    margin-top: 6px;
+}
+.tab-content.active {
+    display: block;
+}
 
 /* 日志/指令框 */
-.box{{background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:10px;font-family:Consolas,monospace;font-size:12px;color:#8b8baa;height:260px;overflow:auto;white-space:pre-wrap;word-break:break-all}}
-.box-lg{{height:380px}}
-.box-sm{{height:150px}}
-.box-header{{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}}
-.box-header span{{font-size:11px;color:#666}}
-.copy-btn{{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);color:#aaa;padding:2px 12px;border-radius:4px;font-size:11px;cursor:pointer}}
-.copy-btn:hover{{background:rgba(255,255,255,.15);color:#fff}}
+.box {
+    background: rgba(0, 0, 0, .4);
+    border: 1px solid rgba(255, 255, 255, .06);
+    border-radius: 8px;
+    padding: 10px;
+    font-family: Consolas, monospace;
+    font-size: 12px;
+    color: #8b8baa;
+    height: 260px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+.box-lg {
+    height: 380px;
+}
+.box-sm {
+    height: 150px;
+}
+.box-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+.box-header span {
+    font-size: 11px;
+    color: #666;
+}
+.copy-btn {
+    background: rgba(255, 255, 255, .08);
+    border: 1px solid rgba(255, 255, 255, .1);
+    color: #aaa;
+    padding: 2px 12px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+}
+.copy-btn:hover {
+    background: rgba(255, 255, 255, .15);
+    color: #fff;
+}
 
 /* 预览 */
-iframe{{width:100%;height:500px;border:none;border-radius:8px;margin-top:8px;background:#0d0d2b}}
+iframe {
+    width: 100%;
+    height: 500px;
+    border: none;
+    border-radius: 8px;
+    margin-top: 8px;
+    background: #0d0d2b;
+}
 
 /* 敏感词 */
-.sens-area{{width:100%;height:160px;font-family:Consolas,monospace;font-size:12px;margin-top:8px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.06);border-radius:6px;padding:8px;color:#ccc}}
-.sens-area:focus{{outline:none;border-color:#7c4dff}}
-.sens-area[readonly]{{background:rgba(255,255,255,.04);color:#666}}
+.sens-area {
+    width: 100%;
+    height: 160px;
+    font-family: Consolas, monospace;
+    font-size: 12px;
+    margin-top: 8px;
+    background: rgba(0, 0, 0, .3);
+    border: 1px solid rgba(255, 255, 255, .06);
+    border-radius: 6px;
+    padding: 8px;
+    color: #ccc;
+}
+.sens-area:focus {
+    outline: none;
+    border-color: #7c4dff;
+}
+.sens-area[readonly] {
+    background: rgba(255, 255, 255, .04);
+    color: #666;
+}
 
 /* 加载遮罩 */
-#loadingOverlay{{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(13,13,43,.92);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:16px}}
-#loadingOverlay.active{{display:flex}}
-#loadingOverlay .spinner{{width:40px;height:40px;border:3px solid rgba(124,77,255,.2);border-top-color:#7c4dff;border-radius:50%;animation:spin .8s linear infinite}}
-@keyframes spin{{to{{transform:rotate(360deg)}}}}
-#loadingOverlay .loading-text{{color:#889;font-size:13px}}
+#loadingOverlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(13, 13, 43, .92);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+}
+#loadingOverlay.active {
+    display: flex;
+}
+#loadingOverlay .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(124, 77, 255, .2);
+    border-top-color: #7c4dff;
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+}
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+#loadingOverlay .loading-text {
+    color: #889;
+    font-size: 13px;
+}
 
 /* Toast */
-#toast{{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(80px);padding:12px 28px;border-radius:10px;font-size:14px;font-weight:500;z-index:10000;opacity:0;transition:all .4s;pointer-events:none;background:rgba(0,0,0,.85);border:1px solid rgba(255,255,255,.1)}}
-#toast.show{{opacity:1;transform:translateX(-50%) translateY(0)}}
-#toast.success{{border-color:#00c853;color:#69db7c}}
-#toast.error{{border-color:#ff1744;color:#ff6b6b}}
-#toast.info{{border-color:#448aff;color:#74c0fc}}
+#toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    padding: 12px 28px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 10000;
+    opacity: 0;
+    transition: all .4s;
+    pointer-events: none;
+    background: rgba(0, 0, 0, .85);
+    border: 1px solid rgba(255, 255, 255, .1);
+}
+#toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+#toast.success {
+    border-color: #00c853;
+    color: #69db7c;
+}
+#toast.error {
+    border-color: #ff1744;
+    color: #ff6b6b;
+}
+#toast.info {
+    border-color: #448aff;
+    color: #74c0fc;
+}
 
 /* ===== 启动弹窗 ===== */
-#startupModal{{
-  display:none;
-  position:fixed;
-  top:0;left:0;
-  width:100%;height:100%;
-  background:rgba(0,0,0,.85);
-  backdrop-filter:blur(8px);
-  z-index:99999;
-  align-items:center;
-  justify-content:center;
-  padding:20px;
-}}
-#startupModal.active{{display:flex}}
-.modal-box{{
-  background:linear-gradient(145deg,#1a1a4e,#0d0d2b);
-  border:1px solid rgba(255,255,255,.1);
-  border-radius:16px;
-  padding:32px 40px;
-  max-width:520px;
-  width:100%;
-  text-align:center;
-  box-shadow:0 20px 60px rgba(0,0,0,.8);
-  position:relative;
-}}
-.modal-box .warning-icon{{color:#ffd43b;margin-bottom:16px}}
-.modal-box h2{{font-size:20px;color:#ffd43b;margin-bottom:10px}}
-.modal-box p{{font-size:14px;color:#999;line-height:1.6;margin-bottom:20px}}
-.modal-box .btn-group{{display:flex;flex-direction:column;gap:10px}}
-.modal-box .btn-group .btn{{justify-content:center;padding:12px 24px;font-size:14px;width:100%}}
-.modal-box .btn-group .btn-warning{{background:linear-gradient(135deg,#ffd43b,#f9a825);color:#1a1a3e}}
-.modal-box .btn-group .btn-warning:hover{{opacity:.85;transform:scale(1.01)}}
-.modal-box .btn-group .btn-secondary{{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1)}}
-.modal-box .btn-group .btn-secondary:hover{{background:rgba(255,255,255,.15)}}
-.modal-box .version-tag{{display:inline-block;padding:2px 12px;border-radius:10px;font-size:11px;background:rgba(255,212,59,.15);color:#ffd43b;margin-bottom:12px}}
+#startupModal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, .85);
+    backdrop-filter: blur(8px);
+    z-index: 99999;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+#startupModal.active {
+    display: flex;
+}
+.modal-box {
+    background: linear-gradient(145deg, #1a1a4e, #0d0d2b);
+    border: 1px solid rgba(255, 255, 255, .1);
+    border-radius: 16px;
+    padding: 32px 40px;
+    max-width: 520px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .8);
+    position: relative;
+}
+.modal-box .warning-icon {
+    color: #ffd43b;
+    margin-bottom: 16px;
+}
+.modal-box h2 {
+    font-size: 20px;
+    color: #ffd43b;
+    margin-bottom: 10px;
+}
+.modal-box p {
+    font-size: 14px;
+    color: #999;
+    line-height: 1.6;
+    margin-bottom: 20px;
+}
+.modal-box .btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.modal-box .btn-group .btn {
+    justify-content: center;
+    padding: 12px 24px;
+    font-size: 14px;
+    width: 100%;
+}
+.modal-box .version-tag {
+    display: inline-block;
+    padding: 2px 12px;
+    border-radius: 10px;
+    font-size: 11px;
+    background: rgba(255, 212, 59, .15);
+    color: #ffd43b;
+    margin-bottom: 12px;
+}
 
 /* 响应式 */
-@media(max-width:600px){{
-  .row{{gap:4px}}
-  .row input[type=text],.row input[type=number]{{width:40px}}
-  .btn{{padding:6px 12px;font-size:11px}}
-  .header h1{{font-size:18px}}
-  .box{{height:180px}}
-  .box-lg{{height:280px}}
-  .modal-box{{padding:24px 20px}}
-}}
+@media(max-width:600px) {
+    .row {
+        gap: 4px;
+    }
+    .row input[type=text],
+    .row input[type=number] {
+        width: 40px;
+    }
+    .btn {
+        padding: 6px 12px;
+        font-size: 11px;
+    }
+    .header h1 {
+        font-size: 18px;
+    }
+    .box {
+        height: 180px;
+    }
+    .box-lg {
+        height: 280px;
+    }
+    .modal-box {
+        padding: 24px 20px;
+    }
+}
 </style>
 </head>
 <body>
 
-<!-- 启动弹窗 -->
-<div id="startupModal">
-  <div class="modal-box">
-    <div class="warning-icon">{ICON_WARNING}</div>
-    <div class="version-tag">⚠ 开发预览版</div>
-    <h2>网站尚未完善</h2>
-    <p>当前版本生成的指令可能存在问题，<br>请勿在正式服务器使用。</p>
-    <div class="btn-group">
-      <button class="btn btn-warning" onclick="closeModal(false)">
-        {ICON_DOWNLOAD} 立即前往下载已完成版本 <span style="font-size:11px;opacity:.7">(推荐)</span>
-      </button>
-      <button class="btn btn-secondary" onclick="closeModal(true)">
-        我不管，我非要留在这个没有做完的网站
-      </button>
+<!-- ===== 启动弹窗 ===== -->
+<div id="startupModal" class="active">
+    <div class="modal-box">
+        <div class="warning-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ffd43b" stroke-width="2">
+                <path d="M12 9v4"/>
+                <path d="M12 17h.01"/>
+                <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
+            </svg>
+        </div>
+        <div class="version-tag">⚠ 开发预览版</div>
+        <h2>网站尚未完善</h2>
+        <p>当前版本生成的指令可能存在问题，<br>请勿在正式服务器使用。</p>
+        <div class="btn-group">
+            <button class="btn btn-warning" onclick="goDownload()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                立即前往下载已完成版本 <span style="font-size:11px;opacity:.7">(推荐)</span>
+            </button>
+            <button class="btn btn-secondary" onclick="closeModal()">
+                我不管，我非要留在这个没有做完的网站
+            </button>
+        </div>
     </div>
-  </div>
 </div>
 
 <!-- 水印 -->
 <svg class="wm" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
-  <defs><pattern id="wp" x="0" y="0" width="300" height="300" patternUnits="userSpaceOnUse">
-    <text transform="rotate(-30)" x="0" y="150" font-size="26" font-family="Microsoft YaHei,SimHei,sans-serif" fill="#888">小逸罒不迷茫</text>
-  </pattern></defs>
-  <rect width="100%" height="100%" fill="url(#wp)"/>
+    <defs>
+        <pattern id="wp" x="0" y="0" width="300" height="300" patternUnits="userSpaceOnUse">
+            <text transform="rotate(-30)" x="0" y="150" font-size="26" font-family="Microsoft YaHei,SimHei,sans-serif" fill="#888">小逸罒不迷茫</text>
+        </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#wp)"/>
 </svg>
 
 <!-- 加载遮罩 -->
-<div id="loadingOverlay"><div class="spinner"></div><div class="loading-text">处理中...</div></div>
+<div id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text">处理中...</div>
+</div>
 
 <!-- Toast -->
 <div id="toast"></div>
 
 <div class="container">
 
-  <!-- 头部 -->
-  <div class="header">
-    <h1>MC <span>建筑转换器</span> v3.6</h1>
-    <div class="sub">作者: 小逸罒不迷茫 <span class="badge">网页版</span></div>
-  </div>
-
-  <!-- 状态 -->
-  <div id="status">⏳ 就绪，请上传文件</div>
-
-  <!-- 主卡片 -->
-  <div class="card">
-
-    <!-- 拖拽区 -->
-    <div class="drop-zone" id="dropZone">
-      <span class="icon">{ICON_UPLOAD}</span>
-      <div><span id="dropText">点击选择 或 拖拽 .schematic / .litematic</span></div>
-      <div id="fileInfo" style="display:none;margin-top:4px;">
-        <div class="file-name" id="fileNameDisplay"></div>
-        <div class="file-size" id="fileSizeDisplay"></div>
-      </div>
-      <input type="file" id="fileInput" accept=".schematic,.litematic">
+    <!-- 头部 -->
+    <div class="header">
+        <h1>MC <span>建筑转换器</span> v3.6</h1>
+        <div class="sub">作者: 小逸罒不迷茫 <span class="badge">网页版</span></div>
     </div>
 
-    <!-- 参数 -->
-    <div class="row">
-      <label>计分板:</label><input type="text" id="sbName" value="dr" style="width:50px">
-      <label>速度:</label><input type="text" id="speed" value="1" style="width:40px">
-      <label>高度盔甲架:</label><input type="text" id="hTag" value="h" style="width:40px">
-      <label>扫描盔甲架:</label><input type="text" id="bTag" value="b" style="width:40px">
-      <label>指令上限:</label><input type="text" id="maxChars" value="10000" style="width:60px">
-    </div>
+    <!-- 状态 -->
+    <div id="status">⏳ 就绪，请上传文件</div>
 
-    <!-- 按钮 -->
-    <div class="row" style="margin-top:8px">
-      <button class="btn btn-primary" onclick="convert()">{ICON_CONVERT} 转换</button>
-      <button class="btn btn-preview" id="previewBtn" onclick="preview()" disabled>{ICON_PREVIEW} 预览</button>
-      <button class="btn btn-danger btn-sm" onclick="clearAll()" style="margin-left:auto">{ICON_CLEAR} 清空</button>
-      <span style="font-size:11px;color:#555;margin-left:8px" id="infoText"></span>
-    </div>
-    <div id="dlArea" style="display:none;margin-top:8px">
-      <a class="btn btn-success btn-sm" id="dlLink" style="text-decoration:none">{ICON_DOWNLOAD} 下载指令文件</a>
-    </div>
-  </div>
-
-  <!-- 标签页 -->
-  <div class="tabs">
-    <div class="tab active" onclick="switchTab('log')">{ICON_LOG} 日志</div>
-    <div class="tab" onclick="switchTab('cmd')">{ICON_COMMAND} 指令</div>
-    <div class="tab" onclick="switchTab('preview')">{ICON_PREVIEW} 预览</div>
-    <div class="tab" onclick="switchTab('sens')">敏感词</div>
-    <div class="tab" style="margin-left:auto" onclick="switchVer('cli')">文本模式</div>
-    <div class="tab" onclick="switchVer('gui')">GUI</div>
-    <div class="tab">
-      <a href="https://space.bilibili.com/3546638146603426" target="_blank" style="color:#fb7299;text-decoration:none;display:flex;align-items:center;gap:4px">{ICON_BILIBILI} B站</a>
-    </div>
-  </div>
-
-  <!-- 日志 -->
-  <div class="tab-content active" id="logContent">
-    <div class="box box-sm" id="log"></div>
-  </div>
-
-  <!-- 指令 -->
-  <div class="tab-content" id="cmdContent">
-    <div class="box-header"><span>共 <span id="cmdCount">0</span> 条指令</span><button class="copy-btn" onclick="copyCommands()">复制</button></div>
-    <div class="box box-lg" id="cmdLog">等待转换...</div>
-  </div>
-
-  <!-- 预览 -->
-  <div class="tab-content" id="previewContent">
-    <iframe id="previewFrame"></iframe>
-  </div>
-
-  <!-- 敏感词 -->
-  <div class="tab-content" id="sensContent">
+    <!-- 主卡片 -->
     <div class="card">
-      <div style="font-size:12px;color:#999;margin-bottom:6px">你的词表: 每行一词, !开头=白名单豁免, #开头=注释</div>
-      <div class="row" style="margin-top:4px">
-        <button class="btn btn-primary btn-sm" onclick="saveSensitive()">保存</button>
-        <button class="btn btn-preview btn-sm" onclick="loadSensitive()">刷新</button>
-        <button class="btn btn-secondary btn-sm" onclick="viewOfficial()">查看内置规则</button>
-        <span id="rmMsg" style="margin-left:12px;font-size:13px;color:#69db7c"></span>
-      </div>
-      <textarea class="sens-area" id="sensArea"></textarea>
-      <textarea class="sens-area" id="offArea" readonly style="display:none"></textarea>
+
+        <!-- 拖拽区 -->
+        <div class="drop-zone" id="dropZone">
+            <span class="icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+            </span>
+            <div><span id="dropText">点击选择 或 拖拽 .schematic / .litematic</span></div>
+            <div id="fileInfo" style="display:none;margin-top:4px;">
+                <div class="file-name" id="fileNameDisplay"></div>
+                <div class="file-size" id="fileSizeDisplay"></div>
+            </div>
+            <input type="file" id="fileInput" accept=".schematic,.litematic">
+        </div>
+
+        <!-- 参数 -->
+        <div class="row">
+            <label>计分板:</label><input type="text" id="sbName" value="dr" style="width:50px">
+            <label>速度:</label><input type="text" id="speed" value="1" style="width:40px">
+            <label>高度盔甲架:</label><input type="text" id="hTag" value="h" style="width:40px">
+            <label>扫描盔甲架:</label><input type="text" id="bTag" value="b" style="width:40px">
+            <label>指令上限:</label><input type="text" id="maxChars" value="10000" style="width:60px">
+        </div>
+
+        <!-- 按钮 -->
+        <div class="row" style="margin-top:8px">
+            <button class="btn btn-primary" onclick="convert()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+                转换
+            </button>
+            <button class="btn btn-preview" id="previewBtn" onclick="preview()" disabled>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                </svg>
+                预览
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="clearAll()" style="margin-left:auto">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                    <line x1="10" y1="11" x2="10" y2="17"/>
+                    <line x1="14" y1="11" x2="14" y2="17"/>
+                </svg>
+                清空
+            </button>
+            <span style="font-size:11px;color:#555;margin-left:8px" id="infoText"></span>
+        </div>
+        <div id="dlArea" style="display:none;margin-top:8px">
+            <a class="btn btn-success btn-sm" id="dlLink" style="text-decoration:none">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                下载指令文件
+            </a>
+        </div>
     </div>
-  </div>
+
+    <!-- 标签页 -->
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('log')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10 9 9 9 8 9"/>
+            </svg>
+            日志
+        </div>
+        <div class="tab" onclick="switchTab('cmd')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="4 17 10 11 4 5"/>
+                <line x1="12" y1="19" x2="20" y2="19"/>
+            </svg>
+            指令
+        </div>
+        <div class="tab" onclick="switchTab('preview')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+            </svg>
+            预览
+        </div>
+        <div class="tab" onclick="switchTab('sens')">敏感词</div>
+        <div class="tab" style="margin-left:auto" onclick="switchVer('cli')">文本模式</div>
+        <div class="tab" onclick="switchVer('gui')">GUI</div>
+        <div class="tab">
+            <a href="https://space.bilibili.com/3546638146603426" target="_blank" style="color:#fb7299;text-decoration:none;display:flex;align-items:center;gap:4px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17.813 4.653h.854l1.338 1.606v10.66l-1.338 1.607H16.11l-2.183 2.147h-3.848L7.896 18.526H5.333L3.995 16.919V6.259l1.338-1.606h.854l1.872-1.87 1.872 1.87h4.122l1.872-1.87 1.872 1.87zm-1.338 2.14H7.525l-1.06 1.07v9.237l1.06 1.07h8.95l1.06-1.07V7.864l-1.06-1.07zm-6.316 2.674v6.955h-2.14V9.467h2.14zm4.816 0v6.955h-2.14V9.467h2.14z"/>
+                </svg>
+                B站
+            </a>
+        </div>
+    </div>
+
+    <!-- 日志 -->
+    <div class="tab-content active" id="logContent">
+        <div class="box box-sm" id="log"></div>
+    </div>
+
+    <!-- 指令 -->
+    <div class="tab-content" id="cmdContent">
+        <div class="box-header">
+            <span>共 <span id="cmdCount">0</span> 条指令</span>
+            <button class="copy-btn" onclick="copyCommands()">复制</button>
+        </div>
+        <div class="box box-lg" id="cmdLog">等待转换...</div>
+    </div>
+
+    <!-- 预览 -->
+    <div class="tab-content" id="previewContent">
+        <iframe id="previewFrame"></iframe>
+    </div>
+
+    <!-- 敏感词 -->
+    <div class="tab-content" id="sensContent">
+        <div class="card">
+            <div style="font-size:12px;color:#999;margin-bottom:6px">你的词表: 每行一词, !开头=白名单豁免, #开头=注释</div>
+            <div class="row" style="margin-top:4px">
+                <button class="btn btn-primary btn-sm" onclick="saveSensitive()">保存</button>
+                <button class="btn btn-preview btn-sm" onclick="loadSensitive()">刷新</button>
+                <button class="btn btn-secondary btn-sm" onclick="viewOfficial()">查看内置规则</button>
+                <span id="rmMsg" style="margin-left:12px;font-size:13px;color:#69db7c"></span>
+            </div>
+            <textarea class="sens-area" id="sensArea"></textarea>
+            <textarea class="sens-area" id="offArea" readonly style="display:none"></textarea>
+        </div>
+    </div>
 
 </div>
 
 <script>
-(function(){{var _b="{JS_B64}";var _a=atob(_b);var _u=new Uint8Array(_a.length);for(var i=0;i<_a.length;i++)_u[i]=_a.charCodeAt(i);new Function(new TextDecoder().decode(_u))();}})();
+// ============================================================
+// 弹窗控制
+// ============================================================
+function goDownload() {
+    window.location.href = 'https://mmdyy-xywbmm.zh.kg/download';
+}
 
-// ===== 额外功能 =====
-function formatSize(s){{if(s<1024)return s+'B';if(s<1048576)return (s/1024).toFixed(1)+'KB';return (s/1048576).toFixed(1)+'MB';}}
+function closeModal() {
+    document.getElementById('startupModal').classList.remove('active');
+}
 
-function handleFile(file){{
-  if(!file)return;
-  var ext=file.name.split('.').pop().toLowerCase();
-  if(ext!=='schematic'&&ext!=='litematic'){{log('不支持: '+ext);return;}}
-  document.getElementById('dropZone').classList.add('has-file');
-  document.getElementById('fileInfo').style.display='block';
-  document.getElementById('fileNameDisplay').textContent=file.name;
-  document.getElementById('fileSizeDisplay').textContent=formatSize(file.size);
-  document.getElementById('dropText').textContent='文件已选择，点击更换';
-  document.getElementById('previewBtn').disabled=false;
-  log('加载: '+file.name);
-}}
+// ============================================================
+// 核心功能
+// ============================================================
+function log(m) {
+    var e = document.getElementById('log');
+    e.textContent += m + '\n';
+    e.scrollTop = e.scrollHeight;
+}
 
-document.getElementById('fileInput').addEventListener('change',function(){{
-  if(this.files.length>0)handleFile(this.files[0]);
-}});
+function switchTab(n) {
+    document.querySelectorAll('.tab, .tab-content').forEach(function(el) {
+        el.classList.remove('active');
+    });
+    document.getElementById(n + 'Content').classList.add('active');
+    document.querySelector('.tab[onclick*="' + n + '"]').classList.add('active');
+}
 
-document.getElementById('dropZone').addEventListener('click',function(){{
-  document.getElementById('fileInput').click();
-}});
+function showLoad() {
+    document.getElementById('loadingOverlay').classList.add('active');
+}
 
-document.getElementById('dropZone').addEventListener('dragover',function(e){{
-  e.preventDefault();this.classList.add('drag-over');
-}});
-document.getElementById('dropZone').addEventListener('dragleave',function(){{
-  this.classList.remove('drag-over');
-}});
-document.getElementById('dropZone').addEventListener('drop',function(e){{
-  e.preventDefault();this.classList.remove('drag-over');
-  if(e.dataTransfer.files.length>0){{
-    document.getElementById('fileInput').files=e.dataTransfer.files;
-    handleFile(e.dataTransfer.files[0]);
-  }}
-}});
+function hideLoad() {
+    document.getElementById('loadingOverlay').classList.remove('active');
+}
 
-function clearAll(){{
-  document.getElementById('fileInput').value='';
-  document.getElementById('dropZone').classList.remove('has-file');
-  document.getElementById('fileInfo').style.display='none';
-  document.getElementById('dropText').textContent='点击选择 或 拖拽 .schematic / .litematic';
-  document.getElementById('previewBtn').disabled=true;
-  document.getElementById('dlArea').style.display='none';
-  document.getElementById('cmdLog').textContent='等待转换...';
-  document.getElementById('cmdCount').textContent='0';
-  document.getElementById('infoText').textContent='';
-  log('已清空');
-}}
+function formatSize(s) {
+    if (s < 1024) return s + 'B';
+    if (s < 1048576) return (s / 1024).toFixed(1) + 'KB';
+    return (s / 1048576).toFixed(1) + 'MB';
+}
 
-function copyCommands(){{
-  var t=document.getElementById('cmdLog').textContent;
-  if(!t||t==='等待转换...')return;
-  navigator.clipboard.writeText(t).then(function(){{
-    showToast('已复制','success');
-  }}).catch(function(){{
-    var ta=document.createElement('textarea');
-    ta.value=t;document.body.appendChild(ta);ta.select();
-    document.execCommand('copy');ta.remove();
-    showToast('已复制','success');
-  }});
-}}
+function handleFile(file) {
+    if (!file) return;
+    var ext = file.name.split('.').pop().toLowerCase();
+    if (ext !== 'schematic' && ext !== 'litematic') {
+        log('不支持: ' + ext);
+        return;
+    }
+    document.getElementById('dropZone').classList.add('has-file');
+    document.getElementById('fileInfo').style.display = 'block';
+    document.getElementById('fileNameDisplay').textContent = file.name;
+    document.getElementById('fileSizeDisplay').textContent = formatSize(file.size);
+    document.getElementById('dropText').textContent = '文件已选择，点击更换';
+    document.getElementById('previewBtn').disabled = false;
+    log('加载: ' + file.name);
+}
 
-function showToast(msg,type){{
-  var t=document.getElementById('toast');
-  t.textContent=msg;t.className='toast '+(type||'info')+' show';
-  clearTimeout(window._toastTimer);
-  window._toastTimer=setTimeout(function(){{t.classList.remove('show')}},3000);
-}}
+document.getElementById('fileInput').addEventListener('change', function() {
+    if (this.files.length > 0) handleFile(this.files[0]);
+});
+
+document.getElementById('dropZone').addEventListener('click', function() {
+    document.getElementById('fileInput').click();
+});
+
+document.getElementById('dropZone').addEventListener('dragover', function(e) {
+    e.preventDefault();
+    this.classList.add('drag-over');
+});
+
+document.getElementById('dropZone').addEventListener('dragleave', function() {
+    this.classList.remove('drag-over');
+});
+
+document.getElementById('dropZone').addEventListener('drop', function(e) {
+    e.preventDefault();
+    this.classList.remove('drag-over');
+    if (e.dataTransfer.files.length > 0) {
+        document.getElementById('fileInput').files = e.dataTransfer.files;
+        handleFile(e.dataTransfer.files[0]);
+    }
+});
+
+function clearAll() {
+    document.getElementById('fileInput').value = '';
+    document.getElementById('dropZone').classList.remove('has-file');
+    document.getElementById('fileInfo').style.display = 'none';
+    document.getElementById('dropText').textContent = '点击选择 或 拖拽 .schematic / .litematic';
+    document.getElementById('previewBtn').disabled = true;
+    document.getElementById('dlArea').style.display = 'none';
+    document.getElementById('cmdLog').textContent = '等待转换...';
+    document.getElementById('cmdCount').textContent = '0';
+    document.getElementById('infoText').textContent = '';
+    log('已清空');
+}
+
+function copyCommands() {
+    var t = document.getElementById('cmdLog').textContent;
+    if (!t || t === '等待转换...') return;
+    navigator.clipboard.writeText(t).then(function() {
+        showToast('已复制', 'success');
+    }).catch(function() {
+        var ta = document.createElement('textarea');
+        ta.value = t;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+        showToast('已复制', 'success');
+    });
+}
+
+function showToast(msg, type) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast ' + (type || 'info') + ' show';
+    clearTimeout(window._toastTimer);
+    window._toastTimer = setTimeout(function() {
+        t.classList.remove('show');
+    }, 3000);
+}
+
+// 模拟转换（实际使用时替换为真实API）
+function convert() {
+    var f = document.getElementById('fileInput').files[0];
+    if (!f) { log('请先选择文件'); return; }
+    showLoad();
+    setTimeout(function() {
+        hideLoad();
+        log('转换完成（演示）');
+        document.getElementById('cmdLog').textContent = '# 演示指令\n# 文件: ' + f.name + '\nsetblock ~0 ~0 ~0 stone';
+        document.getElementById('cmdCount').textContent = '1';
+        document.getElementById('dlArea').style.display = 'block';
+        switchTab('cmd');
+    }, 1000);
+}
+
+function preview() {
+    var f = document.getElementById('fileInput').files[0];
+    if (!f) return;
+    showLoad();
+    setTimeout(function() {
+        hideLoad();
+        document.getElementById('previewFrame').src = 'about:blank';
+        switchTab('preview');
+        log('预览已生成（演示）');
+    }, 800);
+}
+
+function switchVer(v) {
+    log('切换到: ' + v);
+}
+
+function loadSensitive() {
+    log('加载敏感词列表（演示）');
+}
+
+function saveSensitive() {
+    log('保存敏感词列表（演示）');
+    document.getElementById('rmMsg').textContent = '已保存';
+    setTimeout(function() { document.getElementById('rmMsg').textContent = ''; }, 2000);
+}
+
+function viewOfficial() {
+    var ta = document.getElementById('offArea');
+    var sa = document.getElementById('sensArea');
+    ta.value = '内置规则共 24 条:\n\n1. 数字黑名单\n2. 375415模式\n3. 8964模式\n...';
+    ta.style.display = 'block';
+    sa.style.display = 'none';
+}
+
+log('MC 建筑转换器 v3.6 加载完成');
 </script>
+
 </body>
-</html>'''
-
-# 替换 SVG 占位符
-HTML = HTML.replace('{ICON_UPLOAD}', ICON_UPLOAD)
-HTML = HTML.replace('{ICON_CONVERT}', ICON_CONVERT)
-HTML = HTML.replace('{ICON_PREVIEW}', ICON_PREVIEW)
-HTML = HTML.replace('{ICON_DOWNLOAD}', ICON_DOWNLOAD)
-HTML = HTML.replace('{ICON_CLEAR}', ICON_CLEAR)
-HTML = HTML.replace('{ICON_LOG}', ICON_LOG)
-HTML = HTML.replace('{ICON_COMMAND}', ICON_COMMAND)
-HTML = HTML.replace('{ICON_BILIBILI}', ICON_BILIBILI)
-HTML = HTML.replace('{ICON_WARNING}', ICON_WARNING)
-HTML = HTML.replace('{ICON_CLOSE}', ICON_CLOSE)
-HTML = HTML.replace('{JS_B64}', JS_B64)
-
-# ============================================================
-# Flask 路由
-# ============================================================
-@app.route('/')
-def index():
-    return render_template_string(HTML)
-
-@app.route('/convert', methods=['POST'])
-def do_convert():
-    f = request.files.get('file')
-    if not f:
-        return jsonify({'error': '未选择文件'})
-    sb = request.form.get('scoreboard_name', 'dr') or 'dr'
-    sp = int(request.form.get('speed', '1') or '1')
-    ht = request.form.get('h_tag', 'h') or 'h'
-    bt = request.form.get('b_tag', 'b') or 'b'
-    mc = int(request.form.get('max_chars', '10000') or '10000')
-    
-    import uuid
-    uid = uuid.uuid4().hex[:8]
-    in_name = f"{uid}_{f.filename}"
-    in_path = os.path.join(_TMP_DIR, in_name)
-    f.save(in_path)
-    
-    log_buf = io.StringIO()
-    old = sys.stdout
-    sys.stdout = log_buf
-    try:
-        blk, w, hgt, l = jz.parse_building(in_path)
-        if not blk:
-            return jsonify({'error': '未找到任何方块'})
-        
-        fn = Path(in_path).stem
-        comp = jz.compress_blocks(blk, w, l)
-        cmds = jz.generate_commands_typed(comp, fn, w, l, use_unless=True, 
-                                          scoreboard_name=sb, speed=sp, h_tag=ht, b_tag=bt, max_chars=mc)
-        if not cmds:
-            return jsonify({'error': '未生成任何指令'})
-        out_n = f'{fn}_commands.txt'
-        out_p = os.path.join(_TMP_DIR, out_n)
-        with open(out_p, 'w', encoding='utf-8') as of:
-            of.write('\n'.join(cmds))
-        
-        show = '\n'.join(cmds[:3000])
-        if len(cmds) > 3000:
-            show += f'\n\n... 共 {len(cmds)} 条, 仅显示前 3000 行\n(完整指令请点击下方"下载指令文件"按钮)'
-    except Exception as e:
-        import traceback
-        return jsonify({'error': str(e), 'log': log_buf.getvalue() + '\n' + traceback.format_exc()})
-    finally:
-        sys.stdout = old
-        try:
-            os.remove(in_path)
-        except:
-            pass
-    
-    cfg = jz_config.load()
-    cfg.update({'version': 'web', 'scoreboard_name': sb, 'speed': sp, 'h_tag': ht, 'b_tag': bt})
-    jz_config.save(cfg)
-    return jsonify({'filename': out_n, 'log': log_buf.getvalue(), 'commands': show})
-
-@app.route('/preview', methods=['POST'])
-def do_preview():
-    f = request.files.get('file')
-    if not f:
-        return jsonify({'error': '未选择文件'})
-    in_path = os.path.join(_TMP_DIR, f.filename)
-    f.save(in_path)
-    log_buf = io.StringIO()
-    old = sys.stdout
-    sys.stdout = log_buf
-    try:
-        out = jz.generate_preview(in_path)
-        if not out:
-            return jsonify({'error': '预览生成失败'})
-        out_n = os.path.basename(out)
-        import shutil
-        shutil.move(out, os.path.join(_TMP_DIR, out_n))
-    except Exception as e:
-        import traceback
-        return jsonify({'error': str(e), 'log': log_buf.getvalue() + '\n' + traceback.format_exc()})
-    finally:
-        sys.stdout = old
-        try:
-            os.remove(in_path)
-        except:
-            pass
-    return jsonify({'url': f'/view/{out_n}', 'log': log_buf.getvalue()})
-
-@app.route('/download/<n>')
-def download(n):
-    return send_file(os.path.join(_TMP_DIR, n), as_attachment=True)
-
-@app.route('/view/<n>')
-def view_html(n):
-    return send_file(os.path.join(_TMP_DIR, n))
-
-@app.route("/sensitive")
-def sensitive_get():
-    sf = getattr(jz, "_SF", None)
-    if not sf:
-        return jsonify({"error": "no filter"})
-    return jsonify({"user_words": sf.user_words(), "netease_count": sf.netease_count()})
-
-@app.route("/sensitive/save", methods=["POST"])
-def sensitive_save():
-    sf = getattr(jz, "_SF", None)
-    if not sf:
-        return jsonify({"error": "no filter"})
-    data = request.get_json(silent=True) or {}
-    items = data.get("words", [])
-    sf.set_user_words(items)
-    try:
-        blk = []
-        alw = []
-        for w in sf.user_words():
-            if w['type'] == 'allow':
-                alw.append(w['text'])
-            else:
-                blk.append(w['text'])
-        cfg = jz_config.load()
-        cfg['sensitive_words'] = ','.join(blk)
-        cfg['sensitive_allow'] = ','.join(alw)
-        jz_config.save(cfg)
-        return jsonify({'ok': True, 'count': len(sf.user_words())})
-    except Exception as e:
-        return jsonify({'error': 'save failed: ' + str(e)})
-
-@app.route("/sensitive/official")
-def sensitive_official():
-    sf = getattr(jz, "_SF", None)
-    if not sf:
-        return jsonify({"error": "no filter"})
-    return jsonify({"count": sf.netease_count(), "rules": [r for _, r in sf.netease_patterns]})
-
-@app.route('/switch/<v>')
-def switch_ver(v):
-    try:
-        cfg = jz_config.load()
-        cfg['version'] = v
-        jz_config.save(cfg)
-    except Exception:
-        pass
-    def _do_restart():
-        import time
-        time.sleep(0.4)
-        try:
-            if getattr(sys, 'frozen', False):
-                os.execv(sys.executable, [sys.executable])
-            else:
-                jz_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'jz.py')
-                os.execv(sys.executable, [sys.executable, jz_path])
-        except Exception:
-            pass
-    threading.Thread(target=_do_restart, daemon=True).start()
-    return f'正在切换到 {v}...'
-
-if __name__ == '__main__':
-    print('=' * 50)
-    print('MC 建筑转换器 v3.6 - 网页版 (深色主题 + 启动弹窗)')
-    print('支持 .schematic / .litematic 文件')
-    print('打开: http://localhost:9718')
-    print('=' * 50)
-    app.run(host='0.0.0.0', port=9718, debug=False)
+</html>
